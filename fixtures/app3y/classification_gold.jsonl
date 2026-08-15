@@ -1,0 +1,28 @@
+{"consideration": "On-market purchase - $49,850", "qty_acquired": 250000, "qty_disposed": null, "label": "onmkt_buy_cash"}
+{"consideration": "On market trade at an average price of $1.42 per share", "qty_acquired": 35000, "qty_disposed": null, "label": "onmkt_buy_cash"}
+{"consideration": "$24,000 - on-market purchase by the director's self-managed superannuation fund", "qty_acquired": 120000, "qty_disposed": null, "label": "onmkt_buy_cash"}
+{"consideration": "On-market acquisition, aggregate consideration $103,222.10 over multiple trades", "qty_acquired": 500000, "qty_disposed": null, "label": "onmkt_buy_cash"}
+{"consideration": "On-market sale", "qty_acquired": null, "qty_disposed": 1000000, "label": "onmkt_sell"}
+{"consideration": "Sale on market to fund tax obligations - $310,000", "qty_acquired": null, "qty_disposed": 200000, "label": "onmkt_sell"}
+{"consideration": "Exercise of unlisted options at $0.20 each", "qty_acquired": 500000, "qty_disposed": null, "label": "exercise"}
+{"consideration": "Exercise of options expiring 30 June 2027", "qty_acquired": 250000, "qty_disposed": null, "label": "exercise"}
+{"consideration": "Conversion of convertible notes", "qty_acquired": 1500000, "qty_disposed": null, "label": "exercise"}
+{"consideration": "Participation in institutional placement at $0.05", "qty_acquired": 2000000, "qty_disposed": null, "label": "placement_participation"}
+{"consideration": "Subscription under placement announced 3 March 2026", "qty_acquired": 400000, "qty_disposed": null, "label": "placement_participation"}
+{"consideration": "Participation in Share Purchase Plan", "qty_acquired": 30000, "qty_disposed": null, "label": "spp_participation"}
+{"consideration": "SPP allocation - $30,000", "qty_acquired": 600000, "qty_disposed": null, "label": "spp_participation"}
+{"consideration": "Dividend Reinvestment Plan issue", "qty_acquired": 1832, "qty_disposed": null, "label": "drp"}
+{"consideration": "Allotment under DRP at $2.15", "qty_acquired": 465, "qty_disposed": null, "label": "drp"}
+{"consideration": "Participation in 1-for-8 non-renounceable entitlement offer at $0.012", "qty_acquired": 1250000, "qty_disposed": null, "label": "rights_participation"}
+{"consideration": "Take-up of entitlements under rights issue", "qty_acquired": 90000, "qty_disposed": null, "label": "rights_participation"}
+{"consideration": "Vesting of performance rights - nil consideration", "qty_acquired": 750000, "qty_disposed": null, "label": "vesting_incentive"}
+{"consideration": "Issue of shares under employee share plan", "qty_acquired": 50000, "qty_disposed": null, "label": "vesting_incentive"}
+{"consideration": "Issue of shares in lieu of director fees", "qty_acquired": 88888, "qty_disposed": null, "label": "vesting_incentive"}
+{"consideration": "Off-market transfer for nil consideration between entities controlled by the director", "qty_acquired": 500000, "qty_disposed": 500000, "label": "offmkt_transfer"}
+{"consideration": "Off market transfer to family trust", "qty_acquired": null, "qty_disposed": 300000, "label": "offmkt_transfer"}
+{"consideration": "Disposal by margin lender following margin call", "qty_acquired": null, "qty_disposed": 2000000, "label": "margin_or_forced"}
+{"consideration": "Shares sold into the Company's on-market buy-back", "qty_acquired": null, "qty_disposed": 100000, "label": "buyback_into"}
+{"consideration": "Nil consideration", "qty_acquired": 100000, "qty_disposed": null, "label": "unknown"}
+{"consideration": "Gift", "qty_acquired": null, "qty_disposed": 10000, "label": "unknown"}
+{"consideration": "N/A", "qty_acquired": 5000, "qty_disposed": null, "label": "unknown"}
+{"consideration": "On-market", "qty_acquired": 5000, "qty_disposed": 5000, "label": "unknown"}

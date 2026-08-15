@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: asx
+          POSTGRES_PASSWORD: asx
+          POSTGRES_DB: asx
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U asx"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://asx:asx@localhost:5432/asx
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      # Gold-set regression runs as part of the test suite; a parser change
+      # that reduces gold-set accuracy does not merge (SPEC §6).
+      - run: make test

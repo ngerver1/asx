@@ -1,0 +1,29 @@
+[project]
+name = "asx-platform"
+version = "0.1.0"
+description = "ASX Structural Alpha Data Platform — proprietary datasets from public disclosures"
+# SPEC.md targets Python 3.12; 3.11 is the floor so the platform runs on current LTS images.
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]>=3.1",
+    "anthropic>=0.40",
+    "rapidfuzz>=3.0",
+    "pypdf>=4.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+asx = "asx.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
