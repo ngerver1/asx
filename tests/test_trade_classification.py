@@ -41,6 +41,46 @@ def test_margin_and_buyback():
     assert classify_trade("Shares sold into on-market buy-back", None, D(1000)) == "buyback_into"
 
 
+def test_price_reference_wording_is_not_an_on_market_trade():
+    # "based on market value" is a PRICE REFERENCE on off-market related-party
+    # transfers, not an on-market execution. Coercing it into the signal class
+    # is exactly the substantive default Invariant 8 prohibits.
+    assert classify_trade(
+        "Transfer to Smith Family Trust at a price based on market value of $0.50 per share",
+        D(100000), None,
+    ) == "unknown"
+    assert classify_trade(
+        "Disposal at a price based on market value to a related entity", None, D(80000)
+    ) == "unknown"
+
+
+def test_nil_consideration_blocks_the_cash_buy_class():
+    # A nil-consideration shuffle between the director's own vehicles is not a
+    # trade at all (SPEC §7).
+    assert classify_trade(
+        "On-market transfer of 500,000 shares, nil consideration", D(500000), None
+    ) == "unknown"
+
+
+def test_word_anchored_rules_do_not_capture_substrings():
+    # 'investment' / 'divestment' / 'replacement' must not match the vesting
+    # and placement rules.
+    assert classify_trade(
+        "On-market purchase by the director's investment company - $18,000", D(60000), None
+    ) == "onmkt_buy_cash"
+    assert classify_trade("Divestment of shares on market - $75,000", None, D(250000)) == "onmkt_sell"
+    assert classify_trade("Issue of replacement options following expiry", D(250000), None) == "unknown"
+    assert classify_trade("Reinvestment of dividends under the plan", D(512), None) == "drp"
+
+
+def test_consideration_amount_counts_as_cash_evidence():
+    # The 3Y nature box often reads just "On market purchase" with the dollar
+    # figure in the separate value-of-consideration box.
+    assert classify_trade("On market purchase", D(1000), None, D(2500)) == "onmkt_buy_cash"
+    # Without any cash evidence at all it stays unknown.
+    assert classify_trade("On market purchase", D(1000), None) == "unknown"
+
+
 def test_ambiguous_is_unknown_never_defaulted():
     # Invariant 8: the on-market cash-buy signal only works because ambiguity
     # never leaks into it.

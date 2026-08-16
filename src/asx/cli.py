@@ -10,11 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from asx import db
-from asx.parse.app3y import App3YParser
-
-PARSERS = {
-    "app3y": App3YParser,
-}
+from asx.parse.registry import PARSERS
 
 
 def _get_parser(name: str):
@@ -30,11 +26,22 @@ def cmd_migrate(_args) -> None:
 
 
 def cmd_ingest(args) -> None:
+    import os
+
     from asx.ingest.pipeline import run_ingest
     from asx.ingest.sources import FileDropSource
 
+    # Rules-first, LLM-fallback classification (SPEC §5.3): the fallback is
+    # wired whenever credentials exist; --no-llm forces rules-only.
+    llm = None
+    if not args.no_llm and (os.environ.get("ANTHROPIC_API_KEY")
+                            or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        from asx.ingest.classifier import make_llm_classifier
+
+        llm = make_llm_classifier()
+
     with db.connect() as conn:
-        stats = run_ingest(conn, FileDropSource(Path(args.drop_dir)))
+        stats = run_ingest(conn, FileDropSource(Path(args.drop_dir)), llm_classifier=llm)
     print(json.dumps(stats))
 
 
@@ -137,6 +144,8 @@ def main(argv: list[str] | None = None) -> None:
 
     p = sub.add_parser("ingest")
     p.add_argument("--drop-dir", required=True)
+    p.add_argument("--no-llm", action="store_true",
+                   help="skip the LLM classification fallback (rules only)")
     p.set_defaults(fn=cmd_ingest)
 
     p = sub.add_parser("parse")

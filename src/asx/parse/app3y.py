@@ -16,7 +16,8 @@ from decimal import Decimal, InvalidOperation
 
 import psycopg
 
-from asx.canonical.director_trades import TradeRow, apply_trades
+from asx.canonical.director_trades import TradeRow, apply_trades, retract_trades
+from asx.ids.market_time import market_date
 from asx.ids.resolver import resolve_name
 from asx.parse.framework import ValidationResult
 
@@ -135,7 +136,10 @@ class App3YParser:
         if lodged_at is None:
             result.errors.append("document has no lodgement timestamp (knowable_at undefined)")
         elif change_date is not None:
-            lodged_date = lodged_at.date()
+            # Sydney market date, not UTC: a pre-open Sydney lodgement is the
+            # previous UTC day, and comparing against the UTC date would
+            # reject every same-day disclosure (SPEC §3).
+            lodged_date = market_date(lodged_at)
             if change_date > lodged_date:
                 result.errors.append(
                     f"date_of_change {change_date} is after lodgement {lodged_date}"
@@ -177,7 +181,7 @@ class App3YParser:
         # Ticker is a lookup input via the effective-dated listings table,
         # never a join key (Invariant 1).
         ticker = payload.get("ticker") or doc.get("ticker_as_lodged")
-        on_date = doc["lodged_at"].date() if doc.get("lodged_at") else None
+        on_date = market_date(doc["lodged_at"]) if doc.get("lodged_at") else None
         if ticker and on_date:
             with conn.cursor() as cur:
                 cur.execute(
@@ -201,14 +205,15 @@ class App3YParser:
             return ["issuer could not be resolved to an entity_id"]
         return []
 
-    def apply(self, conn: psycopg.Connection, doc: dict, payload: dict) -> None:
+    def apply(self, conn: psycopg.Connection, doc: dict, payload: dict,
+              review_status: str = "auto") -> None:
         entity_id = self._resolve_entity(conn, payload, doc)
         if entity_id is None:
             raise RuntimeError("apply called with unresolved issuer; reconcile gate failed")
         event_date_raw = payload.get("date_of_change")
         event_date = (
             date.fromisoformat(event_date_raw) if event_date_raw
-            else doc["lodged_at"].date()   # 3Z without a change date: tenure end
+            else market_date(doc["lodged_at"])   # 3Z without a change date: tenure end
         )
         rows = [
             TradeRow(
@@ -229,4 +234,7 @@ class App3YParser:
             )
             for s in payload.get("securities") or []
         ]
-        apply_trades(conn, doc["doc_id"], rows)
+        apply_trades(conn, doc["doc_id"], rows, review_status=review_status)
+
+    def retract(self, conn: psycopg.Connection, doc_id: int) -> None:
+        retract_trades(conn, doc_id)

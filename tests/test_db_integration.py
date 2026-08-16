@@ -9,6 +9,7 @@ import pytest
 from asx.canonical.director_trades import TradeRow, apply_trades
 from asx.canonical.shares import (
     ShareEvent,
+    reconcile_entity,
     record_anchor,
     record_event,
     replay,
@@ -127,6 +128,22 @@ def test_resolver_exact_then_fuzzy_then_alias(conn):
     assert (again.entity_id, again.method) == (target, "alias")
 
 
+def test_resolver_considers_former_names(conn):
+    # Invariant 4: a renamed (or delisted) entity's former names stay
+    # candidates — registers and old documents refer to entities by the name
+    # they had then.
+    entity = _mk_entity(conn, "New Name Resources Limited")
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO entity_names (entity_id, name, name_norm, name_kind, valid_from, valid_to)
+               VALUES (%s, 'Old Gold Corporation Limited', 'OLD GOLD CORPORATION', 'former',
+                       '2015-01-01', '2021-06-30')""",
+            (entity,),
+        )
+    result = resolve_name(conn, "Old Gold Corporation Ltd")
+    assert (result.entity_id, result.method) == (entity, "exact")
+
+
 def test_resolver_ambiguity_routes_to_review_not_guess(conn):
     _mk_entity(conn, "Acme Limited")
     _mk_entity(conn, "Acme Pty Ltd")  # same normalised name, different entity
@@ -176,6 +193,48 @@ def test_sql_replay_matches_python_and_is_bitemporal(conn):
     assert shares_outstanding_sql(conn, entity, "ORD", date(2025, 12, 31)) == D(11_000_000)
     # No anchor -> replay undefined, never silently zero.
     assert shares_outstanding_sql(conn, entity, "OPT", date(2025, 12, 31)) is None
+
+
+def test_sql_replay_same_date_tiebreak_matches_python_sequence(conn):
+    entity = _mk_entity(conn, "Samedate Co Limited")
+    doc = _mk_doc(conn, b"recap docs", doc_class="capital_reorg", entity_id=entity)
+    record_anchor(conn, entity, "ORD", date(2025, 1, 1), D(90_000_000),
+                  datetime(2025, 1, 1, tzinfo=UTC), doc)
+    # Same effective date; insertion order assigns event_ids, the tie-break.
+    seq1 = record_event(conn, entity, "ORD", "quotation", date(2025, 6, 1),
+                        datetime(2025, 6, 1, tzinfo=UTC), doc, qty_delta=D(10_000_000))
+    seq2 = record_event(conn, entity, "ORD", "consolidation", date(2025, 6, 1),
+                        datetime(2025, 6, 1, tzinfo=UTC), doc,
+                        ratio_num=D(1), ratio_den=D(10))
+    conn.commit()
+    assert seq1 < seq2
+
+    events = [
+        ShareEvent("consolidation", date(2025, 6, 1), datetime(2025, 6, 1, tzinfo=UTC),
+                   ratio_num=D(1), ratio_den=D(10), sequence=seq2),
+        ShareEvent("quotation", date(2025, 6, 1), datetime(2025, 6, 1, tzinfo=UTC),
+                   qty_delta=D(10_000_000), sequence=seq1),
+    ]
+    sql_qty = shares_outstanding_sql(conn, entity, "ORD", date(2025, 12, 31))
+    py_qty = replay(D(90_000_000), date(2025, 1, 1), events, date(2025, 12, 31))
+    assert sql_qty == py_qty == D(10_000_000)
+
+
+def test_reconciliation_flags_vendor_zero_as_maximal_discrepancy(conn):
+    entity = _mk_entity(conn, "Zero Vendor Co Limited")
+    doc = _mk_doc(conn, b"anchor doc", doc_class="capital_reorg", entity_id=entity)
+    record_anchor(conn, entity, "ORD", date(2025, 1, 1), D(50_000_000),
+                  datetime(2025, 1, 1, tzinfo=UTC), doc)
+    conn.commit()
+
+    within = reconcile_entity(conn, entity, "ORD", date(2025, 6, 1), vendor_qty=D(0))
+    conn.commit()
+    assert within is False
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM review_items WHERE kind = 'reconciliation'")
+        assert cur.fetchone()["n"] == 1
+    # No vendor data is unknown, not a pass and not a failure.
+    assert reconcile_entity(conn, entity, "ORD", date(2025, 6, 1), vendor_qty=None) is None
 
 
 # --- parse framework end-to-end -----------------------------------------
@@ -273,12 +332,23 @@ def test_amended_notice_supersedes_earlier(conn):
     apply_trades(conn, doc2, [row(doc2, datetime(2026, 3, 12, 10, 0, tzinfo=UTC), D(44000))])
     conn.commit()
 
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT doc_id, superseded, supersedes_doc FROM director_trades ORDER BY doc_id"
-        )
-        rows = cur.fetchall()
-    by_doc = {r["doc_id"]: r for r in rows}
+    def state():
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT doc_id, superseded, supersedes_doc FROM director_trades ORDER BY doc_id"
+            )
+            return {r["doc_id"]: r for r in cur.fetchall()}
+
+    by_doc = state()
+    assert by_doc[doc1]["superseded"] is True
+    assert by_doc[doc2]["superseded"] is False
+    assert by_doc[doc2]["supersedes_doc"] == doc1
+
+    # Order independence: re-applying the ORIGINAL after the amendment (a
+    # reprocess, or a review item resolved late) must not resurrect it.
+    apply_trades(conn, doc1, [row(doc1, datetime(2026, 3, 10, 10, 0, tzinfo=UTC), D(40000))])
+    conn.commit()
+    by_doc = state()
     assert by_doc[doc1]["superseded"] is True
     assert by_doc[doc2]["superseded"] is False
     assert by_doc[doc2]["supersedes_doc"] == doc1
@@ -332,11 +402,114 @@ def test_ops_report_renders_without_manual_work(conn):
 
 # --- reprocess ----------------------------------------------------------
 
-def test_reprocess_dry_run_reports_diff_without_applying(conn):
+def test_reprocess_dry_run_is_side_effect_free(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(_payload_3y()))
 
     report = reprocess(conn, App3YParser(), FakeExtractor(_payload_3y()), apply=False)
     assert [d["doc_id"] for d in report.docs] == [doc_id]
-    assert report.docs[0]["changed_fields"] == []  # same parser version, same payload
+    assert report.docs[0]["status"] == "dry_run"
     assert "DRY RUN" in report.summary()
+    with conn.cursor() as cur:
+        # A dry run flips no statuses and files no review items.
+        cur.execute("SELECT parse_status FROM documents WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["parse_status"] == "validated"
+        cur.execute("SELECT count(*) AS n FROM review_items WHERE resolved_at IS NULL")
+        assert cur.fetchone()["n"] == 0
+
+
+def test_reprocess_dry_run_of_unparsed_doc_leaves_it_unparsed(conn):
+    _entity, doc_id = _setup_3y_doc(conn)
+    report = reprocess(conn, App3YParser(), FakeExtractor(_payload_3y()), apply=False)
+    assert report.docs[0]["status"] == "dry_run"
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status FROM documents WHERE doc_id = %s", (doc_id,))
+        # Still unparsed: the live pipeline, not a dry run, moves documents
+        # to terminal states.
+        assert cur.fetchone()["parse_status"] == "unparsed"
+        cur.execute("SELECT count(*) AS n FROM parsed_records WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["n"] == 1  # parsed-zone append is the only write
+
+
+def test_reprocess_apply_skips_human_resolved_docs(conn):
+    _entity, doc_id = _setup_3y_doc(conn)
+    bad = _payload_3y()
+    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
+    with conn.cursor() as cur:
+        cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
+        item_id = cur.fetchone()["item_id"]
+    resolve_review_item(conn, App3YParser(), item_id, "corrected",
+                        corrected_payload=_payload_3y(), note="human fix")
+
+    report = reprocess(conn, App3YParser(), FakeExtractor(bad), apply=True)
+    assert report.docs[0]["status"] == "skipped_human_resolved"
+    with conn.cursor() as cur:
+        # The human-corrected canonical rows survive the reprocess untouched.
+        cur.execute(
+            "SELECT review_status, held_after FROM director_trades WHERE doc_id = %s",
+            (doc_id,),
+        )
+        row = cur.fetchone()
+    assert row["review_status"] == "human_corrected"
+    assert row["held_after"] == D(500000)
+
+
+def test_reprocess_excludes_rejected_docs(conn):
+    _entity, doc_id = _setup_3y_doc(conn)
+    bad = _payload_3y()
+    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
+    with conn.cursor() as cur:
+        cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
+        item_id = cur.fetchone()["item_id"]
+    resolve_review_item(conn, App3YParser(), item_id, "rejected", note="duplicate lodgement")
+
+    report = reprocess(conn, App3YParser(), FakeExtractor(_payload_3y()), apply=True)
+    assert report.docs == []  # human-rejected documents are not re-parsed
+
+
+# --- review resolutions -------------------------------------------------
+
+def test_rejected_resolution_retracts_canonical_rows(conn):
+    entity, doc_id = _setup_3y_doc(conn)
+    run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(_payload_3y()))
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM director_trades WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["n"] == 1
+
+    # A later re-review (e.g. after a v2 reprocess routed it back) rejects it.
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO review_items (kind, doc_id, payload, reason)
+               VALUES ('extraction', %s, %s, 'duplicate notice')
+               RETURNING item_id""",
+            (doc_id, '{"parser": "app3y", "version": 1}'),
+        )
+        item_id = cur.fetchone()["item_id"]
+    resolve_review_item(conn, App3YParser(), item_id, "rejected", note="duplicate")
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM director_trades WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["n"] == 0  # rejected docs feed no signals
+        cur.execute("SELECT parse_status FROM documents WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["parse_status"] == "rejected"
+
+
+def test_human_correction_is_persisted_on_the_item(conn):
+    _entity, doc_id = _setup_3y_doc(conn)
+    bad = _payload_3y()
+    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
+    with conn.cursor() as cur:
+        cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
+        item_id = cur.fetchone()["item_id"]
+    resolve_review_item(conn, App3YParser(), item_id, "corrected",
+                        corrected_payload=_payload_3y())
+    with conn.cursor() as cur:
+        cur.execute("SELECT payload FROM review_items WHERE item_id = %s", (item_id,))
+        payload = cur.fetchone()["payload"]
+    # The applied payload is on the item, so the correction is reconstructable
+    # even after later reprocessing (Invariant 3: hand-edits must not be
+    # destroyable by the next pipeline run).
+    assert payload["applied_payload"]["securities"][0]["held_after"] == 500000

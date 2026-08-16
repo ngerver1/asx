@@ -14,6 +14,8 @@ def test_standard_forms():
     cases = {
         "Appendix 3Y - Change of Director's Interest Notice": "app_3y",
         "Change of Director's Interest Notice x 3": "app_3y",
+        "Change in Director's Interest Notice": "app_3y",
+        "Director's Interest Notice": "app_3y",
         "Appendix 3Z - Final Director's Interest Notice": "app_3z",
         "Final Director's Interest Notice": "app_3z",
         "Appendix 3B - Proposed issue of securities": "app_3b",

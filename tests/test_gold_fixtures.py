@@ -20,6 +20,19 @@ def _load_classification_gold():
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def _dec(v):
+    return Decimal(str(v)) if v is not None else None
+
+
+def _classify(case: dict) -> str:
+    return classify_trade(
+        case["consideration"],
+        _dec(case["qty_acquired"]),
+        _dec(case["qty_disposed"]),
+        _dec(case.get("consideration_aud")),
+    )
+
+
 def test_classification_gold_set_present_and_nontrivial():
     cases = _load_classification_gold()
     assert len(cases) >= 25
@@ -32,11 +45,7 @@ def test_classification_gold_set_present_and_nontrivial():
 def test_classification_gold_set_exact():
     failures = []
     for case in _load_classification_gold():
-        got = classify_trade(
-            case["consideration"],
-            Decimal(str(case["qty_acquired"])) if case["qty_acquired"] is not None else None,
-            Decimal(str(case["qty_disposed"])) if case["qty_disposed"] is not None else None,
-        )
+        got = _classify(case)
         if got != case["label"]:
             failures.append(f"{case['consideration']!r}: got {got}, want {case['label']}")
     assert not failures, "\n".join(failures)
@@ -46,11 +55,7 @@ def test_onmkt_buy_cash_precision_is_perfect_on_gold():
     """Phase 1's acceptance hinges on precision of this one class (SPEC §7):
     nothing labelled otherwise may classify as onmkt_buy_cash."""
     for case in _load_classification_gold():
-        got = classify_trade(
-            case["consideration"],
-            Decimal(str(case["qty_acquired"])) if case["qty_acquired"] is not None else None,
-            Decimal(str(case["qty_disposed"])) if case["qty_disposed"] is not None else None,
-        )
+        got = _classify(case)
         if got == "onmkt_buy_cash":
             assert case["label"] == "onmkt_buy_cash", (
                 f"false positive on the signal class: {case['consideration']!r}"

@@ -62,12 +62,13 @@ def _alias_matches(conn: psycopg.Connection, norm: str) -> list[int]:
         return [r["entity_id"] for r in cur.fetchall()]
 
 
-def _candidates(conn: psycopg.Connection, limit: int = 2000) -> list[dict]:
+def _candidates(conn: psycopg.Connection) -> list[dict]:
+    """The full name universe: every name of every entity, current AND former
+    (Invariant 4 — delisted and renamed entities stay candidates; a truncated
+    or current-only pool silently mis-resolves everything it dropped)."""
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT entity_id, name, name_norm FROM entity_names
-               WHERE valid_to IS NULL ORDER BY entity_id LIMIT %s""",
-            (limit,),
+            "SELECT entity_id, name, name_norm FROM entity_names ORDER BY entity_id"
         )
         return cur.fetchall()
 

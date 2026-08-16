@@ -22,7 +22,11 @@ TAXONOMY = [
 # director's interest" must not fall through to the 3Y pattern).
 _TITLE_RULES: list[tuple[str, re.Pattern]] = [
     ("app_3z", re.compile(r"appendix\s*3z|final\s+director'?s?\s+interest", re.I)),
-    ("app_3y", re.compile(r"appendix\s*3y|change\s+of\s+director'?s?\s+interest", re.I)),
+    # "change of" and "change in" are both in live use; requiring one wording
+    # silently drops the other class of lodgement.
+    ("app_3y", re.compile(
+        r"appendix\s*3y|change\s+(of|in|to)\s+director'?s?\s+interest|"
+        r"director'?s?\s+interest\s+notice", re.I)),
     ("app_3b", re.compile(r"appendix\s*3b|proposed\s+issue\s+of\s+securities", re.I)),
     ("app_2a", re.compile(r"appendix\s*2a|application\s+for\s+quotation", re.I)),
     ("lr_3_10a_notice", re.compile(
@@ -53,6 +57,45 @@ _ASX_TYPE_CODE_MAP: dict[str, str] = {}
 
 # LLM fallback: (title) -> taxonomy class. Injected for testability.
 LLMClassifier = Callable[[str], str]
+
+
+def make_llm_classifier(model: str | None = None) -> LLMClassifier:
+    """Production LLM fallback for titles the rules miss (SPEC §5.3).
+    Constrained to the taxonomy via structured outputs; anything the model is
+    unsure about stays 'other'."""
+    import json
+
+    import anthropic
+
+    from asx.config import extraction_model
+
+    client = anthropic.Anthropic()
+    model = model or extraction_model()
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["doc_class"],
+        "properties": {"doc_class": {"enum": TAXONOMY}},
+    }
+
+    def classify_title(title: str) -> str:
+        response = client.messages.create(
+            model=model,
+            max_tokens=256,
+            system=(
+                "Classify an ASX announcement by its title into exactly one "
+                "class. Use 'other' unless the title clearly indicates one of "
+                "the specific standard forms."
+            ),
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+            messages=[{"role": "user", "content": f"Title: {title}"}],
+        )
+        if response.stop_reason == "refusal":
+            return "other"
+        text = next(b.text for b in response.content if b.type == "text")
+        return json.loads(text)["doc_class"]
+
+    return classify_title
 
 
 def classify(

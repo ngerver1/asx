@@ -74,3 +74,36 @@ def test_proposed_issues_never_count():
         ShareEvent("issue_proposed", date(2025, 2, 1), qty_delta=D(5000), knowable_at=_dt(2025, 2, 1)),
     ]
     assert replay(D(100), date(2025, 1, 1), events, date(2025, 12, 31)) == D(100)
+
+
+def test_same_date_events_apply_in_sequence_order():
+    # A recap with a placement quotation and a 1:10 consolidation effective
+    # the same day: order changes the answer, and the sequence field (the
+    # event_id analogue) is the tie-break, not caller list order.
+    quotation = ShareEvent("quotation", date(2025, 6, 1), qty_delta=D(10_000_000),
+                           knowable_at=_dt(2025, 6, 1), sequence=1)
+    consolidation = ShareEvent("consolidation", date(2025, 6, 1), ratio_num=D(1),
+                               ratio_den=D(10), knowable_at=_dt(2025, 6, 1), sequence=2)
+    # Passed in reversed list order; sequence must still win.
+    issued_then_consolidated = replay(D(90_000_000), date(2025, 1, 1),
+                                      [consolidation, quotation], date(2025, 12, 31))
+    assert issued_then_consolidated == D(10_000_000)
+
+    consolidation_first = ShareEvent("consolidation", date(2025, 6, 1), ratio_num=D(1),
+                                     ratio_den=D(10), knowable_at=_dt(2025, 6, 1), sequence=1)
+    quotation_second = ShareEvent("quotation", date(2025, 6, 1), qty_delta=D(10_000_000),
+                                  knowable_at=_dt(2025, 6, 1), sequence=2)
+    consolidated_then_issued = replay(D(90_000_000), date(2025, 1, 1),
+                                      [quotation_second, consolidation_first],
+                                      date(2025, 12, 31))
+    assert consolidated_then_issued == D(19_000_000)
+
+
+def test_events_on_anchor_date_are_inside_the_anchor():
+    # Anchor semantics: the anchored qty is the count as at END of
+    # anchor_date, so a same-date event is already included and must not be
+    # double-applied.
+    events = [
+        ShareEvent("quotation", date(2025, 1, 1), qty_delta=D(1000), knowable_at=_dt(2025, 1, 1)),
+    ]
+    assert replay(D(5000), date(2025, 1, 1), events, date(2025, 12, 31)) == D(5000)

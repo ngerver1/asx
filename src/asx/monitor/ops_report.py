@@ -68,11 +68,15 @@ def ops_report(conn: psycopg.Connection, now: datetime | None = None) -> str:
                 lines.append(f"  {r['parser_name']:12s} {r['auto_ok']}/{r['parses']} ({rate:.0%})")
 
         cur.execute(
-            """SELECT count(*) AS n FROM share_reconciliations
-               WHERE checked_at >= %s AND within_tolerance IS FALSE""",
+            """SELECT count(*) AS checks,
+                      count(*) FILTER (WHERE within_tolerance IS FALSE) AS exceptions
+               FROM share_reconciliations WHERE checked_at >= %s""",
             (week_ago,),
         )
+        r = cur.fetchone()
         lines.append("")
-        lines.append(f"RECONCILIATION EXCEPTIONS (7d): {cur.fetchone()['n']}")
+        # Total checks are reported so a dead reconciliation job (0 checks)
+        # never reads the same as a clean week (Invariant 7).
+        lines.append(f"RECONCILIATIONS (7d): {r['checks']} checks, {r['exceptions']} exceptions")
 
     return "\n".join(lines)

@@ -73,6 +73,12 @@ class FileDropSource:
             lodged_at = None
             if meta.get("lodged_at"):
                 lodged_at = datetime.fromisoformat(meta["lodged_at"])
+                if lodged_at.tzinfo is None:
+                    # ASX lodgement times without an offset are Sydney local
+                    # (SPEC §3); converted to UTC on ingest.
+                    from asx.ids.market_time import SYDNEY
+
+                    lodged_at = lodged_at.replace(tzinfo=SYDNEY)
             yield Announcement(
                 content=path.read_bytes(),
                 source=self.source_name,

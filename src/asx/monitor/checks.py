@@ -15,6 +15,8 @@ from datetime import datetime, timedelta, timezone
 
 import psycopg
 
+from asx.parse.framework import AUTO_ACCEPT_CONFIDENCE
+
 STUCK_UNPARSED_SLA_HOURS = 24
 
 
@@ -56,9 +58,12 @@ def check_freshness_and_volume(conn: psycopg.Connection, now: datetime) -> list[
                     f"{slo['feed_name']}: {row['n']} docs in {slo['window_days']}d "
                     f"is below baseline {slo['min_docs_per_window']}",
                 ))
+            # Staleness is measured on lodgement time, not fetch time: a
+            # provider serving a stale backlog keeps fetched_at fresh while
+            # the market content ages.
             cur.execute(
-                f"""SELECT max(fetched_at) AS latest FROM documents
-                    WHERE true {class_filter}""",
+                f"""SELECT max(coalesce(lodged_at, fetched_at)) AS latest
+                    FROM documents WHERE true {class_filter}""",
                 params,
             )
             latest = cur.fetchone()["latest"]
@@ -118,13 +123,14 @@ def check_parser_health(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
             """SELECT parser_name,
                       count(*) FILTER (WHERE created_at >= %(mid)s) AS recent_total,
                       count(*) FILTER (WHERE created_at >= %(mid)s
-                                       AND (confidence < 0.9 OR NOT passes_agree)) AS recent_routed,
+                                       AND (confidence < %(thr)s OR NOT passes_agree)) AS recent_routed,
                       count(*) FILTER (WHERE created_at < %(mid)s AND created_at >= %(start)s) AS prior_total,
                       count(*) FILTER (WHERE created_at < %(mid)s AND created_at >= %(start)s
-                                       AND (confidence < 0.9 OR NOT passes_agree)) AS prior_routed
+                                       AND (confidence < %(thr)s OR NOT passes_agree)) AS prior_routed
                FROM parsed_records
                GROUP BY parser_name""",
-            {"mid": now - timedelta(days=30), "start": now - timedelta(days=60)},
+            {"mid": now - timedelta(days=30), "start": now - timedelta(days=60),
+             "thr": AUTO_ACCEPT_CONFIDENCE},
         )
         for row in cur.fetchall():
             if row["recent_total"] < 10 or row["prior_total"] < 10:
@@ -147,6 +153,44 @@ def check_parser_health(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
     return alarms
 
 
+def check_classification_base_rates(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
+    """SPEC §7: on-market cash buys are a minority of lodgements; if the
+    classifier's output distribution drifts from the historical base rate,
+    alarm — in either direction (wording drift starves the signal; a rules
+    regression floods it)."""
+    alarms = []
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT
+                 count(*) FILTER (WHERE knowable_at >= %(mid)s) AS recent_total,
+                 count(*) FILTER (WHERE knowable_at >= %(mid)s
+                                  AND classification = 'onmkt_buy_cash') AS recent_buys,
+                 count(*) FILTER (WHERE knowable_at < %(mid)s AND knowable_at >= %(start)s) AS prior_total,
+                 count(*) FILTER (WHERE knowable_at < %(mid)s AND knowable_at >= %(start)s
+                                  AND classification = 'onmkt_buy_cash') AS prior_buys
+               FROM director_trades WHERE NOT superseded""",
+            {"mid": now - timedelta(days=30), "start": now - timedelta(days=210)},
+        )
+        row = cur.fetchone()
+    if row["recent_total"] < 30 or row["prior_total"] < 100:
+        return []  # not enough volume for a base-rate judgement
+    recent_rate = row["recent_buys"] / row["recent_total"]
+    prior_rate = row["prior_buys"] / row["prior_total"]
+    if recent_rate > max(prior_rate * 2, prior_rate + 0.1):
+        alarms.append(Alarm(
+            "classification_base_rate",
+            f"onmkt_buy_cash share rose {prior_rate:.0%} -> {recent_rate:.0%} — "
+            f"check the rules have not started absorbing ambiguous wordings",
+        ))
+    elif prior_rate > 0.02 and recent_rate < prior_rate / 2:
+        alarms.append(Alarm(
+            "classification_base_rate",
+            f"onmkt_buy_cash share fell {prior_rate:.0%} -> {recent_rate:.0%} — "
+            f"probable consideration-wording drift starving the signal",
+        ))
+    return alarms
+
+
 def run_monitor(conn: psycopg.Connection, now: datetime | None = None) -> list[Alarm]:
     now = now or datetime.now(timezone.utc)
     alarms = (
@@ -154,6 +198,7 @@ def run_monitor(conn: psycopg.Connection, now: datetime | None = None) -> list[A
         + check_stuck_documents(conn, now)
         + check_review_queue(conn, now)
         + check_parser_health(conn, now)
+        + check_classification_base_rates(conn, now)
     )
     with conn.cursor() as cur:
         cur.execute(

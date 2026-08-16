@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import psycopg
 
-from asx.ids.resolver import resolve_name
+from asx.ids.market_time import market_date
 from asx.ingest.classifier import classify
 from asx.ingest.sources import AnnouncementSource
 from asx.raw.store import ingest_document
@@ -32,17 +32,28 @@ def _entity_for_ticker(conn: psycopg.Connection, ticker: str, on_date) -> int | 
     return None  # zero or ambiguous: leave unresolved, surfaced by monitoring
 
 
-def run_ingest(conn: psycopg.Connection, source: AnnouncementSource) -> dict:
+def run_ingest(
+    conn: psycopg.Connection,
+    source: AnnouncementSource,
+    llm_classifier=None,
+) -> dict:
     """Pull new announcements, store them, classify, and resolve the issuer.
 
     Returns counts for the ops report. Every document reaches a terminal
-    parse_status eventually; this stage leaves parseable classes 'unparsed'
-    and marks classes we don't parse as 'not_applicable'.
+    parse_status eventually; this stage leaves classes with an implemented
+    parser 'unparsed' and marks everything else 'not_applicable'. When a
+    later phase ships a parser for a class, reactivate its backlog with:
+        UPDATE documents SET parse_status = 'unparsed'
+        WHERE doc_class = '<class>' AND parse_status = 'not_applicable';
+
+    llm_classifier is the rules-miss fallback (SPEC §5.3): without it, an
+    unusually-titled standard form lands in 'other' and exits the pipeline
+    unseen. Pass make_llm_classifier() in production ingestion.
     """
+    from asx.parse.registry import parseable_doc_classes
+
     stats = {"fetched": 0, "new": 0, "resolved": 0, "unresolved": 0}
-    parseable = {"app_3y", "app_3z", "app_2a", "app_3b", "lr_3_10a_notice",
-                 "substantial_603", "substantial_604", "substantial_605",
-                 "capital_reorg"}
+    parseable = parseable_doc_classes()
 
     for ann in source.fetch_new():
         stats["fetched"] += 1
@@ -61,15 +72,15 @@ def run_ingest(conn: psycopg.Connection, source: AnnouncementSource) -> dict:
             continue
         stats["new"] += 1
 
-        doc_class, _method = classify(ann.title or "", ann.asx_doc_types)
+        doc_class, _method = classify(ann.title or "", ann.asx_doc_types,
+                                      llm=llm_classifier)
         entity_id = None
         if ann.ticker_as_lodged and ann.lodged_at:
-            entity_id = _entity_for_ticker(conn, ann.ticker_as_lodged, ann.lodged_at.date())
-        if entity_id is None and ann.title:
-            # Fall back to the resolver on the title's issuer name if the
-            # provider embeds one; conservative, so usually stays unresolved
-            # here and is fixed when the parser reads the document body.
-            pass
+            # Sydney calendar date, not UTC: a 09:30 AEST lodgement is the
+            # previous UTC day (SPEC §3 two-clocks convention).
+            entity_id = _entity_for_ticker(
+                conn, ann.ticker_as_lodged, market_date(ann.lodged_at)
+            )
 
         with conn.cursor() as cur:
             cur.execute(

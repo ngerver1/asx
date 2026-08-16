@@ -26,3 +26,13 @@
 {"consideration": "Gift", "qty_acquired": null, "qty_disposed": 10000, "label": "unknown"}
 {"consideration": "N/A", "qty_acquired": 5000, "qty_disposed": null, "label": "unknown"}
 {"consideration": "On-market", "qty_acquired": 5000, "qty_disposed": 5000, "label": "unknown"}
+{"consideration": "On market purchase", "qty_acquired": 1000, "qty_disposed": null, "consideration_aud": 2500, "label": "onmkt_buy_cash"}
+{"consideration": "On-market acquisition", "qty_acquired": 40000, "qty_disposed": null, "consideration_aud": 12000, "label": "onmkt_buy_cash"}
+{"consideration": "On-market purchase by the director's investment company - $18,000", "qty_acquired": 60000, "qty_disposed": null, "label": "onmkt_buy_cash"}
+{"consideration": "Divestment of shares on market - $75,000", "qty_acquired": null, "qty_disposed": 250000, "label": "onmkt_sell"}
+{"consideration": "Reinvestment of dividends under the plan", "qty_acquired": 512, "qty_disposed": null, "label": "drp"}
+{"consideration": "Issue of replacement options following expiry", "qty_acquired": 250000, "qty_disposed": null, "label": "unknown"}
+{"consideration": "Transfer to Smith Family Trust at a price based on market value of $0.50 per share", "qty_acquired": 100000, "qty_disposed": null, "label": "unknown"}
+{"consideration": "On-market transfer of 500,000 shares, nil consideration", "qty_acquired": 500000, "qty_disposed": null, "label": "unknown"}
+{"consideration": "Disposal at a price based on market value to a related entity", "qty_acquired": null, "qty_disposed": 80000, "label": "unknown"}
+{"consideration": "On market purchase", "qty_acquired": 1000, "qty_disposed": null, "label": "unknown"}

@@ -62,8 +62,17 @@ def test_missing_holdings_warns_not_errors():
 def test_change_date_after_lodgement_is_error():
     # Invariant 2: knowable_at (lodgement) can never precede the event it
     # discloses being... disclosed. A future-dated change is a misread.
-    result = App3YParser().validate(_payload(date_of_change="2026-03-11"), _doc())
+    result = App3YParser().validate(_payload(date_of_change="2026-03-12"), _doc())
     assert any("after lodgement" in e for e in result.errors)
+
+
+def test_same_day_pre_open_sydney_lodgement_is_not_an_error():
+    # 2026-03-10 22:30 UTC is 09:30 AEDT on 2026-03-11: a director disclosing
+    # a change dated that same Sydney day is fine. Comparing against the UTC
+    # date would reject every pre-open same-day disclosure (SPEC §3).
+    doc = _doc(lodged_at=datetime(2026, 3, 10, 22, 30, tzinfo=timezone.utc))
+    result = App3YParser().validate(_payload(date_of_change="2026-03-11"), doc)
+    assert result.ok
 
 
 def test_long_lodgement_lag_warns():
