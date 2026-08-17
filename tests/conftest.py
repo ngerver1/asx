@@ -37,7 +37,7 @@ def test_db_url():
 
 
 _ALL_TABLES = [
-    "signal_cluster_buys", "float_series", "monitor_runs", "hypothesis_log",
+    "index_membership", "manual_share_counts", "signal_cluster_buys", "float_series", "monitor_runs", "hypothesis_log",
     "share_reconciliations", "director_trades", "substantial_holdings",
     "holder_snapshots", "escrow_parcels", "share_events", "share_anchors",
     "security_classes", "parsed_records", "review_items", "entity_aliases",

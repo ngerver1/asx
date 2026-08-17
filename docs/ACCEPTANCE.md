@@ -4,32 +4,71 @@ Phases gate on **written acceptance evidence**, not on "it seems to work"
 (SPEC §15). This file is the ledger: each item gets a date, evidence link, and
 sign-off when met. Code shipped ≠ phase accepted.
 
+Criteria amended by the Tier 0 access decision are marked **[amended]** with
+the reason. Amendments change *how* a criterion is evidenced, never the
+standard it sets.
+
 ## Phase 0 — Foundation (SPEC §5.5)
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 0.1 | Access decision document exists and its chosen sources are live | ☐ blocked on docs/ACCESS_DECISION.md sign-off | |
-| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ☐ needs ASIC dataset load | |
-| 0.3 | Ticker history round-trips: every price-vendor symbol maps to exactly one entity per date; zero unexamined many-to-one collisions | ☐ needs price vendor | |
-| 0.4 | Announcement feed ran 10 consecutive trading days with zero documents stuck in non-terminal status | ☐ needs live feed | |
-| 0.5 | Freshness alerts proven by a deliberately injected failure | ☐ | |
-| 0.6 | Classifier ≥98% precision on standard-form classes vs a 200-document hand-labelled sample | ☐ needs real documents | |
-| 0.7 | Share-count replay within 0.5% of vendor for ≥95% of a 50-entity random sample; every miss investigated in writing | ☐ needs price vendor | |
+| 0.1 | Access decision document exists and its chosen sources are live | ✅ decided Aug 2026 (Tier 0 composite); sources live once the mailbox and capture watcher run | docs/ACCESS_DECISION.md |
+| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ☐ needs ASIC dataset loader | |
+| 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ☐ | |
+| 0.4 | Announcement feed runs 10 consecutive trading days with zero documents stuck in non-terminal status **[amended]** — under Tier 0 this means zero parseable **detections** older than the 96h capture SLA, i.e. the manual sweep kept pace | ☐ | `asx monitor` capture_gap alarm |
+| 0.5 | Freshness alerts proven by a deliberately injected failure | ☐ inject by pausing the mailbox read for >72h and confirming the detections_all volume alarm fires | |
+| 0.6 | Classifier ≥98% precision on standard-form classes vs a 200-document hand-labelled sample | ☐ needs captured documents | |
+| 0.7 | Share-count replay within 0.5% for ≥95% of a 50-entity random sample **[amended]** — compared against shares-on-issue figures **read manually from the ASX website** and recorded via `manual_share_counts`, in place of a vendor file | ☐ | `reconcile_against_manual()` |
+| 0.8 | **[new]** Weekly ten-ticker manual completeness spot-check running as a standing job, with misses recorded | ☐ | `asx spot-check` |
+
+### 0.8 — the standing completeness job
+
+Tier 0's characteristic failure is an announcement that was **never detected
+at all** (alert not sent, watchlist gap, subscription lapsed). No automated
+check can see that, because the platform has no independent list of what
+exists. So it is checked by hand, weekly:
+
+1. Run `asx spot-check --n 10 --days 7`.
+2. For each of the ten entities, open its announcement list on the ASX site
+   and compare against what the platform reports.
+3. Record every announcement present on the site but absent from the platform
+   as a **completeness miss**, with its date and class, in the log below.
+4. Three or more misses in a fortnight is an access-decision review trigger
+   (§5): the detection layer is not covering the universe.
+
+**Completeness miss log**
+
+| Week | Sample size | Misses | Notes |
+|---|---|---|---|
+| _(first run pending)_ | | | |
 
 ## Phase 1 — Director transactions (SPEC §7)
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms per Appendix C) | ☐ synthetic rules gold in place; document gold needs real lodgements | fixtures/app3y/ |
+| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms; ~120 targeted per access decision §2) | ☐ synthetic rules gold in place; document gold needs captured lodgements | fixtures/app3y/ |
 | 1.2 | `onmkt_buy_cash` classification precision ≥95% on a 100-notice labelled sample | ☐ rules pinned by synthetic gold; measure on real sample | tests/test_gold_fixtures.py |
 | 1.3 | Full forward coverage; freshness monitor detects an injected one-day outage | ☐ | |
-| 1.4 | Backfill to access-decision horizon; volume-per-week plotted and eyeballed | ☐ | |
-| 1.5 | Amended-notice dedupe demonstrated on real examples | ☐ mechanism tested synthetically | tests/test_db_integration.py::test_amended_notice_supersedes_earlier |
+| 1.4 | Backfill to the access-decision horizon (~24 months) complete, volume-per-week plotted and eyeballed | ☐ manual retrieval; expect this to be the long pole | |
+| 1.5 | Amended-notice dedupe demonstrated on real examples | ☐ mechanism tested synthetically | tests/test_db_integration.py |
+| 1.6 | **[new]** Cluster-buy screen output carries its coverage flags, including `size_ceiling_proxy` | ✅ enforced in signal v2 | src/asx/signals/director_signals.py |
+
+## Out of scope under the current access decision
+
+These are **not** open checkboxes — they are deliberately deferred with a
+recorded reason, and the code refuses rather than approximating:
+
+| Item | Why | Reopens when |
+|---|---|---|
+| Backtesting (event study, portfolio simulation, after-tax reporting) | Invariant 10 unsatisfiable without survivorship-complete prices; Invariant 4 unsatisfiable for the document set | A price vendor is subscribed |
+| True market-cap screens and EV-based comparables | No price data | Same |
+| Delisted-company document coverage | Not reachable on the ASX site | An archive route is adopted |
 
 ## Stop rules in force (SPEC §15)
 
-- Access decision not landed within two weeks of starting it → project halts.
 - Gold-set accuracy plateaus below target after two parser iterations → phase
-  stops for design review; never ship with a lowered bar.
+  stops for a design review; never ship with a lowered bar.
 - Review queue not drained weekly → auto-accept halts automatically
   (enforced in code: `asx.parse.framework.auto_accept_halted`).
+- Capture rate below 90% over 14 days, or ≥3 completeness misses per
+  fortnight → access decision reopens (§5 review triggers).

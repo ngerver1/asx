@@ -150,6 +150,57 @@ def shares_outstanding_sql(
         return cur.fetchone()["qty"]
 
 
+def record_manual_share_count(
+    conn: psycopg.Connection,
+    entity_id: int,
+    class_code: str,
+    as_at: date,
+    qty: Decimal,
+    source_note: str,
+    recorded_by: str = "owner",
+) -> None:
+    """Record a shares-on-issue figure read by hand from the ASX website.
+
+    Under the Tier 0 access decision no price vendor supplies this figure, so
+    the Phase 0 reconciliation compares the replay against these manual
+    readings instead (ACCEPTANCE 0.7 as amended). source_note carries where
+    on the site it was read — the provenance a vendor file would supply.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO manual_share_counts
+                 (entity_id, class_code, as_at, qty, source_note, recorded_by)
+               VALUES (%s, %s, %s, %s, %s, %s)
+               ON CONFLICT (entity_id, class_code, as_at)
+               DO UPDATE SET qty = EXCLUDED.qty,
+                             source_note = EXCLUDED.source_note,
+                             recorded_at = now()""",
+            (entity_id, class_code, as_at, qty, source_note, recorded_by),
+        )
+
+
+def reconcile_against_manual(
+    conn: psycopg.Connection,
+    entity_id: int,
+    class_code: str,
+    as_of: date,
+    tolerance: Decimal = Decimal("0.005"),
+) -> bool | None:
+    """Reconcile the replay against the most recent hand-recorded figure."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT qty FROM manual_share_counts
+               WHERE entity_id = %s AND class_code = %s AND as_at <= %s
+               ORDER BY as_at DESC LIMIT 1""",
+            (entity_id, class_code, as_of),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None  # no manual reading yet: unknown, not a pass
+    return reconcile_entity(conn, entity_id, class_code, as_of,
+                            vendor_qty=row["qty"], tolerance=tolerance)
+
+
 def reconcile_entity(
     conn: psycopg.Connection,
     entity_id: int,

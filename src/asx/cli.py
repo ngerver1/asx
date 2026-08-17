@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from asx import db
@@ -128,6 +128,128 @@ def cmd_review(args) -> None:
             print("resolved")
 
 
+def cmd_detect(args) -> None:
+    """Read the alert mailbox and record detections (Tier 0 §1)."""
+    import os
+
+    from asx.ingest.detection import record_detection
+    from asx.ingest.mailbox import IMAPMailbox, detection_from_email
+
+    mailbox = IMAPMailbox(
+        host=os.environ["ASX_IMAP_HOST"],
+        user=os.environ["ASX_IMAP_USER"],
+        password=os.environ["ASX_IMAP_PASSWORD"],
+        folder=os.environ.get("ASX_IMAP_FOLDER", "INBOX"),
+        mark_seen=not args.peek,
+    )
+    new = seen = 0
+    with db.connect() as conn:
+        for msg in mailbox.fetch_new():
+            detection = detection_from_email(msg)
+            _doc_id, is_new = record_detection(conn, detection)
+            new += int(is_new)
+            seen += int(not is_new)
+        conn.commit()
+    print(json.dumps({"new_detections": new, "already_known": seen}))
+
+
+def cmd_capture(args) -> None:
+    """File documents the owner captured personally, and optionally fetch
+    those available from company IR sites."""
+    from asx.ingest.possession import fetch_ir_documents, file_captured_documents
+
+    with db.connect() as conn:
+        stats = file_captured_documents(
+            conn, Path(args.capture_dir),
+            archive_dir=Path(args.archive_dir) if args.archive_dir else None,
+        )
+        if args.ir:
+            stats["ir"] = fetch_ir_documents(conn)
+    print(json.dumps(stats, default=str))
+
+
+def cmd_worklist(args) -> None:
+    """Print announcements detected but not yet captured — what to open."""
+    from asx.ingest.detection import open_detections
+    from asx.parse.registry import parseable_doc_classes
+
+    classes = parseable_doc_classes() if args.parseable_only else None
+    with db.connect() as conn:
+        rows = open_detections(conn, doc_classes=classes, limit=args.limit)
+    if not rows:
+        print("nothing awaiting capture")
+        return
+    for r in rows:
+        lodged = r["lodged_at"].strftime("%Y-%m-%d %H:%M") if r["lodged_at"] else "?"
+        print(f"{r['doc_id']:6d}  {(r['ticker_as_lodged'] or '?'):6s}  "
+              f"{(r['doc_class'] or '?'):16s}  {lodged}  {(r['title'] or '')[:60]}")
+
+
+def cmd_load_index(args) -> None:
+    """Load an ETF holdings file as the ASX 300 membership proxy."""
+    from datetime import date as _date
+
+    from asx.universe.index_membership import load_membership
+
+    content = Path(args.file).read_bytes()
+    as_of = _date.fromisoformat(args.as_of)
+    with db.connect() as conn:
+        result = load_membership(
+            conn, content, source_url=args.source_url, as_of=as_of,
+            knowable_at=datetime.combine(as_of, datetime.min.time()).replace(
+                tzinfo=timezone.utc),
+            source_note=args.note,
+        )
+    print(f"{result.index_code} @ {result.as_of}: {result.resolved}/{result.total} "
+          f"tickers resolved to entities")
+    if result.unresolved:
+        print(f"unresolved (recorded, not joined on code): "
+              f"{', '.join(result.unresolved[:20])}"
+              + (" ..." if len(result.unresolved) > 20 else ""))
+
+
+def cmd_spot_check(args) -> None:
+    """Weekly ten-ticker manual completeness spot-check (ACCEPTANCE amendment).
+
+    Prints what the platform believes it holds for a random sample of covered
+    entities over the window, so the owner can compare against the ASX site
+    and record any misses. This is the standing guard against the Tier 0
+    failure mode: announcements that were never detected at all.
+    """
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """SELECT e.entity_id,
+                      (SELECT ticker FROM listings l WHERE l.entity_id = e.entity_id
+                        AND l.valid_to IS NULL ORDER BY l.valid_from DESC LIMIT 1) AS ticker,
+                      (SELECT name FROM entity_names n WHERE n.entity_id = e.entity_id
+                        AND n.valid_to IS NULL ORDER BY n.valid_from DESC LIMIT 1) AS name
+               FROM entities e
+               WHERE EXISTS (SELECT 1 FROM listings l WHERE l.entity_id = e.entity_id)
+               ORDER BY random() LIMIT %s""",
+            (args.n,),
+        )
+        sample = cur.fetchall()
+        print(f"Manual completeness spot-check — compare each against the ASX "
+              f"announcements page for the last {args.days} days:\n")
+        for row in sample:
+            cur.execute(
+                """SELECT doc_class, parse_status, lodged_at, title
+                   FROM documents
+                   WHERE entity_id = %s AND lodged_at >= now() - make_interval(days => %s)
+                   ORDER BY lodged_at DESC""",
+                (row["entity_id"], args.days),
+            )
+            docs = cur.fetchall()
+            print(f"{row['ticker'] or '?'} — {row['name'] or '?'} "
+                  f"(entity {row['entity_id']}): {len(docs)} known")
+            for d in docs:
+                stamp = d["lodged_at"].strftime("%Y-%m-%d") if d["lodged_at"] else "?"
+                print(f"    {stamp}  {d['parse_status']:12s} {(d['title'] or '')[:60]}")
+            print()
+        print("Record any announcement present on the ASX site but missing above "
+              "as a completeness miss in docs/ACCEPTANCE.md.")
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -175,6 +297,35 @@ def main(argv: list[str] | None = None) -> None:
     pr.add_argument("--payload", help="corrected payload JSON (for 'corrected')")
     pr.add_argument("--note")
     p.set_defaults(fn=cmd_review)
+
+    p = sub.add_parser("detect", help="read the alert mailbox for new announcements")
+    p.add_argument("--peek", action="store_true",
+                   help="do not mark messages seen (for testing)")
+    p.set_defaults(fn=cmd_detect)
+
+    p = sub.add_parser("capture", help="file personally-captured documents")
+    p.add_argument("--capture-dir", required=True)
+    p.add_argument("--archive-dir")
+    p.add_argument("--ir", action="store_true",
+                   help="also fetch documents linked on company IR sites")
+    p.set_defaults(fn=cmd_capture)
+
+    p = sub.add_parser("worklist", help="announcements awaiting manual capture")
+    p.add_argument("--limit", type=int, default=50)
+    p.add_argument("--parseable-only", action="store_true", default=True)
+    p.set_defaults(fn=cmd_worklist)
+
+    p = sub.add_parser("load-index", help="load ETF holdings as the ASX300 proxy")
+    p.add_argument("--file", required=True)
+    p.add_argument("--as-of", required=True, help="YYYY-MM-DD")
+    p.add_argument("--source-url", required=True)
+    p.add_argument("--note")
+    p.set_defaults(fn=cmd_load_index)
+
+    p = sub.add_parser("spot-check", help="weekly manual completeness spot-check")
+    p.add_argument("--n", type=int, default=10)
+    p.add_argument("--days", type=int, default=7)
+    p.set_defaults(fn=cmd_spot_check)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

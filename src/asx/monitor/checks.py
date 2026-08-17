@@ -18,6 +18,10 @@ import psycopg
 from asx.parse.framework import AUTO_ACCEPT_CONFIDENCE
 
 STUCK_UNPARSED_SLA_HOURS = 24
+# How long a parseable announcement may sit detected-but-uncaptured before it
+# counts as a dataset hole. Two business days allows for a weekend sweep.
+CAPTURE_SLA_HOURS = 96
+CAPTURE_RATE_FLOOR = 0.9
 
 
 @dataclass
@@ -36,11 +40,13 @@ def check_freshness_and_volume(conn: psycopg.Connection, now: datetime) -> list[
         slos = cur.fetchall()
         for slo in slos:
             class_filter = "AND doc_class = %(doc_class)s" if slo["doc_class"] else ""
+            # Whitelisted by the feed_slos CHECK constraint, so safe to inline.
+            tcol = slo["time_column"]
             params = {"doc_class": slo["doc_class"],
                       "cutoff": now - timedelta(days=slo["window_days"])}
             cur.execute(
-                f"""SELECT count(*) AS n, max(fetched_at) AS latest
-                    FROM documents WHERE fetched_at >= %(cutoff)s {class_filter}""",
+                f"""SELECT count(*) AS n, max({tcol}) AS latest
+                    FROM documents WHERE {tcol} >= %(cutoff)s {class_filter}""",
                 params,
             )
             row = cur.fetchone()
@@ -58,12 +64,12 @@ def check_freshness_and_volume(conn: psycopg.Connection, now: datetime) -> list[
                     f"{slo['feed_name']}: {row['n']} docs in {slo['window_days']}d "
                     f"is below baseline {slo['min_docs_per_window']}",
                 ))
-            # Staleness is measured on lodgement time, not fetch time: a
-            # provider serving a stale backlog keeps fetched_at fresh while
-            # the market content ages.
+            # Staleness is measured on lodgement time where we have it: a feed
+            # serving a stale backlog keeps fetch/detect times fresh while the
+            # market content ages.
             cur.execute(
-                f"""SELECT max(coalesce(lodged_at, fetched_at)) AS latest
-                    FROM documents WHERE true {class_filter}""",
+                f"""SELECT max(coalesce(lodged_at, {tcol})) AS latest
+                    FROM documents WHERE {tcol} IS NOT NULL {class_filter}""",
                 params,
             )
             latest = cur.fetchone()["latest"]
@@ -89,6 +95,60 @@ def check_stuck_documents(conn: psycopg.Connection, now: datetime) -> list[Alarm
         return [Alarm("stuck_documents",
                       f"{n} documents stuck in 'unparsed' beyond {STUCK_UNPARSED_SLA_HOURS}h SLA")]
     return []
+
+
+def check_capture_gap(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
+    """Detected-but-never-captured is the Tier 0 failure mode.
+
+    Under a paid feed, detection and possession coincide. Here they don't:
+    an alert can arrive and the document never be captured, which would
+    otherwise be an invisible hole in the dataset. This check makes the hole
+    loud — it is the single most important completeness metric under the
+    current access decision (ACCESS_DECISION §1).
+    """
+    alarms: list[Alarm] = []
+    parseable_cutoff = now - timedelta(hours=CAPTURE_SLA_HOURS)
+    with conn.cursor() as cur:
+        from asx.parse.registry import parseable_doc_classes
+
+        cur.execute(
+            """SELECT count(*) AS n, min(detected_at) AS oldest
+               FROM documents
+               WHERE parse_status = 'detected' AND doc_class = ANY(%s)
+                 AND detected_at < %s""",
+            (list(parseable_doc_classes()), parseable_cutoff),
+        )
+        row = cur.fetchone()
+        if row["n"]:
+            alarms.append(Alarm(
+                "capture_gap",
+                f"{row['n']} parseable announcements detected but never captured "
+                f"(oldest {row['oldest'].date()}); each is a hole in the dataset "
+                f"until opened in the capture browser",
+            ))
+
+        # Capture rate over the trailing fortnight: a falling rate means the
+        # manual sweep is becoming unsustainable, which is an explicit review
+        # trigger in the access decision (§5).
+        cur.execute(
+            """SELECT count(*) AS detected,
+                      count(*) FILTER (WHERE parse_status <> 'detected') AS captured
+               FROM documents
+               WHERE detected_at >= %s AND doc_class = ANY(%s)""",
+            (now - timedelta(days=14), list(parseable_doc_classes())),
+        )
+        row = cur.fetchone()
+        if row["detected"] >= 20:
+            rate = row["captured"] / row["detected"]
+            if rate < CAPTURE_RATE_FLOOR:
+                alarms.append(Alarm(
+                    "capture_rate",
+                    f"only {rate:.0%} of parseable detections captured over 14d "
+                    f"({row['captured']}/{row['detected']}) — below the "
+                    f"{CAPTURE_RATE_FLOOR:.0%} floor; the daily sweep may be "
+                    f"unsustainable (access decision §5 review trigger)",
+                ))
+    return alarms
 
 
 def check_review_queue(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
@@ -196,6 +256,7 @@ def run_monitor(conn: psycopg.Connection, now: datetime | None = None) -> list[A
     alarms = (
         check_freshness_and_volume(conn, now)
         + check_stuck_documents(conn, now)
+        + check_capture_gap(conn, now)
         + check_review_queue(conn, now)
         + check_parser_health(conn, now)
         + check_classification_base_rates(conn, now)

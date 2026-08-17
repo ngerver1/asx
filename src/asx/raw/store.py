@@ -54,6 +54,7 @@ def ingest_document(
     price_sensitive: bool | None = None,
     lodged_at: datetime | None = None,
     fetched_at: datetime | None = None,
+    possession_source: str = "filedrop",
     root: Path | None = None,
 ) -> StoredDocument:
     """Store raw bytes and register the document. Idempotent on content hash."""
@@ -66,13 +67,13 @@ def ingest_document(
             """INSERT INTO documents
                  (source, source_ref, entity_id, ticker_as_lodged, title,
                   asx_doc_types, price_sensitive, lodged_at, fetched_at,
-                  sha256, storage_path)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                  sha256, storage_path, possession_source)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (sha256) DO NOTHING
                RETURNING doc_id""",
             (source, source_ref, entity_id, ticker_as_lodged, title,
              asx_doc_types, price_sensitive, lodged_at, fetched_at,
-             sha, str(path)),
+             sha, str(path), possession_source),
         )
         row = cur.fetchone()
         if row is not None:
