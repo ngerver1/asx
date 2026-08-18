@@ -14,15 +14,17 @@ an implementation that violates an invariant is wrong even if its tests pass.
 
 | Phase | Scope | State |
 |---|---|---|
-| 0 | Foundation: entity master, document ingestion, security master, share-count replay | Implemented — awaiting access decision + live-feed acceptance |
+| 0 | Foundation: entity master, document ingestion, security master, share-count replay | Entity master **built on real data**: 4.42M ASIC registrations, 1,834 ASX listings, 0 ticker collisions. Remaining gates need the live feed |
 | 1 | Director transactions (Appendix 3Y/3Z) | Implemented — awaiting gold fixtures from real lodgements |
 | 2 | Escrow schedules and true float | Schema in place; parsers pending Phase 1 acceptance |
 | 3 | Annual report extraction | Not started (gated on Phase 2) |
 | A/B | Tenements / JORC | Not started (gated on Phase 3) |
 
-Phase gates and acceptance criteria are in SPEC.md §15. Phase 0 cannot be
-*accepted* until the access decision (docs/ACCESS_DECISION.md) is resolved and the
-live feed has run for 10 consecutive trading days.
+Phase gates and acceptance criteria are in SPEC.md §15, with measured results in
+docs/ACCEPTANCE.md. Phase 0 cannot be *accepted* until the live feed has run for
+10 consecutive trading days. Criterion 0.2 currently measures **96.0%** against a
+≥99% target; the shortfall is structural (listed trusts hold an ARSN, not an ACN)
+and is written up in docs/ACCEPTANCE.md with three ways to close it.
 
 ## Architecture
 
@@ -57,8 +59,11 @@ extraction paths; everything else, including the full test suite, runs without i
 
 ```bash
 make migrate       # apply db/migrations in order (idempotent)
-asx load-reference --source asic_companies --file ASIC.csv --as-of 2026-08-01
-asx load-reference --source asx_listed_companies --file ASX.csv --as-of 2026-08-14
+# the ASIC register ships in numbered parts; load them as ONE logical load so
+# a company's name records are not split across loads. Every part is kept.
+asx load-reference --source asic_companies --file company_1.tsv \
+    --files company_*.tsv --as-of 2026-08-01
+asx load-reference --source asx_listed_companies --file ASX.csv --as-of 2026-08-18
 asx coverage       # Phase 0 acceptance evidence for the entity master
 asx detect         # read the alert mailbox (Tier 0 detection)
 asx worklist       # announcements awaiting your personal capture

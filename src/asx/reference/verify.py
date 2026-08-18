@@ -91,6 +91,51 @@ def ticker_integrity(conn: psycopg.Connection) -> TickerIntegrity:
     return TickerIntegrity(open_count, collisions)
 
 
+# Triage hints for the unresolved queue. These are *suggestions for a human*,
+# never an automatic classification: entity_kind='foreign' is a claim about a
+# company's place of incorporation, and Invariant 8 forbids inferring it from
+# a suffix. A company called "... Group PLC" is very likely foreign; the
+# platform still requires someone to say so.
+_TRIAGE_HINTS: list[tuple[str, str]] = [
+    ("likely foreign-incorporated (suffix suggests a non-Australian body)",
+     r"\m(PLC|INC|CORP|CORPORATION|NV|SA|AG|GMBH|LLC|SE|SPA|BHD|PTE)\M"),
+    ("likely a trust / scheme (registered with an ARSN, not an ACN)",
+     r"\m(TRUST|FUND|REIT|ETF|PROPERTY GROUP|INCOME|YIELD)\M"),
+]
+
+
+def unresolved_breakdown(conn: psycopg.Connection) -> list[dict]:
+    """Group entities that still lack an ACN by a triage hint, so the review
+    queue can be worked in batches rather than one row at a time."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """WITH unresolved AS (
+                 SELECT e.entity_id,
+                        (SELECT l.ticker FROM listings l
+                          WHERE l.entity_id = e.entity_id AND l.valid_to IS NULL
+                          ORDER BY l.ticker LIMIT 1) AS ticker,
+                        (SELECT n.name FROM entity_names n
+                          WHERE n.entity_id = e.entity_id AND n.valid_to IS NULL
+                          ORDER BY n.valid_from DESC LIMIT 1) AS name
+                 FROM entities e
+                 WHERE e.acn IS NULL AND e.entity_kind <> 'foreign'
+                   AND EXISTS (SELECT 1 FROM listings l
+                                WHERE l.entity_id = e.entity_id AND l.valid_to IS NULL)
+               )
+               SELECT CASE
+                        WHEN upper(name) ~ %s THEN %s
+                        WHEN upper(name) ~ %s THEN %s
+                        ELSE 'name does not match any ASIC registration exactly'
+                      END AS hint,
+                      count(*) AS n,
+                      (array_agg(ticker ORDER BY ticker))[1:5] AS examples
+               FROM unresolved GROUP BY 1 ORDER BY 2 DESC""",
+            (_TRIAGE_HINTS[0][1], _TRIAGE_HINTS[0][0],
+             _TRIAGE_HINTS[1][1], _TRIAGE_HINTS[1][0]),
+        )
+        return cur.fetchall()
+
+
 def coverage_report(conn: psycopg.Connection) -> str:
     acn = acn_coverage(conn)
     tickers = ticker_integrity(conn)
@@ -112,4 +157,11 @@ def coverage_report(conn: psycopg.Connection) -> str:
             f"       {c['ticker']}: entities {c['entity_a']} ({c['a_from']}..{c['a_to']}) "
             f"and {c['entity_b']} ({c['b_from']}..{c['b_to']})"
         )
+    if acn.unresolved:
+        lines += ["", "Unresolved queue, grouped for triage (hints only — nobody",
+                  "is marked foreign without a human saying so):"]
+        for row in unresolved_breakdown(conn):
+            examples = ", ".join(t for t in (row["examples"] or []) if t)
+            lines.append(f"       {row['n']:>4}  {row['hint']}"
+                         + (f"  e.g. {examples}" if examples else ""))
     return "\n".join(lines)

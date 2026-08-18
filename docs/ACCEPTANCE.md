@@ -13,13 +13,72 @@ standard it sets.
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
 | 0.1 | Access decision document exists and its chosen sources are live | ✅ decided Aug 2026 (Tier 0 composite); sources live once the mailbox and capture watcher run | docs/ACCESS_DECISION.md |
-| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ◐ loader built and measured by `asx coverage`; needs the real ASIC + ASX files loaded | src/asx/reference/, `asx coverage` |
-| 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ◐ collision detector built (`asx coverage`); needs real files | src/asx/reference/verify.py |
+| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ✗ **measured 96.0%** on the real files (18 Aug 2026): 1,630 ACN + 127 foreign of 1,830; 73 unresolved. Coverage is complete (every listed code has an entity); *identification* falls short, and the shortfall is structural — see below | `asx coverage`, run 2026-08-18 |
+| 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ✅ **0 collisions** across 1,834 open listings (18 Aug 2026). One real merge was caught and fixed in the process — see the Kingston/Nexus note | `asx coverage`, run 2026-08-18; tests/test_entity_master.py |
 | 0.4 | Announcement feed runs 10 consecutive trading days with zero documents stuck in non-terminal status **[amended]** — under Tier 0 this means zero parseable **detections** older than the 96h capture SLA, i.e. the manual sweep kept pace | ☐ | `asx monitor` capture_gap alarm |
 | 0.5 | Freshness alerts proven by a deliberately injected failure | ☐ inject by pausing the mailbox read for >72h and confirming the detections_all volume alarm fires | |
 | 0.6 | Classifier ≥98% precision on standard-form classes vs a 200-document hand-labelled sample | ☐ needs captured documents | |
 | 0.7 | Share-count replay within 0.5% for ≥95% of a 50-entity random sample **[amended]** — compared against shares-on-issue figures **read manually from the ASX website** and recorded via `manual_share_counts`, in place of a vendor file | ☐ | `reconcile_against_manual()` |
 | 0.8 | **[new]** Weekly ten-ticker manual completeness spot-check running as a standing job, with misses recorded | ☐ | `asx spot-check` |
+
+### 0.2 — why 96% is the ceiling from the company register alone
+
+The 73 unresolved entities are not a parser defect and are not spread evenly.
+They are three populations:
+
+| Population | Count | Why the ASIC company register cannot identify them |
+|---|---|---|
+| Listed trusts, REITs, LICs and stapled groups | 42 | Registered managed investment schemes hold an **ARSN**, not an ACN, and do not appear in ASIC's *company* dataset at all. Stapled groups list under a group name (`GOODMAN GROUP`, `CHARTER HALL GROUP`) that is nobody's registered company name. |
+| Name in the ASX file matches no single current registration | 28 | Two live public companies share a normalised name (`ASM`, `GWA`), or the listed name differs from the registered one (`ATM` = PT Antam, an Indonesian issuer). |
+| Foreign issuers whose registered name differs from their listed name | 3 | `JHX`, `ONE`, `FCL` are registered here, but under a name the file does not print. |
+
+**This is a conflict between criterion 0.2 as written and the composition of
+the ASX.** The criterion assumes every listed entity is a company with an ACN.
+About 2.3% of the market is a scheme with an ARSN, and no amount of parser
+work will find those in a company register. Three ways forward, for the
+owner's decision:
+
+1. **Amend the criterion** to "≥99% carry an explicit identity: an ACN, an
+   ARBN with `foreign`, an ARSN with `trust`/`stapled`, or a recorded review
+   decision" — the entity_kind enum already anticipates these categories.
+2. **Add a source.** The ABN Bulk Extract (already supported by
+   `asx load-reference --source abn_bulk_extract`) names registered schemes
+   and would identify most of the 42.
+3. **Work the queue.** All 73 are in `review_items` with the ticker, the
+   published name, and the candidate ACNs; a person can settle them in an
+   afternoon, and the decisions persist.
+
+Nothing is auto-classified in the meantime. A name ending in "PLC" is a hint
+printed in the coverage report, never a written `foreign` flag — inferring
+incorporation from a suffix is exactly the substantive default Invariant 8
+forbids.
+
+### The Kingston/Nexus merge — what loading real data caught
+
+Worth recording because it is the failure mode Invariant 1 exists for, and it
+survived the synthetic test suite.
+
+`KINGSTON RESOURCES LIMITED` (KSN, ACN 009148529) was called `NEXUS MINERALS
+NL` until 2012. An unrelated `NEXUS MINERALS LIMITED` (NXM, ACN 122074006) is
+listed today. Both names normalise to `NEXUS MINERALS`. The first loader
+version, finding the name ambiguous in the register, fell back to matching
+against existing entity names — including former ones — and put **two
+unrelated listed companies on one entity**, then overwrote Kingston's legal
+name with Nexus's.
+
+Three changes, each with a regression test:
+
+- ACN resolution ranks **current** registered names above former ones, and
+  discards registrations that cannot issue a listed security (proprietary
+  companies — Corporations Act 2001 (Cth) s 113(3)). This alone lifted
+  resolution from 79.7% to 96.0%, because a listed company and its
+  same-named `PTY LTD` subsidiary were previously just "ambiguous".
+- Entity lookup by name matches **currently-held** names only. Historical
+  document references still resolve through former names; that is
+  `ids.resolver`'s job, where matching a past name is the correct behaviour.
+- A guard refuses to give one entity two open codes under different names,
+  raising a review item instead. Genuine dual-class listings (`NWS`/`NWSLV`)
+  are unaffected — the publisher prints the same name against both.
 
 ### 0.8 — the standing completeness job
 

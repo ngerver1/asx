@@ -265,9 +265,13 @@ def cmd_load_reference(args) -> None:
 
     as_at = _date.fromisoformat(args.as_at)
     path = Path(args.file)
+    parts = [Path(f) for f in args.files] if args.files else [path]
     with db.connect() as conn:
+        # Every part enters the raw zone, not just the first: a multi-part
+        # extract must stay regenerable from raw.
         load = register_load(conn, path, source=args.source, as_at=as_at,
-                             source_ref=args.source_url, notes=args.note)
+                             source_ref=args.source_url, notes=args.note,
+                             parts=parts)
         conn.commit()
         if load.already_loaded and load.applied and not args.force:
             print(f"identical file already applied as load {load.load_id} "
@@ -275,7 +279,7 @@ def cmd_load_reference(args) -> None:
             return
 
         if args.source == "asic_companies":
-            n = asic_mod.load_asic_registry(conn, path, load.load_id)
+            n = asic_mod.load_asic_registry_parts(conn, parts, load.load_id)
             mark_applied(conn, load.load_id, n)
             conn.commit()
             print(f"asic_registry: {n} rows loaded (load {load.load_id})")
@@ -383,7 +387,10 @@ def main(argv: list[str] | None = None) -> None:
     p = sub.add_parser("load-reference", help="load a reference dataset")
     p.add_argument("--source", required=True,
                    choices=["asic_companies", "abn_bulk_extract", "asx_listed_companies"])
-    p.add_argument("--file", required=True)
+    p.add_argument("--file", required=True,
+                   help="the file, or the first part of a multi-part extract")
+    p.add_argument("--files", nargs="+",
+                   help="all parts of a multi-part extract, loaded as one load")
     p.add_argument("--as-of", dest="as_at", required=True,
                    help="publisher's extract date, YYYY-MM-DD")
     p.add_argument("--source-url")
