@@ -314,16 +314,20 @@ def cmd_universe(args) -> None:
     date returns the universe as it actually stood then — delisted companies
     included — rather than today's survivors back-projected.
     """
-    from asx.universe.export import universe_csv
+    from asx.universe.export import SizeFilter, universe_csv
 
     as_at = date.fromisoformat(args.as_at) if args.as_at else date.today()
+    size = SizeFilter(max_market_cap=args.max_market_cap,
+                      exclude_top=args.exclude_top)
     with db.connect() as conn:
-        out = universe_csv(conn, as_at)
+        out = universe_csv(conn, as_at, size)
     if args.out:
         Path(args.out).write_text(out)
-        print(f"{out.count(chr(10)) - 1} listings as at {as_at} -> {args.out}")
+        print(f"{size.note()} as at {as_at} -> {args.out}")
     else:
         sys.stdout.write(out)
+        if size.active:
+            print(size.note(), file=sys.stderr)
 
 
 def cmd_build_signals(_args) -> None:
@@ -427,6 +431,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--as-of", dest="as_at",
                    help="point-in-time date, YYYY-MM-DD (default today)")
     p.add_argument("--out", help="write here instead of stdout")
+    p.add_argument("--max-market-cap", type=float,
+                   help="keep listings at or below this market cap, in AUD")
+    p.add_argument("--exclude-top", type=int, metavar="N",
+                   help="drop the N largest by market cap (e.g. 300 for the "
+                        "size ceiling in the access decision)")
     p.set_defaults(fn=cmd_universe)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)

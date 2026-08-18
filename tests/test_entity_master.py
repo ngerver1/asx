@@ -600,3 +600,33 @@ def test_universe_export_dates_a_single_former_name_but_never_guesses(
                  FROM entity_names WHERE name_kind = 'former' LIMIT 1"""
         )
     assert name_in_1990() == ("", "KINGSTON RESOURCES LIMITED")
+
+
+def test_size_filter_never_silently_drops_an_unknown_market_cap(conn, asic_loaded):
+    """An unknown market cap is not a small one. It must be excluded from a
+    size screen and *counted*, so the screen cannot claim coverage it lacks."""
+    import csv as _csv
+    import io as _io
+
+    from asx.universe.export import SizeFilter, universe_csv
+
+    _snapshot(conn, [
+        ListedCompany("BIG", "Xyz Mining Limited", market_cap_aud=5e9),
+        ListedCompany("SML", "Abc Health Limited", market_cap_aud=4e7),
+        ListedCompany("UNK", "Twin Name Limited", market_cap_aud=None),
+    ], date(2026, 8, 18), asic_loaded.load_id)
+
+    size = SizeFilter(max_market_cap=1e9)
+    kept = {r["ticker"] for r in
+            _csv.DictReader(_io.StringIO(universe_csv(conn, date(2026, 8, 18), size)))}
+    assert kept == {"SML"}
+    assert size.excluded_large == 1
+    assert size.excluded_unknown_cap == 1
+    assert "no market cap" in size.note()
+
+    # Rank-based cut is equivalent on this data and reports the same way.
+    by_rank = SizeFilter(exclude_top=1)
+    kept = {r["ticker"] for r in
+            _csv.DictReader(_io.StringIO(universe_csv(conn, date(2026, 8, 18), by_rank)))}
+    assert kept == {"SML"}
+    assert by_rank.excluded_unknown_cap == 1

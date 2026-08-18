@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import csv
 import io
+from dataclasses import dataclass
 from datetime import date
 
 import psycopg
@@ -34,7 +35,8 @@ COLUMNS = [
     "ticker", "company_name", "current_company_name", "entity_id",
     "entity_kind", "acn", "arbn",
     "identity", "gics_industry_group", "listing_date", "market_cap_aud",
-    "listed_from", "listed_to", "ticker_valid_from", "ticker_valid_to",
+    "market_cap_rank", "listed_from", "listed_to", "ticker_valid_from",
+    "ticker_valid_to",
 ]
 
 _SQL = """
@@ -50,6 +52,12 @@ SELECT l.ticker,
        s.sector                      AS gics_industry_group,
        s.listing_date,
        s.market_cap_aud,
+       -- Rank among issuers with a published cap; NULL where the ASX
+       -- prints '--'. FILTER is not available on window functions, and
+       -- NULLS LAST keeps the unpublished ones off the front of the order.
+       CASE WHEN s.market_cap_aud IS NOT NULL
+            THEN rank() OVER (ORDER BY s.market_cap_aud DESC NULLS LAST)
+       END                           AS market_cap_rank,
        u.listed_from,
        u.listed_to,
        l.valid_from                  AS ticker_valid_from,
@@ -94,16 +102,76 @@ ORDER BY l.ticker
 """
 
 
+@dataclass
+class SizeFilter:
+    """A size cut, plus what it had to leave out.
+
+    `unknown_cap` is reported, never silently dropped: the ASX publishes '--'
+    for some issuers, and an unknown market cap is not a small one. Excluding
+    them from a small-cap screen is correct; doing it quietly would let a
+    screen claim coverage it does not have (Invariant 8, Invariant 13).
+    """
+    max_market_cap: float | None = None
+    exclude_top: int | None = None
+    kept: int = 0
+    excluded_large: int = 0
+    excluded_unknown_cap: int = 0
+
+    @property
+    def active(self) -> bool:
+        return self.max_market_cap is not None or self.exclude_top is not None
+
+    def apply(self, rows: list[dict]) -> list[dict]:
+        if not self.active:
+            self.kept = len(rows)
+            return rows
+        out = []
+        for r in rows:
+            if r["market_cap_aud"] is None:
+                self.excluded_unknown_cap += 1
+                continue
+            too_big = (
+                (self.max_market_cap is not None
+                 and float(r["market_cap_aud"]) > self.max_market_cap)
+                or (self.exclude_top is not None
+                    and r["market_cap_rank"] is not None
+                    and r["market_cap_rank"] <= self.exclude_top)
+            )
+            if too_big:
+                self.excluded_large += 1
+            else:
+                out.append(r)
+        self.kept = len(out)
+        return out
+
+    def note(self) -> str:
+        if not self.active:
+            return f"{self.kept} listings"
+        bits = [f"{self.kept} listings"]
+        if self.exclude_top:
+            bits.append(f"outside the top {self.exclude_top} by market cap")
+        if self.max_market_cap:
+            bits.append(f"at or below ${self.max_market_cap:,.0f}")
+        tail = (f" ({self.excluded_large} excluded as too large; "
+                f"{self.excluded_unknown_cap} excluded because the ASX "
+                f"publishes no market cap for them)")
+        return " ".join(bits) + tail
+
+
 def universe_rows(conn: psycopg.Connection, as_at: date) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(_SQL, {"as_at": as_at})
         return cur.fetchall()
 
 
-def universe_csv(conn: psycopg.Connection, as_at: date) -> str:
+def universe_csv(conn: psycopg.Connection, as_at: date,
+                 size: SizeFilter | None = None) -> str:
+    rows = universe_rows(conn, as_at)
+    if size is not None:
+        rows = size.apply(rows)
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
     writer.writeheader()
-    for row in universe_rows(conn, as_at):
+    for row in rows:
         writer.writerow({c: ("" if row[c] is None else row[c]) for c in COLUMNS})
     return buf.getvalue()
