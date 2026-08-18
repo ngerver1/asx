@@ -152,10 +152,23 @@ def check_capture_gap(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
 
 
 def check_review_queue(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
+    """Weekly-drain SLA on the review queue.
+
+    Reference-load identity items are excluded, matching
+    `parse.framework.auto_accept_halted`. Roughly 4% of ASX-listed issuers are
+    schemes or stapled groups with no ASIC company registration to find, so
+    those items never resolve. Counting them here would put the monitor in
+    permanent alarm, and a monitor that always alarms is a monitor nobody
+    reads — the exact failure Invariant 7 is guarding against. Their *count*
+    is watched separately by check_entity_identity_rate.
+    """
     alarms = []
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT count(*) AS n, min(created_at) AS oldest FROM review_items WHERE resolved_at IS NULL"
+            """SELECT count(*) AS n, min(created_at) AS oldest
+               FROM review_items
+               WHERE resolved_at IS NULL
+                 AND NOT (kind = 'resolution' AND doc_id IS NULL)"""
         )
         row = cur.fetchone()
     if row["oldest"] and (now - row["oldest"]) > timedelta(days=14):
@@ -171,6 +184,50 @@ def check_review_queue(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
             f"({row['n']} open items)",
         ))
     return alarms
+
+
+# Share of listed issuers with no resolved ASIC registration. The structural
+# floor measured on the 18 Aug 2026 file is 4.0% (73 of 1,834) — listed
+# trusts, REITs and stapled groups, which hold an ARSN and are absent from the
+# company register. The ceiling below tolerates that floor plus normal drift
+# as new schemes list, while still catching a resolver regression: the first
+# version of the loader sat at 20%, and the version before the registration-
+# type filter at 11%.
+UNIDENTIFIED_ISSUER_CEILING = 0.06
+
+
+def check_entity_identity_rate(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
+    """Alarm when the share of listed issuers lacking a registration number
+    rises above its structural floor.
+
+    The owner's standing decision is not to chase the unidentified residue
+    (docs/ACCEPTANCE.md, criterion 0.2). That decision is only safe while the
+    residue stays structural: a *rise* means the resolver broke, not that the
+    market changed, and without this check the breakage would be invisible
+    because nothing errors — every company still gets an entity.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT count(*) AS total,
+                      count(*) FILTER (WHERE e.acn IS NULL AND e.arbn IS NULL
+                                         AND e.entity_kind <> 'foreign') AS unidentified
+               FROM entities e
+               WHERE EXISTS (SELECT 1 FROM listings l
+                              WHERE l.entity_id = e.entity_id AND l.valid_to IS NULL)"""
+        )
+        row = cur.fetchone()
+    if not row["total"]:
+        return []
+    rate = row["unidentified"] / row["total"]
+    if rate <= UNIDENTIFIED_ISSUER_CEILING:
+        return []
+    return [Alarm(
+        "entity_identity",
+        f"{row['unidentified']} of {row['total']} listed issuers ({rate:.1%}) have "
+        f"no ACN or ARBN, above the {UNIDENTIFIED_ISSUER_CEILING:.0%} ceiling. "
+        f"The structural floor is ~4% (listed schemes and stapled groups); a "
+        f"rise means name resolution regressed. Run `asx coverage` for the list.",
+    )]
 
 
 def check_parser_health(conn: psycopg.Connection, now: datetime) -> list[Alarm]:
@@ -258,6 +315,7 @@ def run_monitor(conn: psycopg.Connection, now: datetime | None = None) -> list[A
         + check_stuck_documents(conn, now)
         + check_capture_gap(conn, now)
         + check_review_queue(conn, now)
+        + check_entity_identity_rate(conn, now)
         + check_parser_health(conn, now)
         + check_classification_base_rates(conn, now)
     )

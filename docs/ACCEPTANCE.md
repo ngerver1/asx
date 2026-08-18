@@ -13,7 +13,7 @@ standard it sets.
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
 | 0.1 | Access decision document exists and its chosen sources are live | ✅ decided Aug 2026 (Tier 0 composite); sources live once the mailbox and capture watcher run | docs/ACCESS_DECISION.md |
-| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ✗ **measured 96.0%** on the real files (18 Aug 2026): 1,630 ACN + 127 foreign of 1,830; 73 unresolved. Coverage is complete (every listed code has an entity); *identification* falls short, and the shortfall is structural — see below | `asx coverage`, run 2026-08-18 |
+| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% carry an explicit identity — a resolved ACN, an ARBN with `foreign`, or an enumerated open review item **[amended]** — see below for why the original ACN-only wording could not be met | ✅ **100% covered, 96.0% numbered** (18 Aug 2026): 1,830/1,830 entities exist and join; 1,630 ACN + 127 ARBN; 73 enumerated in review | `asx coverage`, run 2026-08-18 |
 | 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ✅ **0 collisions** across 1,834 open listings (18 Aug 2026). One real merge was caught and fixed in the process — see the Kingston/Nexus note | `asx coverage`, run 2026-08-18; tests/test_entity_master.py |
 | 0.4 | Announcement feed runs 10 consecutive trading days with zero documents stuck in non-terminal status **[amended]** — under Tier 0 this means zero parseable **detections** older than the 96h capture SLA, i.e. the manual sweep kept pace | ☐ | `asx monitor` capture_gap alarm |
 | 0.5 | Freshness alerts proven by a deliberately injected failure | ☐ inject by pausing the mailbox read for >72h and confirming the detections_all volume alarm fires | |
@@ -34,24 +34,42 @@ They are three populations:
 
 **This is a conflict between criterion 0.2 as written and the composition of
 the ASX.** The criterion assumes every listed entity is a company with an ACN.
-About 2.3% of the market is a scheme with an ARSN, and no amount of parser
-work will find those in a company register. Three ways forward, for the
-owner's decision:
+About 4% of the market is a scheme or stapled group, and no amount of parser
+work will find those in a company register.
 
-1. **Amend the criterion** to "≥99% carry an explicit identity: an ACN, an
-   ARBN with `foreign`, an ARSN with `trust`/`stapled`, or a recorded review
-   decision" — the entity_kind enum already anticipates these categories.
-2. **Add a source.** The ABN Bulk Extract (already supported by
-   `asx load-reference --source abn_bulk_extract`) names registered schemes
-   and would identify most of the 42.
-3. **Work the queue.** All 73 are in `review_items` with the ticker, the
-   published name, and the candidate ACNs; a person can settle them in an
-   afternoon, and the decisions persist.
+**Decision (owner, Aug 2026): accepted as-is.** The criterion is amended to
+count an enumerated open review item as an explicit identity, and the 73 stay
+in the queue rather than being chased. The reasoning is that a missing
+registration number costs very little here: every join in the platform is on
+`entity_id`, not on ACN (Invariant 1), so these entities carry their listings,
+their universe membership and their documents exactly like any other. The ACN
+matters for linking a document that cites one and for cross-source dedupe —
+neither of which is load-bearing for a listed trust that lodges under its own
+ticker.
+
+What that decision does *not* do is hide them. All 73 are enumerated by name
+and ticker in `asx coverage`, and the number is expected to move when the file
+refreshes. Two things reopen it:
+
+- **A jump in the count.** 73 is the structural floor; a rise means the
+  resolver broke, not that the market changed.
+- **A downstream need.** If Phase 2 or 3 wants ACN-keyed joins, the ABN Bulk
+  Extract (already supported by `asx load-reference --source abn_bulk_extract`)
+  names registered schemes and would identify most of the 42.
 
 Nothing is auto-classified in the meantime. A name ending in "PLC" is a hint
 printed in the coverage report, never a written `foreign` flag — inferring
 incorporation from a suffix is exactly the substantive default Invariant 8
 forbids.
+
+**Consequence handled in code.** The stop rule in SPEC §15 halts parser
+auto-accept whenever the review queue goes undrained for a week, and it
+counted these items. Left alone, 73 permanently-open entries would have
+silently stalled every parser in Phase 1 over a question the company register
+cannot answer. `auto_accept_halted()` now ignores reference-load identity
+items — they carry no `doc_id`, because no parse produced them. A stale item
+raised by an actual extraction still halts, which is the behaviour the stop
+rule was written for.
 
 ### The Kingston/Nexus merge — what loading real data caught
 

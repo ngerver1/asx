@@ -90,7 +90,16 @@ def auto_accept_halted(conn: psycopg.Connection, parser_name: str) -> bool:
             """SELECT count(*) AS n FROM review_items
                WHERE resolved_at IS NULL
                  AND created_at < %s
-                 AND (payload->>'parser' = %s OR payload->>'parser' IS NULL)""",
+                 AND (payload->>'parser' = %s OR payload->>'parser' IS NULL)
+                 -- Reference-load identity questions are excluded: they are
+                 -- raised by `load-reference`, never by a parse, and they
+                 -- carry no doc_id. The stop rule exists because a stale
+                 -- queue means extractions are going unwatched; a backlog of
+                 -- "which ACN is this listed trust?" is not evidence of that,
+                 -- and letting it halt every parser would stall the pipeline
+                 -- over a question that has no answer in the company
+                 -- register. They stay open and enumerated in `asx coverage`.
+                 AND NOT (kind = 'resolution' AND doc_id IS NULL)""",
             (datetime.now(timezone.utc) - REVIEW_SLA, parser_name),
         )
         return cur.fetchone()["n"] > 0

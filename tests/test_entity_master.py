@@ -457,3 +457,76 @@ def test_the_suffix_convention_is_undone(conn, asic_types):
         "ENVIRONMENTAL GROUP LIMITED (THE)", "THE ENVIRONMENTAL GROUP LIMITED",
     ]
     assert listed_name_variants("CSL Limited") == ["CSL Limited"]
+
+
+def test_unresolved_listed_companies_do_not_halt_parser_auto_accept(
+    conn, asic_loaded,
+):
+    """A backlog of "which ACN is this?" questions must not stop the parsing
+    pipeline. Listed trusts hold an ARSN and can never be answered from the
+    company register, so a halting rule would stall Phase 1 permanently."""
+    from datetime import timedelta
+
+    from asx.parse.framework import auto_accept_halted
+
+    _snapshot(conn, [ListedCompany("TRU", "Some Property Trust")],
+              date(2026, 8, 18), asic_loaded.load_id)
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM review_items WHERE kind='resolution'")
+        assert cur.fetchone()["n"] == 1
+        # Age it well past the review SLA.
+        cur.execute("UPDATE review_items SET created_at = now() - interval '60 days'")
+    assert not auto_accept_halted(conn, "app3y")
+
+    # A stale item raised by a parse still halts.
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO documents (source, doc_class, sha256, storage_path,
+                                      fetched_at, possession_source, parse_status)
+               VALUES ('t', 'app3y', 'deadbeef', '/tmp/x', now(),
+                       'manual_capture', 'parsed')
+               RETURNING doc_id"""
+        )
+        doc_id = cur.fetchone()["doc_id"]
+        cur.execute(
+            """INSERT INTO review_items (kind, doc_id, payload, reason, created_at)
+               VALUES ('extraction', %s, '{}'::jsonb, 'disagreement',
+                       now() - interval '60 days')""",
+            (doc_id,),
+        )
+    assert auto_accept_halted(conn, "app3y")
+
+
+def test_identity_rate_alarms_only_on_a_regression(conn, asic_loaded):
+    """The unidentified residue is accepted at its structural floor and
+    alarms when it rises — the resolver breaking is otherwise silent."""
+    from datetime import datetime, timezone
+
+    from asx.monitor.checks import check_entity_identity_rate
+
+    now = datetime.now(timezone.utc)
+    # 1 of 20 unidentified (5%) sits under the ceiling.
+    companies = [ListedCompany(f"R{i:02d}", f"Resolvable {i} Limited")
+                 for i in range(19)] + [ListedCompany("TRU", "Some Property Trust")]
+    with conn.cursor() as cur:
+        for i in range(19):
+            cur.execute(
+                """INSERT INTO asic_registry (acn, name, name_norm, is_current_name,
+                       status, company_type, load_id)
+                   VALUES (%s, %s, %s, true, 'REGD', 'APUB', %s)""",
+                (f"9{i:08d}", f"RESOLVABLE {i} LIMITED", f"RESOLVABLE {i}",
+                 asic_loaded.load_id),
+            )
+    _snapshot(conn, companies, date(2026, 8, 18), asic_loaded.load_id)
+    assert check_entity_identity_rate(conn, now) == []
+
+    # A resolver regression that strands a quarter of the universe must not
+    # pass silently just because every company still got an entity.
+    with conn.cursor() as cur:
+        cur.execute(
+            """UPDATE entities SET acn = NULL, arbn = NULL
+               WHERE entity_id IN (SELECT entity_id FROM entities
+                                   WHERE acn IS NOT NULL LIMIT 5)"""
+        )
+    alarms = check_entity_identity_rate(conn, now)
+    assert len(alarms) == 1 and alarms[0].check == "entity_identity"
