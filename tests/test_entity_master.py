@@ -530,3 +530,64 @@ def test_identity_rate_alarms_only_on_a_regression(conn, asic_loaded):
         )
     alarms = check_entity_identity_rate(conn, now)
     assert len(alarms) == 1 and alarms[0].check == "entity_identity"
+
+
+# --- point-in-time universe export ---------------------------------------
+
+def test_universe_export_is_point_in_time(conn, asic_loaded):
+    """The export must answer "what was in scope on D", not "what is in scope
+    now, back-projected" — the survivorship trap Invariant 4 exists for."""
+    import csv as _csv
+    import io as _io
+
+    from asx.universe.export import universe_csv
+
+    _snapshot(conn, [ListedCompany("XYZ", "Xyz Mining Limited", listing_date=date(2015, 7, 1)),
+                     ListedCompany("ABC", "Abc Health Limited", listing_date=date(2016, 2, 2))],
+              date(2026, 8, 17), asic_loaded.load_id)
+    # ABC delists: absent from the next snapshot.
+    _snapshot(conn, [ListedCompany("XYZ", "Xyz Mining Limited", listing_date=date(2015, 7, 1))],
+              date(2026, 8, 18), asic_loaded.load_id)
+
+    def tickers(as_at):
+        return {r["ticker"] for r in _csv.DictReader(_io.StringIO(universe_csv(conn, as_at)))}
+
+    assert tickers(date(2026, 8, 17)) == {"XYZ", "ABC"}   # ABC was in scope
+    assert tickers(date(2026, 8, 18)) == {"XYZ"}          # and is not now
+    assert tickers(date(2015, 12, 31)) == {"XYZ"}         # before ABC listed
+
+
+def test_universe_export_dates_a_single_former_name_but_never_guesses(
+    conn, asic_nexus,
+):
+    """ASIC dates only the transition to a company's CURRENT name. One former
+    name is therefore unambiguous at a past date; several are not, and the
+    real register gives Kingston six sharing one range. A guess would read as
+    fact (Invariant 8), so the column goes empty instead."""
+    import csv as _csv
+    import io as _io
+
+    from asx.universe.export import universe_csv
+
+    _snapshot(conn, [ListedCompany("KSN", "KINGSTON RESOURCES LIMITED",
+                                   listing_date=date(1987, 3, 5))],
+              date(2026, 8, 18), asic_nexus.load_id)
+
+    def name_in_1990():
+        rows = {r["ticker"]: r for r in
+                _csv.DictReader(_io.StringIO(universe_csv(conn, date(1990, 1, 1))))}
+        return rows["KSN"]["company_name"], rows["KSN"]["current_company_name"]
+
+    # One former name in force: known.
+    assert name_in_1990() == ("NEXUS MINERALS NL", "KINGSTON RESOURCES LIMITED")
+
+    # A second former name over the same range: no longer knowable.
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO entity_names (entity_id, name, name_norm, name_kind,
+                                         valid_from, valid_to, source_load_id)
+               SELECT entity_id, 'DRY CREEK MINING NL', 'DRY CREEK MINING',
+                      'former', valid_from, valid_to, source_load_id
+                 FROM entity_names WHERE name_kind = 'former' LIMIT 1"""
+        )
+    assert name_in_1990() == ("", "KINGSTON RESOURCES LIMITED")

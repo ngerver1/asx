@@ -65,6 +65,7 @@ asx load-reference --source asic_companies --file company_1.tsv \
     --files company_*.tsv --as-of 2026-08-01
 asx load-reference --source asx_listed_companies --file ASX.csv --as-of 2026-08-18
 asx coverage       # Phase 0 acceptance evidence for the entity master
+asx universe --as-of 2026-08-18 --out universe.csv   # tracked codes on a date
 asx detect         # read the alert mailbox (Tier 0 detection)
 asx worklist       # announcements awaiting your personal capture
 asx capture --capture-dir ~/asx-capture

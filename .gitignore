@@ -6,3 +6,6 @@ __pycache__/
 data/raw/
 data/parsed/
 .env
+
+# Universe exports are regenerable: `asx universe --as-of <date>`
+asx_universe_*.csv

@@ -307,6 +307,25 @@ def cmd_coverage(_args) -> None:
         print(coverage_report(conn))
 
 
+def cmd_universe(args) -> None:
+    """Export the tracked universe as at a date, as CSV.
+
+    Defaults to today, but the point of the --as-of argument is that an older
+    date returns the universe as it actually stood then — delisted companies
+    included — rather than today's survivors back-projected.
+    """
+    from asx.universe.export import universe_csv
+
+    as_at = date.fromisoformat(args.as_at) if args.as_at else date.today()
+    with db.connect() as conn:
+        out = universe_csv(conn, as_at)
+    if args.out:
+        Path(args.out).write_text(out)
+        print(f"{out.count(chr(10)) - 1} listings as at {as_at} -> {args.out}")
+    else:
+        sys.stdout.write(out)
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -403,6 +422,12 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("coverage", help="entity-master acceptance evidence").set_defaults(
         fn=cmd_coverage)
+
+    p = sub.add_parser("universe", help="export the tracked universe as CSV")
+    p.add_argument("--as-of", dest="as_at",
+                   help="point-in-time date, YYYY-MM-DD (default today)")
+    p.add_argument("--out", help="write here instead of stdout")
+    p.set_defaults(fn=cmd_universe)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 
