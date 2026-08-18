@@ -13,8 +13,8 @@ standard it sets.
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
 | 0.1 | Access decision document exists and its chosen sources are live | ✅ decided Aug 2026 (Tier 0 composite); sources live once the mailbox and capture watcher run | docs/ACCESS_DECISION.md |
-| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ☐ needs ASIC dataset loader | |
-| 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ☐ | |
+| 0.2 | Entity master covers every entity listed in the coverage window; ≥99% with resolved ACN or explicit `foreign` flag | ◐ loader built and measured by `asx coverage`; needs the real ASIC + ASX files loaded | src/asx/reference/, `asx coverage` |
+| 0.3 | Ticker history round-trips: every symbol maps to exactly one entity per date, zero unexamined collisions **[amended]** — no price-vendor symbol history, so the check runs against ASX listed-companies file codes plus name/code-change announcements | ◐ collision detector built (`asx coverage`); needs real files | src/asx/reference/verify.py |
 | 0.4 | Announcement feed runs 10 consecutive trading days with zero documents stuck in non-terminal status **[amended]** — under Tier 0 this means zero parseable **detections** older than the 96h capture SLA, i.e. the manual sweep kept pace | ☐ | `asx monitor` capture_gap alarm |
 | 0.5 | Freshness alerts proven by a deliberately injected failure | ☐ inject by pausing the mailbox read for >72h and confirming the detections_all volume alarm fires | |
 | 0.6 | Classifier ≥98% precision on standard-form classes vs a 200-document hand-labelled sample | ☐ needs captured documents | |
@@ -52,6 +52,22 @@ exists. So it is checked by hand, weekly:
 | 1.4 | Backfill to the access-decision horizon (~24 months) complete, volume-per-week plotted and eyeballed | ☐ manual retrieval; expect this to be the long pole | |
 | 1.5 | Amended-notice dedupe demonstrated on real examples | ☐ mechanism tested synthetically | tests/test_db_integration.py |
 | 1.6 | **[new]** Cluster-buy screen output carries its coverage flags, including `size_ceiling_proxy` | ✅ enforced in signal v2 | src/asx/signals/director_signals.py |
+
+## Standing operational jobs
+
+| Job | Cadence | Command |
+|---|---|---|
+| Alert-mailbox detection | daily | `asx detect` |
+| Capture sweep (owner opens flagged announcements) | daily | `asx worklist` then `asx capture` |
+| Reference refresh — ASIC registry, ASX listed file | monthly / weekly | `asx load-reference` |
+| Index proxy refresh (ETF holdings) | weekly | `asx load-index` |
+| Completeness spot-check (0.8) | weekly | `asx spot-check` |
+| Monitoring + ops report | daily / weekly | `asx monitor`, `asx ops-report` |
+| Coverage evidence | monthly | `asx coverage` |
+
+The listing snapshot is the one job that can do irreversible damage if the
+input is bad, so it refuses implausible files rather than recording mass
+delistings — override with `--allow-shrink` only when the shrink is real.
 
 ## Out of scope under the current access decision
 

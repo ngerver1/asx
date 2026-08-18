@@ -57,6 +57,12 @@ extraction paths; everything else, including the full test suite, runs without i
 
 ```bash
 make migrate       # apply db/migrations in order (idempotent)
+asx load-reference --source asic_companies --file ASIC.csv --as-of 2026-08-01
+asx load-reference --source asx_listed_companies --file ASX.csv --as-of 2026-08-14
+asx coverage       # Phase 0 acceptance evidence for the entity master
+asx detect         # read the alert mailbox (Tier 0 detection)
+asx worklist       # announcements awaiting your personal capture
+asx capture --capture-dir ~/asx-capture
 make test          # unit + integration tests incl. gold-set regression
 make monitor       # freshness / volume / parser-health checks (Invariant 7)
 make ops-report    # weekly operations one-pager

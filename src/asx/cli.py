@@ -250,6 +250,59 @@ def cmd_spot_check(args) -> None:
               "as a completeness miss in docs/ACCEPTANCE.md.")
 
 
+def cmd_load_reference(args) -> None:
+    """Load a reference dataset (ASIC registry, ABN extract, ASX listings).
+
+    Files are supplied by the owner (downloaded from data.gov.au / the ASX
+    site under their published terms) — nothing here fetches them.
+    """
+    from datetime import date as _date
+
+    from asx.reference import abn as abn_mod
+    from asx.reference import asic as asic_mod
+    from asx.reference import asx_listed
+    from asx.reference.loads import mark_applied, register_load
+
+    as_at = _date.fromisoformat(args.as_at)
+    path = Path(args.file)
+    with db.connect() as conn:
+        load = register_load(conn, path, source=args.source, as_at=as_at,
+                             source_ref=args.source_url, notes=args.note)
+        conn.commit()
+        if load.already_loaded and load.applied and not args.force:
+            print(f"identical file already applied as load {load.load_id} "
+                  f"({load.as_at}); nothing to do")
+            return
+
+        if args.source == "asic_companies":
+            n = asic_mod.load_asic_registry(conn, path, load.load_id)
+            mark_applied(conn, load.load_id, n)
+            conn.commit()
+            print(f"asic_registry: {n} rows loaded (load {load.load_id})")
+        elif args.source == "asx_listed_companies":
+            companies = asx_listed.parse_listed_file(path.read_bytes())
+            result = asx_listed.apply_listing_snapshot(
+                conn, companies, as_at, load.load_id,
+                allow_shrink=args.allow_shrink,
+            )
+            mark_applied(conn, load.load_id, result.listed)
+            conn.commit()
+            print(json.dumps(result.__dict__, default=str, indent=2))
+        elif args.source == "abn_bulk_extract":
+            stats = abn_mod.load_abns_for_known_entities(conn, path, load.load_id)
+            mark_applied(conn, load.load_id, stats["matched"])
+            conn.commit()
+            print(json.dumps(stats))
+
+
+def cmd_coverage(_args) -> None:
+    """Phase 0 acceptance evidence for the entity master."""
+    from asx.reference.verify import coverage_report
+
+    with db.connect() as conn:
+        print(coverage_report(conn))
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -326,6 +379,23 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--n", type=int, default=10)
     p.add_argument("--days", type=int, default=7)
     p.set_defaults(fn=cmd_spot_check)
+
+    p = sub.add_parser("load-reference", help="load a reference dataset")
+    p.add_argument("--source", required=True,
+                   choices=["asic_companies", "abn_bulk_extract", "asx_listed_companies"])
+    p.add_argument("--file", required=True)
+    p.add_argument("--as-of", dest="as_at", required=True,
+                   help="publisher's extract date, YYYY-MM-DD")
+    p.add_argument("--source-url")
+    p.add_argument("--note")
+    p.add_argument("--force", action="store_true",
+                   help="re-apply even if this exact file was already applied")
+    p.add_argument("--allow-shrink", action="store_true",
+                   help="permit a listing snapshot that would delist many entities")
+    p.set_defaults(fn=cmd_load_reference)
+
+    sub.add_parser("coverage", help="entity-master acceptance evidence").set_defaults(
+        fn=cmd_coverage)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

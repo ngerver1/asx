@@ -93,3 +93,59 @@ def read_document(conn: psycopg.Connection, doc_id: int) -> bytes:
     if hashlib.sha256(content).hexdigest() != row["sha256"]:
         raise RuntimeError(f"raw zone corruption: doc {doc_id} fails hash check")
     return content
+
+
+def _store_file(src: Path, root: Path) -> tuple[str, Path]:
+    """Stream a file into the raw zone by hash. Reference datasets are
+    hundreds of megabytes, so nothing is read into memory whole."""
+    digest = hashlib.sha256()
+    with src.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    path = root / sha[:2] / sha[2:4] / sha
+    if path.exists():
+        return sha, path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with src.open("rb") as fh, tmp.open("wb") as out:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            out.write(chunk)
+    tmp.rename(path)
+    return sha, path
+
+
+def ingest_file(
+    conn: psycopg.Connection,
+    src: Path,
+    *,
+    source: str,
+    doc_class: str,
+    source_ref: str | None = None,
+    lodged_at: datetime | None = None,
+    possession_source: str = "reference_download",
+    root: Path | None = None,
+) -> StoredDocument:
+    """Register a large file (a reference dataset) in the raw zone without
+    reading it into memory. Idempotent on content hash: re-downloading an
+    unchanged publisher file yields the same doc_id."""
+    root = root or raw_zone_root()
+    src = Path(src)
+    sha, path = _store_file(src, root)
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO documents
+                 (source, source_ref, title, doc_class, lodged_at, fetched_at,
+                  sha256, storage_path, possession_source, parse_status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'not_applicable')
+               ON CONFLICT (sha256) DO NOTHING
+               RETURNING doc_id""",
+            (source, source_ref or str(src), src.name, doc_class, lodged_at,
+             datetime.now(timezone.utc), sha, str(path), possession_source),
+        )
+        row = cur.fetchone()
+        if row is not None:
+            return StoredDocument(row["doc_id"], sha, str(path), already_existed=False)
+        cur.execute("SELECT doc_id, storage_path FROM documents WHERE sha256 = %s", (sha,))
+        row = cur.fetchone()
+        return StoredDocument(row["doc_id"], sha, row["storage_path"], already_existed=True)
