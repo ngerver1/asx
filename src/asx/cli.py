@@ -133,24 +133,49 @@ def cmd_detect(args) -> None:
     import os
 
     from asx.ingest.detection import record_detection
-    from asx.ingest.mailbox import IMAPMailbox, detection_from_email
+    from asx.ingest.mailbox import EmlDirectory, IMAPMailbox, detection_from_email
 
-    mailbox = IMAPMailbox(
-        host=os.environ["ASX_IMAP_HOST"],
-        user=os.environ["ASX_IMAP_USER"],
-        password=os.environ["ASX_IMAP_PASSWORD"],
-        folder=os.environ.get("ASX_IMAP_FOLDER", "INBOX"),
-        mark_seen=not args.peek,
-    )
-    new = seen = 0
+    if args.from_dir:
+        mailbox = EmlDirectory(Path(args.from_dir))
+    else:
+        missing = [v for v in ("ASX_IMAP_HOST", "ASX_IMAP_USER", "ASX_IMAP_PASSWORD")
+                   if not os.environ.get(v)]
+        if missing:
+            raise SystemExit(
+                f"missing {', '.join(missing)}. Either set them, or run against "
+                f"saved emails with --from-dir <directory of .eml files>, which "
+                f"needs no credentials."
+            )
+        mailbox = IMAPMailbox(
+            host=os.environ["ASX_IMAP_HOST"],
+            user=os.environ["ASX_IMAP_USER"],
+            password=os.environ["ASX_IMAP_PASSWORD"],
+            folder=os.environ.get("ASX_IMAP_FOLDER", "INBOX"),
+            since_days=args.since_days,
+            unseen_only=args.unseen_only,
+        )
+    new = seen = failed = 0
     with db.connect() as conn:
         for msg in mailbox.fetch_new():
-            detection = detection_from_email(msg)
-            _doc_id, is_new = record_detection(conn, detection)
-            new += int(is_new)
-            seen += int(not is_new)
-        conn.commit()
-    print(json.dumps({"new_detections": new, "already_known": seen}))
+            # Commit per message. One malformed email must not roll back the
+            # alerts already read in this run, and must not stop the run —
+            # under Tier 0 a dropped alert is a permanent dataset hole.
+            try:
+                detection = detection_from_email(msg)
+                _doc_id, is_new = record_detection(conn, detection)
+                conn.commit()
+                new += int(is_new)
+                seen += int(not is_new)
+            except Exception as exc:  # noqa: BLE001 - deliberate: keep going
+                conn.rollback()
+                failed += 1
+                print(f"could not read message "
+                      f"{msg.get('Message-ID') or msg.get('Subject')!r}: "
+                      f"{type(exc).__name__}: {exc}", file=sys.stderr)
+    out = {"new_detections": new, "already_known": seen, "failed": failed}
+    print(json.dumps(out))
+    if failed:
+        raise SystemExit(1)
 
 
 def cmd_capture(args) -> None:
@@ -183,6 +208,12 @@ def cmd_worklist(args) -> None:
         lodged = r["lodged_at"].strftime("%Y-%m-%d %H:%M") if r["lodged_at"] else "?"
         print(f"{r['doc_id']:6d}  {(r['ticker_as_lodged'] or '?'):6s}  "
               f"{(r['doc_class'] or '?'):16s}  {lodged}  {(r['title'] or '')[:60]}")
+        # The link to open personally. Printing it is the difference between
+        # a two-second capture and re-finding the announcement by hand, and
+        # the capture rate is what ACCESS_DECISION §5 reopens the whole
+        # decision over.
+        for url in (r.get("manual_open_urls") or []):
+            print(f"          open: {url}")
 
 
 def cmd_load_index(args) -> None:
@@ -380,7 +411,16 @@ def main(argv: list[str] | None = None) -> None:
 
     p = sub.add_parser("detect", help="read the alert mailbox for new announcements")
     p.add_argument("--peek", action="store_true",
-                   help="do not mark messages seen (for testing)")
+                   help="deprecated: reads never mark messages seen")
+    p.add_argument("--since-days", type=int, default=7,
+                   help="how far back to search (default 7). Re-reading is "
+                        "free: detections are idempotent on message identity")
+    p.add_argument("--unseen-only", action="store_true",
+                   help="search UNSEEN instead of by date. Only safe for a "
+                        "mailbox you never open yourself")
+    p.add_argument("--from-dir",
+                   help="read saved .eml files instead of connecting to IMAP; "
+                        "needs no credentials")
     p.set_defaults(fn=cmd_detect)
 
     p = sub.add_parser("capture", help="file personally-captured documents")

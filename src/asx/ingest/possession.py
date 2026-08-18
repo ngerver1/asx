@@ -87,9 +87,17 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
     from asx.ingest.detection import open_detections
 
     stats = {"attempted": 0, "captured": 0, "skipped_asx": 0,
-             "robots_blocked": 0, "failed": 0}
+             "robots_blocked": 0, "failed": 0, "not_a_document": 0,
+             "no_candidates": 0}
     for doc in open_detections(conn, limit=limit):
         urls = _document_urls_for(conn, doc["doc_id"])
+        if not urls:
+            # Distinguished from "candidates were skipped" on purpose: a route
+            # that never runs and a route that runs and finds nothing look
+            # identical in an all-zero stats dict, and the first is a dead
+            # route reported as a quiet one.
+            stats["no_candidates"] += 1
+            continue
         for url in urls:
             if is_prohibited(url):
                 stats["skipped_asx"] += 1
@@ -106,21 +114,41 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
             except Exception:
                 stats["failed"] += 1
                 continue
+            # Verify it is actually a document before storing it as one. A
+            # login wall, a cookie banner or an error page all return 200 with
+            # HTML, and storing that as the announcement both poisons the raw
+            # zone and flips the row out of 'detected' — destroying the
+            # capture-gap signal that says the document is still missing.
+            if not _looks_like_pdf(result):
+                stats["not_a_document"] += 1
+                continue
             if attach_document(conn, doc["doc_id"], result.content, "ir_website"):
                 stats["captured"] += 1
-            break
+                break     # only a successful attach ends this document's turn
     conn.commit()
     return stats
 
 
+def _looks_like_pdf(result) -> bool:
+    content_type = (getattr(result, "content_type", "") or "").lower()
+    return (content_type.startswith("application/pdf")
+            or result.content[:5] == b"%PDF-")
+
+
 def _document_urls_for(conn: psycopg.Connection, doc_id: int) -> list[str]:
-    """Candidate document URLs recorded on the detection."""
+    """Allowlisted company-IR links recorded on the detection.
+
+    Reads the dedicated column rather than regexing source_ref. source_ref
+    holds an email Message-ID for every mailbox detection — never a URL — so
+    the old regex returned [] for every real alert and this whole route was a
+    silent no-op. attach_document also appends " [duplicate of doc N]" to
+    source_ref, so it was never a clean URL carrier in the first place.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT source_ref FROM documents WHERE doc_id = %s", (doc_id,))
+        cur.execute("SELECT fetch_candidate_urls FROM documents WHERE doc_id = %s",
+                    (doc_id,))
         row = cur.fetchone()
-    if not row or not row["source_ref"]:
-        return []
-    return re.findall(r"https?://[^\s,]+", row["source_ref"])
+    return list(row["fetch_candidate_urls"] or []) if row else []
 
 
 # --- human-triggered capture -------------------------------------------

@@ -302,3 +302,90 @@ def test_reconciliation_runs_against_manually_recorded_figures(conn):
                               source_note="ASX company page, read 2026-05-02")
     conn.commit()
     assert reconcile_against_manual(conn, eid, "ORD", date(2026, 6, 1)) is False
+
+
+# --- detection persists both halves of the URL split ---------------------
+
+def test_detection_persists_urls_and_worklist_can_show_the_manual_one(conn):
+    """The IR-fetch route read URLs out of source_ref, which for a mailbox
+    detection is a Message-ID — so it fetched nothing, forever, and reported
+    that as a quiet day."""
+    import email as _email
+
+    from asx.ingest.detection import open_detections, record_detection
+    from asx.ingest.mailbox import detection_from_email
+    from asx.ingest.possession import _document_urls_for
+
+    raw = ("From: alerts@marketindex.com.au\n"
+           "Subject: XYZ - Change in Director's Interest Notice\n"
+           "Message-ID: <persist@marketindex.com.au>\n"
+           "Date: Tue, 18 Aug 2026 09:35:00 +1000\n\n"
+           "Lodged 18/08/2026 9:30 AM\n"
+           "https://www.asx.com.au/asxpdf/20260818/pdf/xyz.pdf\n"
+           "https://xyzlimited.com.au/investors/3y-aug26.pdf\n")
+    doc_id, is_new = record_detection(conn, detection_from_email(
+        _email.message_from_string(raw)))
+    assert is_new
+    conn.commit()
+
+    assert _document_urls_for(conn, doc_id) == [
+        "https://xyzlimited.com.au/investors/3y-aug26.pdf"]
+    row = next(r for r in open_detections(conn) if r["doc_id"] == doc_id)
+    assert row["manual_open_urls"] == [
+        "https://www.asx.com.au/asxpdf/20260818/pdf/xyz.pdf"]
+
+
+def test_an_unresolvable_ticker_is_queued_not_silently_binned(conn):
+    import email as _email
+
+    from asx.ingest.detection import record_detection
+    from asx.ingest.mailbox import detection_from_email
+
+    raw = ("From: alerts@marketindex.com.au\n"
+           "Subject: ZZZ - Change in Director's Interest Notice\n"
+           "Message-ID: <unknown-ticker@marketindex.com.au>\n"
+           "Date: Tue, 18 Aug 2026 09:35:00 +1000\n\n"
+           "Lodged 18/08/2026 9:30 AM\n")
+    doc_id, _ = record_detection(conn, detection_from_email(
+        _email.message_from_string(raw)))
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT reason FROM review_items
+               WHERE kind = 'detection' AND doc_id = %s""", (doc_id,))
+        reasons = [r["reason"] for r in cur.fetchall()]
+    assert any("does not resolve" in r for r in reasons)
+
+
+def test_ir_fetch_refuses_to_store_a_non_pdf_response(conn, monkeypatch):
+    """A login wall or cookie banner returns 200 with HTML. Storing it as the
+    announcement poisons the raw zone AND clears the capture-gap alarm that
+    says the document is still missing."""
+    import email as _email
+    from types import SimpleNamespace
+
+    from asx.ingest import possession
+    from asx.ingest.detection import record_detection
+    from asx.ingest.mailbox import detection_from_email
+
+    raw = ("From: alerts@marketindex.com.au\n"
+           "Subject: XYZ - Change in Director's Interest Notice\n"
+           "Message-ID: <nonpdf@marketindex.com.au>\n"
+           "Date: Tue, 18 Aug 2026 09:35:00 +1000\n\n"
+           "Lodged 18/08/2026 9:30 AM\n"
+           "https://xyzlimited.com.au/investors/3y-aug26.pdf\n")
+    doc_id, _ = record_detection(conn, detection_from_email(
+        _email.message_from_string(raw)))
+    conn.commit()
+
+    monkeypatch.setattr(possession, "fetch", lambda url: SimpleNamespace(
+        content=b"<html><body>Please sign in</body></html>",
+        content_type="text/html", url=url))
+    stats = possession.fetch_ir_documents(conn)
+    assert stats["not_a_document"] == 1 and stats["captured"] == 0
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status, sha256 FROM documents WHERE doc_id = %s",
+                    (doc_id,))
+        row = cur.fetchone()
+    assert row["parse_status"] == "detected"   # still an open capture gap
+    assert row["sha256"] is None

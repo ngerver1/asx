@@ -15,6 +15,7 @@ later, and is an operational figure only — it never feeds analytics.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -34,12 +35,29 @@ class Detection:
     lodged_at: datetime | None = None       # ASX release timestamp
     detected_at: datetime | None = None     # when the alert reached us
     price_sensitive: bool | None = None
+    # Allowlisted company-IR links that automated capture may fetch.
     document_urls: list[str] = field(default_factory=list)
+    # Links only the owner may open. Recorded, never fetched.
+    manual_open_urls: list[str] = field(default_factory=list)
     asx_doc_types: list[str] = field(default_factory=list)
+    # False when the sender's expected format did not match, i.e. the fields
+    # above are a best guess at an email shape nobody has calibrated against.
+    format_recognised: bool = True
+    # Hash of the raw message, so an email without a Message-ID still has a
+    # stable identity.
+    raw_sha256: str | None = None
 
     def key(self) -> str:
-        """Stable identity for idempotent mailbox re-reads."""
-        basis = f"{self.detection_source}|{self.source_ref}|{self.ticker or ''}|{self.title or ''}"
+        """Stable identity for idempotent mailbox re-reads.
+
+        Keyed on the message's own identity — never on parser output. The
+        first version hashed ticker and title, which meant that calibrating
+        the per-sender rules against real emails (which CLAUDE.md requires,
+        and which has not happened yet) would change the key of every alert
+        already ingested and re-insert the lot as new detections. The email
+        is the same email whatever the parser later makes of it.
+        """
+        basis = f"{self.detection_source}|{self.source_ref or self.raw_sha256 or ''}"
         return hashlib.sha256(basis.encode()).hexdigest()
 
 
@@ -79,18 +97,28 @@ def record_detection(
     #   WHERE doc_class = '<class>' AND parse_status = 'not_applicable'
     #     AND sha256 IS NULL;
     status = "detected" if doc_class in parseable_doc_classes() else "not_applicable"
+
+    # Entity resolution uses the lodgement date where we have it. Where we do
+    # not, the alert's arrival date is used *as a lookup input only* — it is
+    # never written to lodged_at, because it is a fact about a different
+    # event (Invariant 2). Tickers move between entities rarely enough that a
+    # same-or-next-day lookup is safe, and a wrong resolution is caught by the
+    # unresolved-ticker review below rather than assumed away.
     entity_id = None
-    if detection.ticker and detection.lodged_at:
-        entity_id = entity_for_ticker(conn, detection.ticker,
-                                      market_date(detection.lodged_at))
+    if detection.ticker:
+        entity_id = entity_for_ticker(
+            conn, detection.ticker,
+            market_date(detection.lodged_at or detected_at),
+        )
 
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO documents
                  (source, source_ref, entity_id, ticker_as_lodged, title,
                   asx_doc_types, price_sensitive, lodged_at, doc_class,
-                  detection_source, detected_at, detection_key, parse_status)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                  detection_source, detected_at, detection_key, parse_status,
+                  manual_open_urls, fetch_candidate_urls)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (detection_key) WHERE detection_key IS NOT NULL
                  DO NOTHING
                RETURNING doc_id""",
@@ -98,14 +126,104 @@ def record_detection(
              detection.ticker, detection.title,
              detection.asx_doc_types or None, detection.price_sensitive,
              detection.lodged_at, doc_class, detection.detection_source,
-             detected_at, detection.key(), status),
+             detected_at, detection.key(), status,
+             detection.manual_open_urls or None,
+             detection.document_urls or None),
         )
         row = cur.fetchone()
-        if row is not None:
-            return row["doc_id"], True
-        cur.execute("SELECT doc_id FROM documents WHERE detection_key = %s",
-                    (detection.key(),))
-        return cur.fetchone()["doc_id"], False
+        if row is None:
+            cur.execute(
+                """SELECT doc_id, ticker_as_lodged, title FROM documents
+                   WHERE detection_key = %s""",
+                (detection.key(),),
+            )
+            existing = cur.fetchone()
+            _flag_key_collision(conn, detection, existing)
+            return existing["doc_id"], False
+        doc_id = row["doc_id"]
+
+    _queue_detection_reviews(conn, detection, doc_id, entity_id)
+    return doc_id, True
+
+
+def _flag_key_collision(conn: psycopg.Connection, detection: Detection,
+                        existing: dict) -> None:
+    """Two different announcements arriving under one detection key.
+
+    The key is the message's identity (its Message-ID), which is what makes
+    re-reads idempotent across transports — the same alert read over IMAP and
+    from a saved .eml must not become two detections. The cost is that a
+    sender which reuses a Message-ID would silently swallow the second
+    announcement, so a key hit whose ticker or title disagrees with the stored
+    row is reported rather than quietly dropped.
+    """
+    if existing is None:
+        return
+    same_ticker = (existing["ticker_as_lodged"] or None) == (detection.ticker or None)
+    same_title = (existing["title"] or None) == (detection.title or None)
+    if same_ticker and same_title:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO review_items (kind, doc_id, payload, reason)
+               SELECT 'detection', %s, %s, %s
+               WHERE NOT EXISTS (
+                 SELECT 1 FROM review_items
+                 WHERE doc_id = %s AND resolved_at IS NULL
+                   AND reason LIKE 'two different announcements%%')""",
+            (existing["doc_id"],
+             json.dumps({"stored": {"ticker": existing["ticker_as_lodged"],
+                                    "title": existing["title"]},
+                         "incoming": {"ticker": detection.ticker,
+                                      "title": detection.title},
+                         "source_ref": detection.source_ref}),
+             "two different announcements arrived under one message identity "
+             f"({detection.source_ref!r}). Only the first was recorded. Open "
+             f"the mailbox and capture the second by hand.",
+             existing["doc_id"]),
+        )
+
+
+def _queue_detection_reviews(conn: psycopg.Connection, detection: Detection,
+                             doc_id: int, entity_id: int | None) -> None:
+    """Raise a review item for anything about this alert we could not read.
+
+    Detection is the mechanism that makes gaps visible (Invariant 7). An alert
+    the ingester could not understand must therefore be *loud*: silently
+    recording a half-read detection produces a row that looks deliberate and
+    is never revisited.
+    """
+    problems = []
+    if not detection.format_recognised:
+        problems.append(
+            "the sender's expected subject format did not match, so the "
+            "ticker and title are guesses and the email may describe SEVERAL "
+            "announcements of which only one was recorded"
+        )
+    if detection.ticker and entity_id is None:
+        problems.append(
+            f"ticker {detection.ticker!r} does not resolve to exactly one "
+            f"listed entity on that date"
+        )
+    if not detection.ticker:
+        problems.append("no ticker could be read from the alert")
+    if not problems:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO review_items (kind, doc_id, payload, reason)
+               VALUES ('detection', %s, %s, %s)""",
+            (doc_id,
+             json.dumps({"detection_source": detection.detection_source,
+                         "source_ref": detection.source_ref,
+                         "ticker": detection.ticker,
+                         "title": detection.title,
+                         "manual_open_urls": detection.manual_open_urls}),
+             "alert email only partly understood: " + "; ".join(problems)
+             + ". Open it and, if the parse is wrong, fix SENDER_RULES and "
+               "re-run — the detection key is the message identity, so "
+               "re-reading will not duplicate."),
+        )
 
 
 def open_detections(
