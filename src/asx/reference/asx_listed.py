@@ -539,7 +539,7 @@ def apply_listing_snapshot(
                      (entity_id, as_at, ticker, market_cap_aud, sector,
                       listing_date, source_load_id)
                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (entity_id, as_at) DO UPDATE SET
+                   ON CONFLICT (entity_id, as_at, ticker) DO UPDATE SET
                      market_cap_aud = EXCLUDED.market_cap_aud,
                      sector = EXCLUDED.sector,
                      listing_date = EXCLUDED.listing_date""",

@@ -371,15 +371,24 @@ def test_second_code_under_a_different_name_is_refused_not_merged(
 def test_dual_class_codes_still_share_one_entity(conn, asic_loaded):
     """The guard must not break genuine dual-class listings, where the
     publisher prints the same company name against both codes."""
-    _snapshot(conn, [ListedCompany("XYZ", "Xyz Mining Limited"),
-                     ListedCompany("XYZN", "Xyz Mining Limited")],
+    _snapshot(conn, [ListedCompany("XYZ", "Xyz Mining Limited", market_cap_aud=5e7),
+                     ListedCompany("XYZN", "Xyz Mining Limited", market_cap_aud=5e7)],
               date(2026, 8, 18), asic_loaded.load_id)
     with conn.cursor() as cur:
         cur.execute(
             "SELECT ticker, entity_id FROM listings WHERE valid_to IS NULL ORDER BY ticker"
         )
         rows = {r["ticker"]: r["entity_id"] for r in cur.fetchall()}
+        # ...and each code keeps its own snapshot. Keyed per entity, the second
+        # code overwrote the first and four real codes read as "market cap
+        # unknown" on a size screen.
+        cur.execute(
+            "SELECT ticker, market_cap_aud FROM listing_snapshots ORDER BY ticker"
+        )
+        snaps = {r["ticker"]: r["market_cap_aud"] for r in cur.fetchall()}
     assert rows["XYZ"] == rows["XYZN"]
+    assert set(snaps) == {"XYZ", "XYZN"}
+    assert all(v == 5e7 for v in snaps.values())
 
 
 # --- registration type discriminates issuers from their subsidiaries ------
