@@ -46,6 +46,10 @@ class Detection:
     # Hash of the raw message, so an email without a Message-ID still has a
     # stable identity.
     raw_sha256: str | None = None
+    # Issuer name as the alert states it — a cross-check on the ticker.
+    company_name: str | None = None
+    # The ASX announcement number, where the alert exposes it.
+    announcement_id: str | None = None
 
     def key(self) -> str:
         """Stable identity for idempotent mailbox re-reads.
@@ -57,7 +61,13 @@ class Detection:
         already ingested and re-insert the lot as new detections. The email
         is the same email whatever the parser later makes of it.
         """
-        basis = f"{self.detection_source}|{self.source_ref or self.raw_sha256 or ''}"
+        if self.announcement_id:
+            # The ASX's own number, when the source exposes it. Identical
+            # across providers and across resends, so the same lodgement
+            # reported twice is one detection.
+            basis = f"asx_announcement|{self.announcement_id}"
+        else:
+            basis = f"{self.detection_source}|{self.source_ref or self.raw_sha256 or ''}"
         return hashlib.sha256(basis.encode()).hexdigest()
 
 
@@ -87,8 +97,8 @@ def record_detection(
     from asx.parse.registry import parseable_doc_classes
 
     detected_at = detection.detected_at or datetime.now(timezone.utc)
-    doc_class, _method = classify(detection.title or "", detection.asx_doc_types,
-                                  llm=llm_classifier)
+    doc_class, method = classify(detection.title or "", detection.asx_doc_types,
+                                 llm=llm_classifier)
     # Only announcements a parser handles are worth the owner's capture time.
     # The rest are recorded (so completeness audits can still see they existed)
     # but land terminal, keeping the capture worklist to what matters. When a
@@ -117,8 +127,8 @@ def record_detection(
                  (source, source_ref, entity_id, ticker_as_lodged, title,
                   asx_doc_types, price_sensitive, lodged_at, doc_class,
                   detection_source, detected_at, detection_key, parse_status,
-                  manual_open_urls, fetch_candidate_urls)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                  manual_open_urls, fetch_candidate_urls, asx_announcement_id)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (detection_key) WHERE detection_key IS NOT NULL
                  DO NOTHING
                RETURNING doc_id""",
@@ -128,7 +138,8 @@ def record_detection(
              detection.lodged_at, doc_class, detection.detection_source,
              detected_at, detection.key(), status,
              detection.manual_open_urls or None,
-             detection.document_urls or None),
+             detection.document_urls or None,
+             detection.announcement_id),
         )
         row = cur.fetchone()
         if row is None:
@@ -142,7 +153,7 @@ def record_detection(
             return existing["doc_id"], False
         doc_id = row["doc_id"]
 
-    _queue_detection_reviews(conn, detection, doc_id, entity_id)
+    _queue_detection_reviews(conn, detection, doc_id, entity_id, method)
     return doc_id, True
 
 
@@ -185,7 +196,8 @@ def _flag_key_collision(conn: psycopg.Connection, detection: Detection,
 
 
 def _queue_detection_reviews(conn: psycopg.Connection, detection: Detection,
-                             doc_id: int, entity_id: int | None) -> None:
+                             doc_id: int, entity_id: int | None,
+                             classification_method: str = "rules") -> None:
     """Raise a review item for anything about this alert we could not read.
 
     Detection is the mechanism that makes gaps visible (Invariant 7). An alert
@@ -207,6 +219,13 @@ def _queue_detection_reviews(conn: psycopg.Connection, detection: Detection,
         )
     if not detection.ticker:
         problems.append("no ticker could be read from the alert")
+    if classification_method == "ambiguous":
+        problems.append(
+            f"the title {detection.title!r} discloses someone's interest in "
+            f"securities but is not a standard director appendix, so it was "
+            f"filed as 'other' — which means no parser will ever look at it. "
+            f"Decide whether this class carries signal worth a parser"
+        )
     if not problems:
         return
     with conn.cursor() as cur:

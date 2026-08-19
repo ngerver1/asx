@@ -8,11 +8,30 @@ The ingester parses this mailbox only. It never follows an asx.com.au link
 found in an email: those URLs are recorded on the detection so the owner can
 open them personally, and the fetch guard raises if any code tries.
 
-**Per-sender parsing needs calibration against real emails.** The extractors
-below are deliberately conservative heuristics: ticker, title, lodgement time
-and links, with anything unreadable left None rather than guessed (Invariant
-8 at field level). Once real alerts are flowing, tighten `SENDER_RULES` per
-sender and add fixtures — do not loosen the "leave it None" behaviour.
+**Market Index is calibrated** against five real alerts saved 2026-08-19
+(fixtures/mailbox/, pinned by tests/test_marketindex_gold.py). Its real
+format, none of which the pre-calibration guesses handled:
+
+    Subject: ASX:{TICKER} - {Announcement|Sensitive Ann}: {title}
+    Body:    Published: DD/MM/YY, HH:MMam (AEST)        two-digit year
+             | {Company Name} ({TICKER})
+             <.../asx/{code}/announcements/{slug}-{ASX_ID}?utm_...>
+
+Three things that only real email revealed:
+
+- "Sensitive Ann" in the subject is the ASX **price-sensitive** flag, a
+  column nothing was populating.
+- One announcement per email. The digest worry is answered: no detection is
+  being lost to several announcements collapsing into one row.
+- **Every link in the HTML part is a Mandrill click-tracker.** Fetching one
+  would register a click with the provider's ESP — a side effect on someone
+  else's system — so URLs are read from the text/plain part, where they are
+  real but hard-wrapped across lines and must be rejoined.
+
+Every other sender is still uncalibrated. Their extractors stay conservative
+heuristics that leave anything unreadable as None rather than guessing
+(Invariant 8 at field level); tighten them the same way, against fixtures,
+and do not loosen the "leave it None" behaviour.
 """
 
 from __future__ import annotations
@@ -51,9 +70,19 @@ _TICKER_STOPWORDS = frozenset({
 _URL_RE = re.compile(r"https?://[^\s<>\"')]+")
 # "14/08/2026 9:30 AM" / "14 Aug 2026 09:30" style stamps in alert bodies.
 _DATETIME_RES = [
+    # Market Index: "Published: 18/08/26, 05:37pm (AEST)". Two-digit year,
+    # no space before the meridiem. The pre-calibration pattern required a
+    # four-digit year and so matched nothing, leaving every lodgement time
+    # unknown.
+    re.compile(r"(\d{1,2}/\d{1,2}/\d{2})[,\s]+(\d{1,2}:\d{2})\s*([AaPp][Mm])"),
     re.compile(r"(\d{1,2}/\d{1,2}/\d{4})[,\s]+(\d{1,2}:\d{2})\s*([AaPp][Mm])?"),
     re.compile(r"(\d{1,2}\s+\w{3,9}\s+\d{4})[,\s]+(\d{1,2}:\d{2})"),
 ]
+
+# "| AXP Energy Ltd (AXP)" in the alert body.
+_COMPANY_RE = re.compile(r"\|\s*([^|()\n]{3,90}?)\s*\(([A-Z0-9]{2,6})\)")
+# The ASX announcement number on the end of a Market Index announcement slug.
+_ANNOUNCEMENT_ID_RE = re.compile(r"-(\d[A-Z0-9]{6,})(?:$|[?#])")
 
 
 # Path fragments that mark a link as list-management rather than a document.
@@ -76,14 +105,26 @@ class SenderRule:
     # company's PDF, so links to these are never fetch candidates — they are
     # tracking redirects, "view announcement" pages and list management.
     own_hosts: tuple[str, ...] = ()
+    # A link on the provider's own site that the OWNER should open to reach
+    # the announcement. Recorded for the human, never fetched.
+    open_url_re: re.Pattern | None = None
 
 
 SENDER_RULES: list[SenderRule] = [
     SenderRule(
         detection_source="market_index_alert",
         from_contains="marketindex",
-        subject_re=re.compile(r"^(?P<ticker>[A-Z0-9]{3,6})\s*[-–:]\s*(?P<title>.+)$"),
+        # Calibrated against the real emails, not guessed. "Sensitive Ann"
+        # is the ASX price-sensitive marker.
+        subject_re=re.compile(
+            r"^ASX:(?P<ticker>[A-Z0-9]{2,6})\s*[-–]\s*"
+            r"(?P<kind>Announcement|Sensitive Ann)\s*:\s*(?P<title>.+)$"),
         own_hosts=("marketindex.com.au", "market-index.com.au"),
+        # The provider's announcement page is the owner's route to the
+        # document: these alerts carry no PDF and no asx.com.au link at all,
+        # so without it the capture worklist has nothing to open.
+        open_url_re=re.compile(
+            r"^https://www\.marketindex\.com\.au/asx/[a-z0-9]+/announcements/[^?#]+"),
     ),
     SenderRule(
         detection_source="listcorp_alert",
@@ -97,20 +138,48 @@ DEFAULT_RULE = SenderRule(detection_source="ir_email", from_contains="")
 
 
 def _body_text(msg: Message) -> str:
-    parts = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() in ("text/plain", "text/html"):
-                payload = part.get_payload(decode=True)
-                if payload:
-                    parts.append(payload.decode(part.get_content_charset() or "utf-8",
-                                                errors="replace"))
-    else:
-        payload = msg.get_payload(decode=True)
-        if payload:
-            parts.append(payload.decode(msg.get_content_charset() or "utf-8",
-                                        errors="replace"))
-    return "\n".join(parts)
+    """The message body, preferring text/plain.
+
+    A multipart/alternative message carries the SAME content twice. The
+    original concatenated both parts, which doubled every URL and let an HTML
+    attribute win a timestamp match over the real one. text/plain is also the
+    only place a Market Index alert's URLs appear untracked — see the module
+    docstring.
+    """
+    plain, html = [], []
+    for part in ([msg] if not msg.is_multipart() else msg.walk()):
+        ctype = part.get_content_type()
+        if ctype not in ("text/plain", "text/html"):
+            continue
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+        text = payload.decode(part.get_content_charset() or "utf-8",
+                              errors="replace")
+        (plain if ctype == "text/plain" else html).append(text)
+    return "\n".join(plain or html)
+
+
+def _urls_in(text: str) -> list[str]:
+    """URLs from a plain-text body.
+
+    Market Index wraps long URLs across lines inside angle brackets, so a
+    naive scan truncates them mid-path — losing the ASX announcement id on
+    the end. Bracketed URLs are rejoined first; bare ones are then collected.
+    """
+    urls, seen = [], set()
+    for raw in re.findall(r"<(https?://[^>]+)>", text):
+        url = re.sub(r"\s+", "", raw)
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+    stripped = re.sub(r"<https?://[^>]+>", " ", text)
+    for url in _URL_RE.findall(stripped):
+        url = url.rstrip(".,;)")
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+    return urls
 
 
 def _parse_lodged_at(text: str) -> datetime | None:
@@ -123,7 +192,7 @@ def _parse_lodged_at(text: str) -> datetime | None:
             continue
         date_part, time_part = m.group(1), m.group(2)
         meridiem = m.group(3) if pattern.groups >= 3 and m.lastindex >= 3 else None
-        for fmt in ("%d/%m/%Y %I:%M %p", "%d/%m/%Y %H:%M",
+        for fmt in ("%d/%m/%y %I:%M %p", "%d/%m/%Y %I:%M %p", "%d/%m/%Y %H:%M",
                     "%d %B %Y %H:%M", "%d %b %Y %H:%M"):
             try:
                 stamp = f"{date_part} {time_part}" + (f" {meridiem.upper()}" if meridiem else "")
@@ -167,6 +236,15 @@ def partition_urls(urls: list[str], rule: SenderRule,
         if is_prohibited(url):
             manual.append(url)
             continue
+        # The provider's own announcement page. It is on a blocked host, so
+        # it is never a fetch candidate — but it IS the owner's route to the
+        # document, and these alerts contain no other. Tracking parameters
+        # are dropped so the stored link is stable and clean.
+        if rule.open_url_re:
+            m = rule.open_url_re.match(url)
+            if m and m.group(0) not in manual:
+                manual.append(m.group(0))
+                continue
         host = _url_host(url)
         if not url.lower().startswith("https://"):
             continue
@@ -203,6 +281,7 @@ def detection_from_email(msg: Message) -> Detection:
 
     subject = str(msg.get("Subject") or "").strip()
     ticker = title = None
+    price_sensitive = None
     subject_matched = False
     if rule.subject_re:
         m = rule.subject_re.match(subject)
@@ -211,6 +290,14 @@ def detection_from_email(msg: Message) -> Detection:
             groups = m.groupdict()
             ticker = groups.get("ticker")
             title = (groups.get("title") or "").strip() or None
+            # The ASX price-sensitive flag, which Market Index encodes as
+            # "Sensitive Ann" rather than "Announcement". Left None for any
+            # sender whose rule does not state it — absence of the marker is
+            # only evidence of "not sensitive" when the sender is known to
+            # emit it (Invariant 8).
+            kind = groups.get("kind")
+            if kind:
+                price_sensitive = kind.strip().lower().startswith("sensitive")
     if title is None:
         title = subject or None
     if ticker is None:
@@ -222,6 +309,11 @@ def detection_from_email(msg: Message) -> Detection:
     body = _body_text(msg)
     # Deliberately NOT falling back to the email Date header: see docstring.
     lodged_at = _parse_lodged_at(body) or _parse_lodged_at(subject)
+
+    company_name = None
+    cm = _COMPANY_RE.search(body)
+    if cm and (ticker is None or cm.group(2).upper() == (ticker or "").upper()):
+        company_name = cm.group(1).strip()
 
     detected_at = None
     if msg.get("Date"):
@@ -236,7 +328,18 @@ def detection_from_email(msg: Message) -> Detection:
         detected_at = detected_at.replace(tzinfo=timezone.utc)
 
     manual_open_urls, fetch_candidate_urls = partition_urls(
-        _URL_RE.findall(body), rule, sender_domain)
+        _urls_in(body), rule, sender_domain)
+
+    # The ASX announcement number, carried on the end of the provider's
+    # announcement slug. A far more stable identity than the ESP's
+    # Message-ID: it survives a resend and is the same number the ASX itself
+    # uses, so a document captured later can be tied back to this detection.
+    announcement_id = None
+    for url in manual_open_urls:
+        am = _ANNOUNCEMENT_ID_RE.search(url)
+        if am:
+            announcement_id = am.group(1)
+            break
 
     return Detection(
         detection_source=rule.detection_source,
@@ -245,6 +348,9 @@ def detection_from_email(msg: Message) -> Detection:
         title=title,
         lodged_at=lodged_at,
         detected_at=detected_at or datetime.now(timezone.utc),
+        price_sensitive=price_sensitive,
+        company_name=company_name,
+        announcement_id=announcement_id,
         manual_open_urls=manual_open_urls,
         document_urls=fetch_candidate_urls,
         format_recognised=subject_matched or rule is DEFAULT_RULE,

@@ -101,16 +101,51 @@ Three ways to close it, in order of preference:
 
 | Sender | Rule | Validated against real email? |
 |---|---|---|
-| `marketindex` | subject `TICKER - Title` | ☐ **not yet** |
-| `listcorp` | subject `TICKER - Title` | ☐ not yet |
-| anything else | `ir_email`, subject as title | ☐ not yet |
+| `marketindex` | `ASX:{TICKER} - {Announcement\|Sensitive Ann}: {title}` | ✅ **5 real alerts, 19 Aug 2026** — `fixtures/mailbox/`, pinned by `tests/test_marketindex_gold.py` |
+| `listcorp` | subject `TICKER - Title` | ☐ still a guess |
+| anything else | `ir_email`, subject as title | ☐ still a guess |
 
-Until a rule is validated, treat its ticker and title extraction as
-unproven. A wrong ticker attaches a detection to the wrong entity, which is
-an Invariant 1 failure, so the rules are written to fail to `None` rather
-than to a plausible-looking guess.
+### What the real Market Index format turned out to be
 
-The digest question is open and matters more than the rest: if Market Index
-sends **one email listing several announcements**, the current code reads it
-as a single detection and silently drops the others. That cannot be
-determined without a real email.
+```
+Subject: ASX:AXP - Announcement: Final Director's Interest Notice
+Body:    | AXP Energy Ltd (AXP)   Published: 18/08/26, 05:37pm (AEST)
+         <https://www.marketindex.com.au/asx/axp/announcements/
+          final-directors-interest-notice-2A1690214?utm_source=...>
+```
+
+**The digest question is answered: one announcement per email.** No detection
+is being lost to several announcements collapsing into one row.
+
+Three things only the real emails could have revealed:
+
+- **"Sensitive Ann" is the ASX price-sensitive flag.** `documents.price_sensitive`
+  existed and nothing populated it. It now carries the market's own
+  materiality marker, for free, at detection time.
+- **The announcement URL carries the ASX announcement number**
+  (`2A1690214`). That is a better identity than the email's Message-ID, which
+  belongs to Market Index's mail provider: the ASX number is the same across
+  providers and across resends, so it deduplicates where an ESP identifier
+  cannot. It is now the detection key.
+- **Every link in the HTML part is a Mandrill click-tracker.** Fetching one
+  would register a click on the provider's system — a side effect on someone
+  else's infrastructure, from a platform whose whole access posture is not
+  touching things it has no business touching. URLs are therefore read from
+  the plain-text part, where they are genuine but hard-wrapped across lines
+  and have to be rejoined before use.
+
+### One operational consequence
+
+Market Index alerts carry **no PDF and no asx.com.au link**. The only route
+from an alert to the document is their announcement page, which is now
+recorded as the capture link and printed by `asx worklist`:
+
+```
+    60  AXP     app_3z   2026-08-18 07:37  Final Director's Interest Notice
+          open: https://www.marketindex.com.au/asx/axp/announcements/...
+```
+
+So possession route 1 of the access decision (fetch from the company's own
+website) is fed by **company IR mailing lists, not by these alerts**. If you
+want that route to carry weight, subscribe to IR lists for the companies you
+follow; those emails do link directly to PDFs on company servers.

@@ -1,0 +1,64 @@
+{
+  "_note": [
+    "Hand-labelled expectations for real Market Index alert emails, saved",
+    "2026-08-19. These are the calibration set CLAUDE.md requires before the",
+    "per-sender rules are written. Every value here was read off the email by",
+    "eye, not produced by the parser.",
+    "",
+    "The recipient address is redacted to owner@example.com; nothing else is",
+    "altered. Times are the ASX release time as the alert states it, in",
+    "Sydney market time (SPEC §3), expressed here in UTC."
+  ],
+  "cases": [
+    {
+      "file": "marketindex_axp_final_directors_interest_notice.eml",
+      "ticker": "AXP",
+      "company_name": "AXP Energy Ltd",
+      "title": "Final Director's Interest Notice",
+      "price_sensitive": false,
+      "lodged_at_utc": "2026-08-18T07:37:00+00:00",
+      "announcement_id": "2A1690214",
+      "announcement_url": "https://www.marketindex.com.au/asx/axp/announcements/final-directors-interest-notice-2A1690214"
+    },
+    {
+      "file": "marketindex_aai_change_of_officers_interest_notice.eml",
+      "ticker": "AAI",
+      "company_name": "Alcoa Corporation",
+      "title": "Change of Officer's Interest Notice",
+      "price_sensitive": false,
+      "lodged_at_utc": "2026-08-18T22:02:00+00:00",
+      "announcement_id": "3A699072",
+      "announcement_url": "https://www.marketindex.com.au/asx/aai/announcements/change-of-officers-interest-notice-3A699072"
+    },
+    {
+      "file": "marketindex_rev_application_for_quotation.eml",
+      "ticker": "REV",
+      "company_name": "Revolution Private Credit Income Trust",
+      "title": "Application for quotation of securities - REV",
+      "price_sensitive": false,
+      "lodged_at_utc": "2026-08-19T00:19:00+00:00",
+      "announcement_id": "3A699142",
+      "announcement_url": "https://www.marketindex.com.au/asx/rev/announcements/application-for-quotation-of-securities-rev-3A699142"
+    },
+    {
+      "file": "marketindex_cp8_sensitive_drilling_result.eml",
+      "ticker": "CP8",
+      "company_name": "Canadian Phosphate Ltd",
+      "title": "Wapiti drilling intersects visual phosphate mineralisation",
+      "price_sensitive": true,
+      "lodged_at_utc": "2026-08-19T00:24:00+00:00",
+      "announcement_id": "2A1690396",
+      "announcement_url": "https://www.marketindex.com.au/asx/cp8/announcements/wapiti-drilling-intersects-visual-phosphate-mineralisation-2A1690396"
+    },
+    {
+      "file": "marketindex_arr_appoints_cco.eml",
+      "ticker": "ARR",
+      "company_name": "American Rare EARTHS Ltd",
+      "title": "ARR appoints Nick Lissolo as Chief Commercial Officer",
+      "price_sensitive": false,
+      "lodged_at_utc": "2026-08-18T23:52:00+00:00",
+      "announcement_id": "2A1690387",
+      "announcement_url": "https://www.marketindex.com.au/asx/arr/announcements/arr-appoints-nick-lissolo-as-chief-commercial-officer-2A1690387"
+    }
+  ]
+}

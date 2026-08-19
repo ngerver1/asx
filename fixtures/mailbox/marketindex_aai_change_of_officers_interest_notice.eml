@@ -1,0 +1,1312 @@
+Delivered-To: owner@example.com
+Received: by 2002:a05:6130:694d:b0:963:89d3:63e2 with SMTP id ji13csp1746621uab;
+        Tue, 18 Aug 2026 15:05:59 -0700 (PDT)
+X-Received: by 2002:a05:6820:1c9c:b0:6ac:bafb:bff5 with SMTP id 006d021491bc7-6b13c32f293mr467557eaf.11.1787090758838;
+        Tue, 18 Aug 2026 15:05:58 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1787090758; cv=none;
+        d=google.com; s=arc-20260327;
+        b=qN0MX0ONT2363gfOTX7KS0myeWTs1ypLoymHvgAxoJRPGf0+OcSi0rEMxi9Tx287u3
+         Y+Jel6ypN2xfC84M127vg1tT6zEurjP/K4ZAR3b4Rc766jit9ZoRXdEkeI/IUTUBNxRh
+         6tWIdocqvk2wfkL99Q69rGPv/CWqF4VhkhCApCuea9keem1sFoUqSpQZn9x2yQFNJBT4
+         ekbNnqdgDDyK1X7z/kuBYFIJzzSO7MQQGbRUFNTxD8dwE2CSa2bIi0MygsppC+poDbPc
+         s5bODkrJkK5eKbbi1vkXVcSUdsDPKM6F/i5y8qOltVyaXArGQw5YA1zRPsCtcN/gfAn9
+         52iw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=mime-version:date:message-id:feedback-id:to:subject:from
+         :dkim-signature:dkim-signature;
+        bh=GIl6oAiAaos9hdw24PPgZ9MEy889OGEGKqiSbthnAL4=;
+        fh=e6swL/Rhv+CONVXuy4UibTEZmoi0UwDCxna1C7b/5NU=;
+        b=KEQbuvN5kU30WazlP5dKUnDaL3zA32kudMosCO4zraHdV6r8LyiLLUJrZBW3dv2ZkJ
+         Dl6lix8o5pM7kshqee+Mkmav0kkF1J3f1WLdZfhNhDAO6U/4TpIVT8yLXs8XGCmZY1tl
+         4Bk4ZwBSLTlv9KQrUPTqM7i8wzwSjmMVUOlUdGeCCAMF7zxrBgRjgm1czPbHoimyg93M
+         uxAcFEbNjPic62CRRPk41YiE3uxLT2QL4NDqYSJEgTu5Ioa80cwsATbVn2ST4BqEut28
+         8MX8IiE6hlRR4c4MzV+66aDpalf/BwCQurD0uI9TgDhGGBlw4egUoeVpehAXGBldxGrI
+         glKA==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@mandrillapp.com header.s=mte1 header.b="D7vQGcV/";
+       dkim=pass header.i=@marketindex.com.au header.s=mte1 header.b=nefpVtSF;
+       spf=pass (google.com: domain of bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com designates 198.2.177.5 as permitted sender) smtp.mailfrom=bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=marketindex.com.au
+Return-Path: <bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com>
+Received: from mail177-5.suw61.mandrillapp.com (mail177-5.suw61.mandrillapp.com. [198.2.177.5])
+        by mx.google.com with ESMTPS id 586e51a60fabf-45f22f0640esi6949097fac.357.2026.08.18.15.05.58
+        for <owner@example.com>
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 18 Aug 2026 15:05:58 -0700 (PDT)
+Received-SPF: pass (google.com: domain of bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com designates 198.2.177.5 as permitted sender) client-ip=198.2.177.5;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@mandrillapp.com header.s=mte1 header.b="D7vQGcV/";
+       dkim=pass header.i=@marketindex.com.au header.s=mte1 header.b=nefpVtSF;
+       spf=pass (google.com: domain of bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com designates 198.2.177.5 as permitted sender) smtp.mailfrom=bounce-md_31137204.6a84d746.v1-0319c25f7bb84c68b2b4a7d3dbd712aa@mandrillapp.com;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=marketindex.com.au
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=mandrillapp.com;
+	s=mte1; t=1787090758; x=1787360758;
+	bh=GIl6oAiAaos9hdw24PPgZ9MEy889OGEGKqiSbthnAL4=;
+	h=From:Subject:To:Feedback-ID:Message-Id:Date:MIME-Version:
+	 Content-Type:CC:Date:Subject:From;
+	b=D7vQGcV/rqZV5GyHaKKOq/pPX0JbD0gP+/M+PaPqf9/gDSAYXaz6gTXAE0SWwmtNw
+	 yebUlaHO3rZkOsE0LHiv2rguAjUST9MvsM/BB8PbBciyES7vaNdPH0U4LagU/IVfQn
+	 JKlIG1L/Qsn3ouJ82fNUzETR224i1HHjnGZIokMqlv15TLhdXqDRVwhOLpfzWO+vpH
+	 wzNQzLyp2k/pEHS2EvaFHUTf8l26SBJ7f0b18m1drsEH3C33AZqw+0Ri8IDzAusu0n
+	 PShRX0VcrHeET+FJB6RxV9Ir169o95ggZ5hKOArsVIdkQvr/yqeKuzQIfKUVXG8IDK
+	 ZMYKiWGhTO2xA==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=marketindex.com.au;
+	s=mte1; t=1787090758; x=1787351258; i=no-reply@marketindex.com.au;
+	bh=GIl6oAiAaos9hdw24PPgZ9MEy889OGEGKqiSbthnAL4=;
+	h=From:Subject:To:Feedback-ID:Message-Id:Date:MIME-Version:
+	 Content-Type:CC:Date:Subject:From;
+	b=nefpVtSFsXupA85Q7i7esRMRWwhfRv0vFkyFFpOeRNX1b4YakkBOBIEkUTqNAihOf
+	 Jikg7VzkqeqnCwRhnPY8a+BnqwacqiDQomOlrLHYbD3mLqtrY0vI4tgVviJVCNOU9Z
+	 U9S6i8Kb+ihOsnhzgNA+RIDCsF6hlVSvVGpAFM1J4jeYt5b39LS9l2J3G1LhdIbfhT
+	 2P8Q/CtE0tCZdRaMTyYPaUYJgm8BVEoETp0jtTZhyhj2g7yxt/KTlBj5zmdANqC7Nc
+	 D73RWMWGZTduMS7EfHzJxLOU4otE+Q1ZAaWfvgaGwhowGrjZy9AO/+uVWlPCy7V7e9
+	 n9a3VDAzR62tA==
+Received: from mta007-md-use2.delv.a.intuit.com (localhost [127.0.0.1])
+	by mail177-5.suw61.mandrillapp.com (Mailchimp) with ESMTP id 4hPkKy3pfmzdpJ
+	for <owner@example.com>; Tue, 18 Aug 2026 22:05:58 +0000 (UTC)
+From: "Market Index Alerts" <no-reply@marketindex.com.au>
+Subject: =?utf-8?Q?ASX:AAI=20-=20Announcement:=20Change=20of=20Officer's=20Interest=20Notice?=
+Received: from [52.65.21.146] by mandrillapp.com id 0319c25f7bb84c68b2b4a7d3dbd712aa; Tue, 18 Aug 2026 22:05:58 +0000
+To: owner@example.com
+X-Native-Encoded: 1
+X-Report-Abuse: =?UTF-8?Q?Please=20forward=20a=20copy=20of=20this=20message,=20including=20all=20headers,=20to=20abuse@mandrill.com.=20You=20can=20also=20report=20abuse=20here:=20https://mandrillapp.com/contact/abuse=3Fid=3D31137204.0319c25f7bb84c68b2b4a7d3dbd712aa?=
+X-Mandrill-User: md_31137204
+Feedback-ID: 31137204:31137204.20260818:md
+Message-Id: <31137204.20260818220558.6a84d7467aaca3.65316750@mail177-5.suw61.mandrillapp.com>
+Date: Tue, 18 Aug 2026 22:05:58 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="_av-VFTO-4mL9Ke7Ka-FEHw6ZA"
+
+--_av-VFTO-4mL9Ke7Ka-FEHw6ZA
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+         ASX:AAI - Announcement: Change of Officer's Interest Notice       
+                                                    *AAI*
+<https://www.marketindex.com.au/asx/aai?utm_source=3Demail_alerts&amp;utm_m=
+edium=3Demail&amp;utm_campaign=3Dasx_announcement&amp;utm_content=3Dcompany=
+_profile_link&amp;utm_term=3Dstandard_asx_announcement>
+| Alcoa Corporation (AAI)                               * Change of
+Officer's Interest Notice*                   Published: 19/08/26, 08:02am
+(AEST) =E2=80=A2 1min read | 1 pages                                       =
+Read
+Full Announcement
+<https://www.marketindex.com.au/asx/aai/announcements/change-of-officers-in=
+terest-notice-3A699072?utm_source=3Demail_alerts&amp;utm_medium=3Demail&amp=
+;utm_campaign=3Dasx_announcement&amp;utm_content=3Dread_full_announcement_b=
+utton&amp;utm_term=3Dstandard_asx_announcement>
+                                    *We Value Your Feedback*               
+     Your input is essential to helping us improve your investing
+experience. If you have any feedback or suggestions, please take a moment
+to complete our *feedback form*
+<https://surveys.hotjar.com/45a63892-f5a1-4d3b-91de-94fb7effe3ec>.         
+                             *Don't want to receive these Alerts?*         
+          Add or remove company alerts at any time from *Alerts
+preferences*
+<https://www.marketindex.com.au/alerts?utm_source=3Demail_alerts&amp;utm_me=
+dium=3Demail&amp;utm_campaign=3Duser_preferences&amp;utm_content=3Dbody_ale=
+rt_preferences_link>
+in your dashboard. <https://www.facebook.com/MarketIndexAU>=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0
+<https://www.linkedin.com/company/80092241/admin/>=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0
+<https://twitter.com/marketindexau>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+<https://www.marketindex.com.au/>              Want to change what Alerts
+you receive?
+ *Update Alert Preferences*
+<https://www.marketindex.com.au/alerts?utm_source=3Demail_alerts&amp;utm_me=
+dium=3Demail&amp;utm_campaign=3Duser_preferences&amp;utm_content=3Dfooter_a=
+lert_preferences_link>
+   If you'd like to change your email address, please reply to this email
+and let us know
+ Our mailing address is: Market Index Level 1, 26 Railway Rd SUBIACO, WA
+6008 Australia
+ Copyright =C2=A9 2026 Market Index, All rights reserved.
+
+--_av-VFTO-4mL9Ke7Ka-FEHw6ZA
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!doctype html>
+<html xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:schemas-microso=
+ft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:office">
+   <head>
+      <!-- NAME: 1 COLUMN -->
+      <!--[if gte mso 15]>
+      <xml>
+         <o:OfficeDocumentSettings>
+            <o:AllowPNG/>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+         </o:OfficeDocumentSettings>
+      </xml>
+      <![endif]-->
+      <meta charset=3D"UTF-8">
+      <meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">
+      <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scal=
+e=3D1">
+      <title>ASX:AAI - Announcement: Change of Officer's Interest Notice</t=
+itle>
+      <style type=3D"text/css">
+         p{
+         margin:10px 0;
+         padding:0;
+         }
+         table{
+         border-collapse:collapse;
+         }
+         h1,h2,h3,h4,h5,h6{
+         display:block;
+         margin:0;
+         padding:0;
+         }
+         img,a img{
+         border:0;
+         height:auto;
+         outline:none;
+         text-decoration:none;
+         max-width: 600px;
+         }
+         body,#bodyTable,#bodyCell{
+         height:100%;
+         margin:0;
+         padding:0;
+         width:100%;
+         }
+         .mcnPreviewText{
+         display:none !important;
+         }
+         #outlook a{
+         padding:0;
+         }
+         img{
+         -ms-interpolation-mode:bicubic;
+         }
+         table{
+         mso-table-lspace:0pt;
+         mso-table-rspace:0pt;
+         }
+         .ReadMsgBody{
+         width:100%;
+         }
+         .ExternalClass{
+         width:100%;
+         }
+         p,a,li,td,blockquote{
+         mso-line-height-rule:exactly;
+         }
+         a[href^=3Dtel],a[href^=3Dsms]{
+         color:inherit;
+         cursor:default;
+         text-decoration:none;
+         }
+         p,a,li,td,body,table,blockquote{
+         -ms-text-size-adjust:100%;
+         -webkit-text-size-adjust:100%;
+         }
+         .ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass d=
+iv,.ExternalClass span,.ExternalClass font{
+         line-height:100%;
+         }
+         a[x-apple-data-detectors]{
+         color:inherit !important;
+         text-decoration:none !important;
+         font-size:inherit !important;
+         font-family:inherit !important;
+         font-weight:inherit !important;
+         line-height:inherit !important;
+         }
+         /* #bodyCell{
+         padding:10px;
+         } */
+         .templateContainer{
+         max-width:600px !important;
+         }
+         a.mcnButton{
+         display:block;
+         }
+         .mcnImage,.mcnRetinaImage{
+         vertical-align:bottom;
+         }
+         .mcnTextContent{
+         word-break:break-word;
+         }
+         .mcnTextContent img{
+         height:auto !important;
+         }
+         .mcnDividerBlock{
+         table-layout:fixed !important;
+         }
+         /*
+         @tab Page
+         @section Background Style
+         @tip Set the background color and top border for your email. You m=
+ay want to choose colors that match your company's branding.
+         */
+         body,#bodyTable{
+         /*@editable*/background-color:#F7FAFC;
+         }
+         /*
+         @tab Page
+         @section Background Style
+         @tip Set the background color and top border for your email. You m=
+ay want to choose colors that match your company's branding.
+         */
+         #bodyCell{
+         /*@editable*/border-top:0;
+         }
+         /*
+         @tab Page
+         @section Email Border
+         @tip Set the border for your email.
+         */
+         .templateContainer{
+         /*@editable*/border:0;
+         }
+         /*
+         @tab Preheader
+         @section Preheader Style
+         @tip Set the background color and borders for your email's prehead=
+er area.
+         */
+         #templatePreheader{
+         /*@editable*/background-color:#fafafa;
+         /*@editable*/background-image:none;
+         /*@editable*/background-repeat:no-repeat;
+         /*@editable*/background-position:center;
+         /*@editable*/background-size:cover;
+         /*@editable*/border-top:0;
+         /*@editable*/border-bottom:0;
+         /*@editable*/padding-top:0px;
+         /*@editable*/padding-bottom:0px;
+         }
+         /*
+         @tab Preheader
+         @section Preheader Text
+         @tip Set the styling for your email's preheader text. Choose a siz=
+e and color that is easy to read.
+         */
+         #templatePreheader .mcnTextContent,#templatePreheader .mcnTextCont=
+ent p{
+         /*@editable*/color:#656565;
+         /*@editable*/font-family:Arial;
+         /*@editable*/font-size:12px;
+         /*@editable*/line-height:150%;
+         /*@editable*/text-align:left;
+         }
+         /*
+         @tab Preheader
+         @section Preheader Link
+         @tip Set the styling for your email's preheader links. Choose a co=
+lor that helps them stand out from your text.
+         */
+         #templatePreheader .mcnTextContent a,#templatePreheader .mcnTextCo=
+ntent p a{
+         /*@editable*/color:#656565;
+         /*@editable*/font-weight:normal;
+         /*@editable*/text-decoration:underline;
+         }
+         /*
+         @tab Header
+         @section Header Style
+         @tip Set the background color and borders for your email's header =
+area.
+         */
+         #templateHeader{
+         /*@editable*/background-color:#ffffff;
+         /*@editable*/background-image:none;
+         /*@editable*/background-repeat:no-repeat;
+         /*@editable*/background-position:center;
+         /*@editable*/background-size:cover;
+         /*@editable*/border-top:0;
+         /*@editable*/border-bottom:0;
+         /*@editable*/padding-top:0px;
+         /*@editable*/padding-bottom:0;
+         }
+         /*
+         @tab Header
+         @section Header Text
+         @tip Set the styling for your email's header text. Choose a size a=
+nd color that is easy to read.
+         */
+         #templateHeader .mcnTextContent,#templateHeader .mcnTextContent p{
+         /*@editable*/color:#202020;
+         /*@editable*/font-family:Arial;
+         /*@editable*/font-size:16px;
+         /*@editable*/line-height:150%;
+         /*@editable*/text-align:left;
+         }
+         /*
+         @tab Header
+         @section Header Link
+         @tip Set the styling for your email's header links. Choose a color=
+ that helps them stand out from your text.
+         */
+         #templateHeader .mcnTextContent a,#templateHeader .mcnTextContent =
+p a{
+         /*@editable*/color:#007C89;
+         /*@editable*/font-weight:normal;
+         /*@editable*/text-decoration:underline;
+         }
+         /*
+         @tab Body
+         @section Body Style
+         @tip Set the background color and borders for your email's body ar=
+ea.
+         */
+         #templateBody{
+         /*@editable*/background-color:#ffffff;
+         /*@editable*/background-image:none;
+         /*@editable*/background-repeat:no-repeat;
+         /*@editable*/background-position:center;
+         /*@editable*/background-size:cover;
+         /*@editable*/border-top:0;
+         /*@editable*/border-bottom:2px none #EAEAEA;
+         /*@editable*/padding-top:0;
+         /*@editable*/padding-bottom:9px;
+         }
+         /*
+         @tab Body
+         @section Body Text
+         @tip Set the styling for your email's body text. Choose a size and=
+ color that is easy to read.
+         */
+         #templateBody .mcnTextContent,#templateBody .mcnTextContent p{
+         /*@editable*/color:#202020;
+         /*@editable*/font-family:Arial;
+         /*@editable*/font-size:16px;
+         /*@editable*/line-height:150%;
+         /*@editable*/text-align:left;
+         }
+         /*
+         @tab Body
+         @section Body Link
+         @tip Set the styling for your email's body links. Choose a color t=
+hat helps them stand out from your text.
+         */
+         #templateBody .mcnTextContent a,#templateBody .mcnTextContent p a{
+         /*@editable*/color:#007C89;
+         /*@editable*/font-weight:normal;
+         /*@editable*/text-decoration:underline;
+         }
+         /*
+         @tab Footer
+         @section Footer Style
+         @tip Set the background color and borders for your email's footer =
+area.
+         */
+         #templateFooter{
+         /*@editable*/background-color:#FAFAFA;
+         /*@editable*/background-image:none;
+         /*@editable*/background-repeat:no-repeat;
+         /*@editable*/background-position:center;
+         /*@editable*/background-size:cover;
+         /*@editable*/border-top:0;
+         /*@editable*/border-bottom:0;
+         /*@editable*/padding-top:9px;
+         /*@editable*/padding-bottom:9px;
+         }
+         /*
+         @tab Footer
+         @section Footer Text
+         @tip Set the styling for your email's footer text. Choose a size a=
+nd color that is easy to read.
+         */
+         #templateFooter .mcnTextContent,#templateFooter .mcnTextContent p{
+         /*@editable*/color:#656565;
+         /*@editable*/font-family:Arial;
+         /*@editable*/font-size:12px;
+         /*@editable*/line-height:150%;
+         /*@editable*/text-align:center;
+         }
+         /*
+         @tab Footer
+         @section Footer Link
+         @tip Set the styling for your email's footer links. Choose a color=
+ that helps them stand out from your text.
+         */
+         #templateFooter .mcnTextContent a,#templateFooter .mcnTextContent =
+p a{
+         /*@editable*/color:#656565;
+         /*@editable*/font-weight:normal;
+         /*@editable*/text-decoration:underline;
+         }
+         .mcnMainHeading {
+          font-size: 32px !important;
+          line-height:36px !important;
+         }
+         .mcnFeaturedHeading {
+          font-size: 24px !important;
+          line-height: 31px !important; 
+         }
+         @media only screen and (min-width:768px){
+          #bodyCell{
+            padding: 20px 10px 10px;
+          }
+          table {
+            max-width: 600px !important; 
+          }
+          .templateContainer{
+            width:600px !important;
+            max-width: 600px !important;
+          }
+         }=09@media only screen and (max-width: 480px){
+         body,table,td,p,a,li,blockquote{
+         -webkit-text-size-adjust:none !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         body{
+         width:100% !important;
+         min-width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnRetinaImage{
+         max-width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImage{
+         width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnCartContainer,.mcnCaptionTopContent,.mcnRecContentContainer,.m=
+cnCaptionBottomContent,.mcnTextContentContainer,.mcnBoxedTextContentContain=
+er,.mcnImageGroupContentContainer,.mcnCaptionLeftTextContentContainer,.mcnC=
+aptionRightTextContentContainer,.mcnCaptionLeftImageContentContainer,.mcnCa=
+ptionRightImageContentContainer,.mcnImageCardLeftTextContentContainer,.mcnI=
+mageCardRightTextContentContainer,.mcnImageCardLeftImageContentContainer,.m=
+cnImageCardRightImageContentContainer{
+         max-width:100% !important;
+         width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnBoxedTextContentContainer{
+         min-width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageGroupContent{
+         padding:9px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnCaptionLeftContentOuter .mcnTextContent,.mcnCaptionRightConten=
+tOuter .mcnTextContent{
+         padding-top:9px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageCardTopImageContent,.mcnCaptionBottomContent:last-child .=
+mcnCaptionBottomImageContent,.mcnCaptionBlockInner .mcnCaptionTopContent:la=
+st-child .mcnTextContent{
+         padding-top:18px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageCardBottomImageContent{
+         padding-bottom:9px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageGroupBlockInner{
+         padding-top:0 !important;
+         padding-bottom:0 !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageGroupBlockOuter{
+         padding-top:9px !important;
+         padding-bottom:9px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnTextContent,.mcnBoxedTextContentColumn{
+         padding-right:36px !important;
+         padding-left:36px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcnImageCardLeftImageContent,.mcnImageCardRightImageContent{
+         padding-right:36px !important;
+         padding-bottom:0 !important;
+         padding-left:36px !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         .mcpreview-image-uploader{
+         display:none !important;
+         width:100% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+          .mcnMainHeading {
+            font-size: 24px !important;
+            line-height: 31px !important;
+          }
+          .mcnFeaturedHeading {
+            font-size: 22px !important;
+            line-height: 28px !important;
+          }
+         } @media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Boxed Text
+         @tip Make the boxed text larger in size for better readability on =
+small screens. We recommend a font size of at least 16px.
+         */
+         .mcnBoxedTextContentContainer .mcnTextContent,.mcnBoxedTextContent=
+Container .mcnTextContent p{
+         /*@editable*/font-size:14px !important;
+         /*@editable*/line-height:150% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Preheader Visibility
+         @tip Set the visibility of the email's preheader on small screens.=
+ You can hide it to save space.
+         */
+         #templatePreheader{
+         /*@editable*/display:block !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Preheader Text
+         @tip Make the preheader text larger in size for better readability=
+ on small screens.
+         */
+         #templatePreheader .mcnTextContent,#templatePreheader .mcnTextCont=
+ent p{
+         /*@editable*/font-size:14px !important;
+         /*@editable*/line-height:150% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Header Text
+         @tip Make the header text larger in size for better readability on=
+ small screens.
+         */
+         #templateHeader .mcnTextContent,#templateHeader .mcnTextContent p{
+         /*@editable*/font-size:16px !important;
+         /*@editable*/line-height:150% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Body Text
+         @tip Make the body text larger in size for better readability on s=
+mall screens. We recommend a font size of at least 16px.
+         */
+         #templateBody .mcnTextContent,#templateBody .mcnTextContent p{
+         /*@editable*/font-size:16px !important;
+         /*@editable*/line-height:150% !important;
+         }
+         }=09@media only screen and (max-width: 480px){
+         /*
+         @tab Mobile Styles
+         @section Footer Text
+         @tip Make the footer content text larger in size for better readab=
+ility on small screens.
+         */
+         #templateFooter .mcnTextContent,#templateFooter .mcnTextContent p{
+         /*@editable*/font-size:14px !important;
+         /*@editable*/line-height:150% !important;
+         }
+         }
+      </style>
+   </head>
+   <body style=3D"background:#f7fafc;">
+      <!---->
+      <center>
+         <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" height=3D"100%" width=3D"100%" class=3D"bodyTable" id=3D"bodyTable" =
+style=3D"background:#f7fafc;">
+            <tr>
+               <td align=3D"center" valign=3D"top" id=3D"bodyCell">
+                  <!-- BEGIN TEMPLATE // -->
+                  <!--[if (gte mso 9)|(IE)]>
+                  <table align=3D"center" border=3D"0" cellspacing=3D"0" ce=
+llpadding=3D"0" width=3D"600" style=3D"width:600px;">
+                     <tr>
+                        <td align=3D"center" valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px;">
+                           <![endif]-->
+                           <table border=3D"0" cellpadding=3D"0" cellspacin=
+g=3D"0" width=3D"100%" class=3D"templateContainer" style=3D"max-width: 600p=
+x; background:#FFFFFF;">
+                              <tr>
+                                 <td valign=3D"top" id=3D"templatePreheader=
+"></td>
+                              </tr>
+                              <tr>
+                                 <td valign=3D"top" id=3D"templateHeader">
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnImageBlock" style=3D"min-width:=
+100%;">
+                                       <tbody class=3D"mcnImageBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" style=3D"pa=
+dding:0px" class=3D"mcnImageBlockInner">
+                                                <table align=3D"left" width=
+=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"mcnImag=
+eContentContainer" style=3D"min-width:100%; background-color: #f7fafc;">
+                                                   <tbody>
+                                                      <tr>
+                                                         <td class=3D"mcnIm=
+ageContent" valign=3D"top" style=3D"padding-right: 0px; padding-left: 0px; =
+padding-top: 0; padding-bottom: 0; text-align:center;"><img align=3D"center=
+" alt=3D"" src=3D"https://files.marketindex.com.au/files/alert-email-banner=
+-regular-2.png" width=3D"600" style=3D"width: 600px; max-width:600px; paddi=
+ng-bottom: 0; display: block !important; vertical-align: bottom;" class=3D"=
+mcnImage">
+</td>
+                                                      </tr>
+                                                   </tbody>
+                                                </table>
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-widt=
+h:100%;">
+                                       <tbody class=3D"mcnDividerBlockOuter=
+">
+                                          <tr>
+                                             <td class=3D"mcnDividerBlockIn=
+ner" style=3D"min-width: 100%; padding: 4px 18px;">
+                                                <table class=3D"mcnDividerC=
+ontent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" sty=
+le=3D"min-width: 100%;border-top: 2px none #EAEAEA;">
+                                                   <tbody>
+                                                      <tr>
+                                                         <td>
+                                                            <span></span>
+                                                         </td>
+                                                      </tr>
+                                                   </tbody>
+                                                </table>
+                                                <!--            
+                                                   <td class=3D"mcnDividerB=
+lockInner" style=3D"padding: 18px;">
+                                                   <hr class=3D"mcnDividerC=
+ontent" style=3D"border-bottom-color:none; border-left-color:none; border-r=
+ight-color:none; border-bottom-width:0; border-left-width:0; border-right-w=
+idth:0; margin-top:0; margin-right:0; margin-bottom:0; margin-left:0;" />
+                                                   -->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:9px; padding-bottom: 12px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"390" style=3D"width:390px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:390=
+px;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:27px; padding-left:=
+36px; padding-bottom:0; padding-right:36px; font-size:14px;"><a href=3D"htt=
+ps://mandrillapp.com/track/click/31137204/www.marketindex.com.au?p=3DeyJzIj=
+oidWtLYkdSbXY4ajBwbm1LU3otNW5WMW5sckVrIiwidiI6MiwicCI6IntcInVcIjozMTEzNzIwN=
+CxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3d3dy5tYXJrZXRpbmRleC5jb20uYXVc=
+XFwvYXN4XFxcL2FhaT91dG1fc291cmNlPWVtYWlsX2FsZXJ0cyZ1dG1fbWVkaXVtPWVtYWlsJnV=
+0bV9jYW1wYWlnbj1hc3hfYW5ub3VuY2VtZW50JnV0bV9jb250ZW50PWNvbXBhbnlfcHJvZmlsZV=
+9saW5rJnV0bV90ZXJtPXN0YW5kYXJkX2FzeF9hbm5vdW5jZW1lbnRcIixcImlkXCI6XCIwMzE5Y=
+zI1ZjdiYjg0YzY4YjJiNGE3ZDNkYmQ3MTJhYVwiLFwidXJsX2lkc1wiOltcImJkNjU5MmZlYTMz=
+ZjhhZjcxODZmMWJiOGJlZTk2NzlhNTFhYjNlZDJcIl0sXCJtc2dfdHNcIjoxNzg3MDkwNzU4fSJ=
+9" target=3D"_blank" style=3D"text-decoration:none !important; text-decorat=
+ion:none; color:#2060db;"><strong>AAI</strong></a> | Alcoa Corporation (AAI=
+)
+</td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"210" style=3D"width:210px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:210=
+px;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-left:36p=
+x; padding-bottom:0; padding-right:36px;">
+                                                                     <!-- <=
+span style=3D"font-size:14px">48.49 <span style=3D"color:#1F9992">=E2=86=91=
+ 0.08 (-0.17)</span></span> -->
+                                                                  </td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:0px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnMainHeading" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:9px; padding-left:36px; font-family: Arial; mso-line-hei=
+ght-rule:exactly;"><strong> Change of Officer's Interest Notice</strong></t=
+d>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:3px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:9px; padding-left:36px;">Published: 19/08/26, 08:02am (A=
+EST)  =E2=80=A2  1min read | 1 pages</td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                 </td>
+                              </tr>
+                              <tr>
+                                 <td valign=3D"top" id=3D"templateBody">
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-widt=
+h: 100%;background-color: #FFFFFF;">
+                                       <tbody class=3D"mcnDividerBlockOuter=
+">
+                                          <tr>
+                                             <td class=3D"mcnDividerBlockIn=
+ner" style=3D"min-width: 100%; padding: 10px 18px;">
+                                                <table class=3D"mcnDividerC=
+ontent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" sty=
+le=3D"min-width: 100%;border-top: 2px none #EAEAEA;">
+                                                   <tbody>
+                                                      <tr>
+                                                         <td>
+                                                            <span></span>
+                                                         </td>
+                                                      </tr>
+                                                   </tbody>
+                                                </table>
+                                                <!--            
+                                                   <td class=3D"mcnDividerB=
+lockInner" style=3D"padding: 18px;">
+                                                   <hr class=3D"mcnDividerC=
+ontent" style=3D"border-bottom-color:none; border-left-color:none; border-r=
+ight-color:none; border-bottom-width:0; border-left-width:0; border-right-w=
+idth:0; margin-top:0; margin-right:0; margin-bottom:0; margin-left:0;" />
+                                                   -->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnButtonBlock" style=3D"min-width=
+:100%;">
+                                       <tbody class=3D"mcnButtonBlockOuter"=
+>
+                                          <tr>
+                                             <td style=3D"padding-top:0; pa=
+dding-right:36px; padding-bottom:18px; padding-left:36px;" valign=3D"top" a=
+lign=3D"left" class=3D"mcnButtonBlockInner">
+                                                <table border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0" class=3D"mcnButtonContentContainer" style=3D"b=
+order-collapse: separate !important;border-radius: 6px;background-color: #1=
+965D8;">
+                                                   <tbody>
+                                                      <tr>
+                                                         <td align=3D"cente=
+r" valign=3D"middle" class=3D"mcnButtonContent" style=3D"font-family: Arial=
+; font-size: 16px; padding: 12px 18px; color: #FFFFFF;"><a class=3D"mcnButt=
+on" title=3D"Read Full Announcement" href=3D"https://mandrillapp.com/track/=
+click/31137204/www.marketindex.com.au?p=3DeyJzIjoiaVI2SGJGY2JNdWRDYnR1aUt2a=
+UNaLW9WM1AwIiwidiI6MiwicCI6IntcInVcIjozMTEzNzIwNCxcInZcIjoyLFwidXJsXCI6XCJo=
+dHRwczpcXFwvXFxcL3d3dy5tYXJrZXRpbmRleC5jb20uYXVcXFwvYXN4XFxcL2FhaVxcXC9hbm5=
+vdW5jZW1lbnRzXFxcL2NoYW5nZS1vZi1vZmZpY2Vycy1pbnRlcmVzdC1ub3RpY2UtM0E2OTkwNz=
+I_dXRtX3NvdXJjZT1lbWFpbF9hbGVydHMmdXRtX21lZGl1bT1lbWFpbCZ1dG1fY2FtcGFpZ249Y=
+XN4X2Fubm91bmNlbWVudCZ1dG1fY29udGVudD1yZWFkX2Z1bGxfYW5ub3VuY2VtZW50X2J1dHRv=
+biZ1dG1fdGVybT1zdGFuZGFyZF9hc3hfYW5ub3VuY2VtZW50XCIsXCJpZFwiOlwiMDMxOWMyNWY=
+3YmI4NGM2OGIyYjRhN2QzZGJkNzEyYWFcIixcInVybF9pZHNcIjpbXCI2M2IyZmU2OWJiNmZlYj=
+ZkNWJjY2JlNzg2MTVjZTk4MjA5ZGJlZjE1XCJdLFwibXNnX3RzXCI6MTc4NzA5MDc1OH0ifQ" t=
+arget=3D"_blank" style=3D"font-weight: normal;letter-spacing: normal;line-h=
+eight: 100%;text-align: center;text-decoration: none;
+  color: #FFFFFF;">Read Full Announcement</a>
+</td>
+                                                      </tr>
+                                                   </tbody>
+                                                </table>
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-widt=
+h:100%;">
+                                      <tbody class=3D"mcnDividerBlockOuter"=
+>
+                                         <tr>
+                                            <td class=3D"mcnDividerBlockInn=
+er" style=3D"min-width:100%; padding-top:27px; padding-bottom:27px; padding=
+-left:36px; padding-right:36px;">
+                                               <table class=3D"mcnDividerCo=
+ntent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" styl=
+e=3D"min-width: 100%;border-top: 2px solid #F2F7FB;">
+                                                  <tbody>
+                                                     <tr>
+                                                        <td>
+                                                           <span></span>
+                                                        </td>
+                                                     </tr>
+                                                  </tbody>
+                                               </table>
+                                               <!--            
+                                                  <td class=3D"mcnDividerBl=
+ockInner" style=3D"padding: 18px;">
+                                                  <hr class=3D"mcnDividerCo=
+ntent" style=3D"border-bottom-color:none; border-left-color:none; border-ri=
+ght-color:none; border-bottom-width:0; border-left-width:0; border-right-wi=
+dth:0; margin-top:0; margin-right:0; margin-bottom:0; margin-left:0;" />
+                                                  -->
+                                            </td>
+                                         </tr>
+                                      </tbody>
+                                   </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:18px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:9px; padding-left:36px;">                        
+                                                                     <stron=
+g><span style=3D"font-size:20px">We Value Your Feedback</span></strong>
+                                                                  </td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:0px; padding-bottom: 0px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:18px; padding-left:36px;">
+                                                                     Your i=
+nput is essential to helping us improve your investing experience. If you h=
+ave any feedback or suggestions, please take a moment to complete our 
+                                                                     <a hre=
+f=3D"https://mandrillapp.com/track/click/31137204/surveys.hotjar.com?p=3Dey=
+JzIjoiTDVMbW4tZjlFdk1uTjlvbGVCTW13N1V2SVVVIiwidiI6MiwicCI6IntcInVcIjozMTEzN=
+zIwNCxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3N1cnZleXMuaG90amFyLmNvbVxc=
+XC80NWE2Mzg5Mi1mNWExLTRkM2ItOTFkZS05NGZiN2VmZmUzZWNcIixcImlkXCI6XCIwMzE5YzI=
+1ZjdiYjg0YzY4YjJiNGE3ZDNkYmQ3MTJhYVwiLFwidXJsX2lkc1wiOltcIjMxMTJjOWVkZTM1ZD=
+IxNGM3ZTQ5OWEzMjAwMDZiMjNlNzhmYmI3YTlcIl0sXCJtc2dfdHNcIjoxNzg3MDkwNzU4fSJ9"=
+ style=3D"text-decoration:none !important; text-decoration:none; color:#206=
+0db;"><strong>feedback form</strong></a>. 
+                                                                  </td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-widt=
+h:100%;">
+                                       <tbody class=3D"mcnDividerBlockOuter=
+">
+                                          <tr>
+                                             <td class=3D"mcnDividerBlockIn=
+ner" style=3D"min-width:100%; padding-top:27px; padding-bottom:27px; paddin=
+g-left:36px; padding-right:36px;">
+                                                <table class=3D"mcnDividerC=
+ontent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" sty=
+le=3D"min-width: 100%;border-top: 2px solid #F2F7FB;">
+                                                   <tbody>
+                                                      <tr>
+                                                         <td>
+                                                            <span></span>
+                                                         </td>
+                                                      </tr>
+                                                   </tbody>
+                                                </table>
+                                                <!--            
+                                                   <td class=3D"mcnDividerB=
+lockInner" style=3D"padding: 18px;">
+                                                   <hr class=3D"mcnDividerC=
+ontent" style=3D"border-bottom-color:none; border-left-color:none; border-r=
+ight-color:none; border-bottom-width:0; border-left-width:0; border-right-w=
+idth:0; margin-top:0; margin-right:0; margin-bottom:0; margin-left:0;" />
+                                                   -->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:18px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:9px; padding-left:36px;">                        
+                                                                     <stron=
+g><span style=3D"font-size:20px">Don't want to receive these Alerts?</span>=
+</strong>
+                                                                  </td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:0px; padding-bottom: 0px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" wi=
+dth=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0; padding-right:36=
+px; padding-bottom:45px; padding-left:36px;">Add or remove company alerts a=
+t any time from <a href=3D"https://mandrillapp.com/track/click/31137204/www=
+.marketindex.com.au?p=3DeyJzIjoic2ZtTGUwcTh4MFo5N0Rhcjk5U0tiQVF5U2Z3IiwidiI=
+6MiwicCI6IntcInVcIjozMTEzNzIwNCxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3=
+d3dy5tYXJrZXRpbmRleC5jb20uYXVcXFwvYWxlcnRzP3V0bV9zb3VyY2U9ZW1haWxfYWxlcnRzJ=
+nV0bV9tZWRpdW09ZW1haWwmdXRtX2NhbXBhaWduPXVzZXJfcHJlZmVyZW5jZXMmdXRtX2NvbnRl=
+bnQ9Ym9keV9hbGVydF9wcmVmZXJlbmNlc19saW5rXCIsXCJpZFwiOlwiMDMxOWMyNWY3YmI4NGM=
+2OGIyYjRhN2QzZGJkNzEyYWFcIixcInVybF9pZHNcIjpbXCJkN2Q1NjAzMmY2ZDFkYjZmZWE3Mm=
+NhYzgxMzZlNGJhMzg4Mjk5ZmUxXCJdLFwibXNnX3RzXCI6MTc4NzA5MDc1OH0ifQ" style=3D"=
+text-decoration:none !important; text-decoration:none; color:#2060db;"><str=
+ong>Alerts preferences</strong></a> in your dashboard. 
+</td>
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                 </td>
+                              </tr>
+                              <tr>
+                                 <td valign=3D"top" id=3D"templateFooter" s=
+tyle=3D"background-color: #f7fafc;">
+                                    <table align=3D"center" border=3D"0" ce=
+llpadding=3D"0" cellspacing=3D"0" style=3D"background-color: #f7fafc;">
+                                       <tbody>
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextContent" style=3D"padding-bottom:10px; padding-right:18px; padding-bot=
+tom:10px; padding-left:18px; text-align: center;">
+                                                 <a href=3D"https://mandril=
+lapp.com/track/click/31137204/www.facebook.com?p=3DeyJzIjoiaTFNUS1UM1IzZm5p=
+SnZzNHQzeVFCTWtvM2VjIiwidiI6MiwicCI6IntcInVcIjozMTEzNzIwNCxcInZcIjoyLFwidXJ=
+sXCI6XCJodHRwczpcXFwvXFxcL3d3dy5mYWNlYm9vay5jb21cXFwvTWFya2V0SW5kZXhBVVwiLF=
+wiaWRcIjpcIjAzMTljMjVmN2JiODRjNjhiMmI0YTdkM2RiZDcxMmFhXCIsXCJ1cmxfaWRzXCI6W=
+1wiYjYxMzdhZTgxYjgzMzdjNmNkMjFhNzEzZDA1MDljMjYwN2U4MDU2ZFwiXSxcIm1zZ190c1wi=
+OjE3ODcwOTA3NTh9In0" target=3D"_blank" style=3D"color:#131b2c; text-decorat=
+ion: underline; font-weight: bold;"><img src=3D"https://files.marketindex.c=
+om.au/files/email-social-fb.png" alt=3D"Facebook" width=3D"24" style=3D"wid=
+th: 24px;"></a>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0<a href=3D"https://mandr=
+illapp.com/track/click/31137204/www.linkedin.com?p=3DeyJzIjoiakF6dUdiRVoxTm=
+RiQXJUN1h3OW5FM1RtMTBZIiwidiI6MiwicCI6IntcInVcIjozMTEzNzIwNCxcInZcIjoyLFwid=
+XJsXCI6XCJodHRwczpcXFwvXFxcL3d3dy5saW5rZWRpbi5jb21cXFwvY29tcGFueVxcXC84MDA5=
+MjI0MVxcXC9hZG1pblxcXC9cIixcImlkXCI6XCIwMzE5YzI1ZjdiYjg0YzY4YjJiNGE3ZDNkYmQ=
+3MTJhYVwiLFwidXJsX2lkc1wiOltcImJhZDRhNTYxNWJhOWQzNTNhNmJjM2FlNTM2YzdhMDQzMm=
+I3OTg4OTVcIl0sXCJtc2dfdHNcIjoxNzg3MDkwNzU4fSJ9" target=3D"_blank" style=3D"=
+color:#131b2c; text-decoration: underline; font-weight: bold;"><img src=3D"=
+https://files.marketindex.com.au/files/email-social-linkedin.png" width=3D"=
+24" alt=3D"LinkedIn" style=3D"width: 24px;"></a>=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0<a href=3D"https://mandrillapp.com/track/click/31137204/twitter.co=
+m?p=3DeyJzIjoiNk1UOUJMN1hHQ0JfNzluQmY5dnp5NkFWM0RBIiwidiI6MiwicCI6IntcInVcI=
+jozMTEzNzIwNCxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3R3aXR0ZXIuY29tXFxc=
+L21hcmtldGluZGV4YXVcIixcImlkXCI6XCIwMzE5YzI1ZjdiYjg0YzY4YjJiNGE3ZDNkYmQ3MTJ=
+hYVwiLFwidXJsX2lkc1wiOltcImI0ZTg3ZDFlNTMwNDRkM2FhMDUyOTA5MmFlMWYwMjQwMzdmNz=
+QxYzRcIl0sXCJtc2dfdHNcIjoxNzg3MDkwNzU4fSJ9" target=3D"_blank" style=3D"colo=
+r:#131b2c; text-decoration: underline; font-weight: bold;"><img src=3D"http=
+s://files.marketindex.com.au/files/email-social-x.png" width=3D"24" alt=3D"=
+X" style=3D"width: 24px;"></a>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0<a href=
+=3D"https://mandrillapp.com/track/click/31137204/www.marketindex.com.au?p=
+=3DeyJzIjoiVDNDcUM0ZVRqc0prUktzWWlBZEI5eGJBRnFnIiwidiI6MiwicCI6IntcInVcIjoz=
+MTEzNzIwNCxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3d3dy5tYXJrZXRpbmRleC5=
+jb20uYXVcXFwvXCIsXCJpZFwiOlwiMDMxOWMyNWY3YmI4NGM2OGIyYjRhN2QzZGJkNzEyYWFcIi=
+xcInVybF9pZHNcIjpbXCIzODk1MzRlMWM5ZjU0ODllNzRiMDQ5ZmRmOTRhYmQ1MmJjNzAzNTg3X=
+CJdLFwibXNnX3RzXCI6MTc4NzA5MDc1OH0ifQ" target=3D"_blank" style=3D"color:#13=
+1b2c; text-decoration: underline; font-weight: bold;"><img src=3D"https://f=
+iles.marketindex.com.au/files/email-social-mi.png" width=3D"24" alt=3D"MI W=
+ebsite" style=3D"width: 24px;"></a>
+                                             </td>
+                                         </tr>
+                                       </tbody>
+                                    </table>
+                                    <table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:1=
+00%; background-color: #f7fafc;">
+                                       <tbody class=3D"mcnTextBlockOuter">
+                                          <tr>
+                                             <td valign=3D"top" class=3D"mc=
+nTextBlockInner" style=3D"padding-top:8px;">
+                                                <!--[if mso]>
+                                                <table align=3D"left" borde=
+r=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:1=
+00%;">
+                                                   <tr>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                      <td valign=3D"top" al=
+ign=3D"center" width=3D"600" style=3D"width:600px;">
+                                                         <![endif]-->
+                                                         <table align=3D"le=
+ft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100=
+%; min-width:100%;" width=3D"100%" class=3D"mcnTextContentContainer">
+                                                            <tbody>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" align=3D"center" class=3D"mcnTextContent" style=3D"padding-top:0;=
+ padding-right:36px; padding-bottom:9px; padding-left:36px; text-align:cent=
+er;"><span style=3D"color:#758fa2;">Want to change what Alerts you receive?=
+</span><br>
+<a href=3D"https://mandrillapp.com/track/click/31137204/www.marketindex.com=
+.au?p=3DeyJzIjoiMUxLWWVFRkRwY2p3bjU5QU8wSUJBcnJWbmI0IiwidiI6MiwicCI6IntcInV=
+cIjozMTEzNzIwNCxcInZcIjoyLFwidXJsXCI6XCJodHRwczpcXFwvXFxcL3d3dy5tYXJrZXRpbm=
+RleC5jb20uYXVcXFwvYWxlcnRzP3V0bV9zb3VyY2U9ZW1haWxfYWxlcnRzJnV0bV9tZWRpdW09Z=
+W1haWwmdXRtX2NhbXBhaWduPXVzZXJfcHJlZmVyZW5jZXMmdXRtX2NvbnRlbnQ9Zm9vdGVyX2Fs=
+ZXJ0X3ByZWZlcmVuY2VzX2xpbmtcIixcImlkXCI6XCIwMzE5YzI1ZjdiYjg0YzY4YjJiNGE3ZDN=
+kYmQ3MTJhYVwiLFwidXJsX2lkc1wiOltcImQ3ZDU2MDMyZjZkMWRiNmZlYTcyY2FjODEzNmU0Ym=
+EzODgyOTlmZTFcIl0sXCJtc2dfdHNcIjoxNzg3MDkwNzU4fSJ9" style=3D"text-decoratio=
+n:none !important; text-decoration:none;"><span style=3D"color: #121b2c;"><=
+strong>Update Alert Preferences</strong></span></a></td>
+                                                               </tr>
+                                                               <tr>
+                                                                  <td valig=
+n=3D"top" align=3D"center" class=3D"mcnTextContent" style=3D"padding-top:0;=
+ padding-right:36px; padding-bottom:9px; padding-left:36px; text-align:cent=
+er;">
+                                                                     <span =
+style=3D"color:#758fa2;">If you'd like to change your email address, please=
+ reply to this email and let us know<br>
+                                                                        Our=
+ mailing address is: Market Index Level 1, 26 Railway Rd SUBIACO, WA 6008 A=
+ustralia<br>
+                                                                        Cop=
+yright =C2=A9 2026 Market Index, All rights reserved.</span>
+                                                                     <br><b=
+r><br><br>
+                                                                  </td> 
+                                                               </tr>
+                                                            </tbody>
+                                                         </table>
+                                                         <!--[if mso]>
+                                                      </td>
+                                                      <![endif]-->
+                                                      <!--[if mso]>
+                                                   </tr>
+                                                </table>
+                                                <![endif]-->
+                                             </td>
+                                          </tr>
+                                       </tbody>
+                                    </table>
+                                 </td>
+                              </tr>
+                           </table>
+                           <!--[if (gte mso 9)|(IE)]>
+                        </td>
+                     </tr>
+                  </table>
+                  <![endif]-->
+                  <!-- // END TEMPLATE -->
+               </td>
+            </tr>
+         </table>
+      </center>
+   <img src=3D"https://mandrillapp.com/track/open.php?u=3D31137204&id=3D031=
+9c25f7bb84c68b2b4a7d3dbd712aa" height=3D"1" width=3D"1" alt=3D""></body>
+</html>
+
+--_av-VFTO-4mL9Ke7Ka-FEHw6ZA--
+

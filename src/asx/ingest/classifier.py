@@ -55,6 +55,22 @@ _TITLE_RULES: list[tuple[str, re.Pattern]] = [
 # code tables is not sufficient (CLAUDE.md).
 _ASX_TYPE_CODE_MAP: dict[str, str] = {}
 
+# Titles that clearly disclose someone's interest in securities but are NOT
+# one of the standard director appendices. Found in real alerts: Alcoa (AAI),
+# a foreign issuer listed via CDIs, lodges "Change of Officer's Interest
+# Notice" — an officer, not a director, so the 3Y pattern does not and should
+# not match it.
+#
+# Filing it as 'other' is not a neutral act. 'other' means no parser handles
+# it, which makes the detection terminal: never on the capture worklist,
+# never captured, never counted as a gap. That is a substantive default on an
+# ambiguous case, which Invariant 8 forbids. It stays 'other' — inventing a
+# class would be worse — but the method is reported as ambiguous so the
+# caller can route it to a human.
+_AMBIGUOUS_INTEREST_RE = re.compile(
+    r"(interest\s+notice|notice\s+of\s+interest|"
+    r"change\s+(of|in|to)\s+.{0,30}\binterest\b)", re.I)
+
 # LLM fallback: (title) -> taxonomy class. Injected for testability.
 LLMClassifier = Callable[[str], str]
 
@@ -103,7 +119,13 @@ def classify(
     asx_doc_types: list[str] | None = None,
     llm: LLMClassifier | None = None,
 ) -> tuple[str, str]:
-    """Return (doc_class, method) with method in {'code', 'rules', 'llm', 'default'}."""
+    """Return (doc_class, method).
+
+    method is one of {'code', 'rules', 'llm', 'default', 'ambiguous'}.
+    'ambiguous' means the rules could not place the title but it looks like a
+    disclosure this platform cares about — the caller should put a human on
+    it rather than treat the 'other' class as settled.
+    """
     for code in asx_doc_types or []:
         if code in _ASX_TYPE_CODE_MAP:
             return _ASX_TYPE_CODE_MAP[code], "code"
@@ -114,4 +136,6 @@ def classify(
         result = llm(title or "")
         if result in TAXONOMY:
             return result, "llm"
+    if _AMBIGUOUS_INTEREST_RE.search(title or ""):
+        return "other", "ambiguous"
     return "other", "default"

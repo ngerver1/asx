@@ -3,17 +3,21 @@ from datetime import timezone
 
 from asx.ingest.mailbox import detection_from_email
 
-RAW_ALERT = """From: alerts@marketindex.com.au
+# Shaped like a real Market Index alert (see fixtures/mailbox/ for the
+# genuine articles). The ASX and company-site links are NOT what Market Index
+# actually sends — real alerts carry neither — but they exercise the URL
+# partition, which the real ones cannot.
+RAW_ALERT = """From: Market Index Alerts <no-reply@marketindex.com.au>
 To: owner@example.com
-Subject: XYZ - Change in Director's Interest Notice
+Subject: ASX:XYZ - Announcement: Change in Director's Interest Notice
 Message-ID: <alert-1@marketindex.com.au>
 Date: Fri, 14 Aug 2026 09:35:00 +1000
 Content-Type: text/plain
 
-XYZ Limited lodged an announcement at 14/08/2026 9:30 AM.
+| XYZ Limited (XYZ)   Published: 14/08/26, 09:30am (AEST)
 
-View on ASX: https://www.asx.com.au/asxpdf/20260814/pdf/xyz.pdf
-Company site: https://xyzlimited.com.au/investors/3y-aug26.pdf
+View on ASX: <https://www.asx.com.au/asxpdf/20260814/pdf/xyz.pdf>
+Company site: <https://xyzlimited.com.au/investors/3y-aug26.pdf>
 """
 
 
@@ -26,6 +30,8 @@ def test_extracts_ticker_title_and_market_time():
     assert d.detection_source == "market_index_alert"
     assert d.ticker == "XYZ"
     assert d.title == "Change in Director's Interest Notice"
+    assert d.price_sensitive is False       # "Announcement", not "Sensitive Ann"
+    assert d.company_name == "XYZ Limited"
     # 09:30 Sydney on 14 Aug 2026 == 23:30 UTC on the 13th.
     assert d.lodged_at.astimezone(timezone.utc).isoformat() == "2026-08-13T23:30:00+00:00"
 
@@ -108,7 +114,8 @@ def test_rfc2047_encoded_subject_is_decoded_before_parsing():
     a dash. Read raw, the sender rule cannot match and the ticker fallback
     then guesses from the encoded blob."""
     raw = ("From: alerts@marketindex.com.au\n"
-           "Subject: =?utf-8?q?BHP_-_Change_of_Director=27s_Interest_Notice?=\n"
+           "Subject: =?utf-8?q?ASX:BHP_-_Announcement:_Change_of_Director=27s_"
+           "Interest_Notice?=\n"
            "Message-ID: <enc@marketindex.com.au>\n"
            "Date: Mon, 18 Aug 2026 09:35:00 +1000\n\nbody\n")
     d = detection_from_email(email.message_from_string(raw, policy=__import__(
@@ -132,7 +139,7 @@ def test_alert_arrival_time_never_becomes_the_lodgement_time():
     """lodged_at feeds knowable_at (Invariant 2). The email Date header is
     when the ALERT was sent — a different fact about a different event."""
     raw = ("From: alerts@marketindex.com.au\n"
-           "Subject: BHP - Trading Halt\n"
+           "Subject: ASX:BHP - Announcement: Trading Halt\n"
            "Message-ID: <nolodge@marketindex.com.au>\n"
            "Date: Mon, 18 Aug 2026 09:35:00 +1000\n\n"
            "no lodgement timestamp anywhere in this body\n")
@@ -142,7 +149,8 @@ def test_alert_arrival_time_never_becomes_the_lodgement_time():
 
 
 def test_a_naive_date_header_is_pinned_to_utc_not_left_ambiguous():
-    raw = ("From: a@b\nSubject: BHP - Trading Halt\nMessage-ID: <n@n>\n"
+    raw = ("From: a@b\nSubject: ASX:BHP - Announcement: Trading Halt\n"
+           "Message-ID: <n@n>\n"
            "Date: Mon, 18 Aug 2026 09:35:00 -0000\n\nbody\n")
     d = detection_from_email(email.message_from_string(raw))
     assert d.detected_at.tzinfo is not None
@@ -164,12 +172,12 @@ def test_provider_and_list_management_links_are_never_fetch_candidates():
     """Fetching the first non-ASX link would store an HTML page as the
     announcement — and could unsubscribe us from our only detection source."""
     raw = ("From: alerts@marketindex.com.au\n"
-           "Subject: XYZ - Appendix 3Y\n"
+           "Subject: ASX:XYZ - Announcement: Appendix 3Y\n"
            "Message-ID: <urls@marketindex.com.au>\n\n"
            "View: https://www.asx.com.au/asxpdf/20260818/pdf/xyz.pdf\n"
-           "Track: https://links.marketindex.com.au/ss/c/abc123\n"
+           "Track: https://mandrillapp.com/track/click/31137204/x?p=abc\n"
            "Unsubscribe: https://mail.example.com/unsubscribe?u=9\n"
-           "Watchlist: https://www.marketindex.com.au/watchlist\n"
+           "Watchlist: https://www.marketindex.com.au/alerts\n"
            "Document: https://xyzlimited.com.au/investors/3y-aug26.pdf\n")
     d = detection_from_email(email.message_from_string(raw))
     assert d.document_urls == ["https://xyzlimited.com.au/investors/3y-aug26.pdf"]
