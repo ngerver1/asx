@@ -123,12 +123,48 @@ exists. So it is checked by hand, weekly:
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms; ~120 targeted per access decision §2) | ☐ synthetic rules gold in place; document gold needs captured lodgements | fixtures/app3y/ |
-| 1.2 | `onmkt_buy_cash` classification precision ≥95% on a 100-notice labelled sample | ☐ rules pinned by synthetic gold; measure on real sample | tests/test_gold_fixtures.py |
+| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms; ~120 targeted per access decision §2) | ◐ **4 of ~120** real forms captured and hand-labelled (19 Aug 2026); field extraction not yet measured — needs `ANTHROPIC_API_KEY` on the environment | fixtures/app3y/documents/gold.json |
+| 1.2 | `onmkt_buy_cash` classification precision ≥95% on a 100-notice labelled sample | ◐ 6/6 real transactions classified correctly; two aggregate lines correctly refused. Real documents already forced one fix — see below | tests/test_app3y_real_documents.py |
 | 1.3 | Full forward coverage; freshness monitor detects an injected one-day outage | ☐ | |
 | 1.4 | Backfill to the access-decision horizon (~24 months) complete, volume-per-week plotted and eyeballed | ☐ manual retrieval; expect this to be the long pole | |
 | 1.5 | Amended-notice dedupe demonstrated on real examples | ☐ mechanism tested synthetically | tests/test_db_integration.py |
 | 1.6 | **[new]** Cluster-buy screen output carries its coverage flags, including `size_ceiling_proxy` | ✅ enforced in signal v2 | src/asx/signals/director_signals.py |
+
+### What the first four real forms changed
+
+Captured 19 Aug 2026: two Appendix 3Z and two Appendix 3Y, hand-labelled in
+`fixtures/app3y/documents/gold.json` with 13 recorded traps. The classifier
+handled six of six individual transactions correctly and correctly refused
+both aggregate lines. One real defect surfaced immediately.
+
+**Catalyst Metals (CYL) enumerated two events in one field:**
+
+```
+Number disposed
+  1. 106,838 STI and 427,350 LTI Performance Rights were converted ...
+  2. 1,000,000 fully paid ordinary shares were disposed of through
+     on market trades
+Value/Consideration
+  2. Total consideration received for shares sold $6,410,050
+```
+
+The rules matched the first mechanism and returned `vesting_incentive` —
+true of one event, and it buried the other: a **1,000,000-share on-market
+sale for $6,410,050**, the exact opposite of the buy signal this platform
+exists to find. A field that enumerates several transactions is now
+`unknown`, because no single label is honest about it, and the line goes to
+review to be split. The guard is anchored to list markers so a price
+(`$1.215`) or a share count (`1,000,000`) can never trigger it.
+
+Two more traps worth knowing before trusting any extraction:
+
+- **Adrad (AHL)** nets to zero — 13,107 held before, 13,107 after — while
+  four real trades worth ~$30k occurred inside it. Reconciling on before/after
+  totals alone would see nothing happen.
+- **Adrad's header `Date of change` reads 29 July 2026, but two of its four
+  transactions occurred on 19 August.** Taking the header field as the event
+  date dates half the notice wrongly. That is an Invariant 2 failure that no
+  test on quantities would ever catch.
 
 ## Standing operational jobs
 

@@ -41,6 +41,24 @@ _ONMARKET_GUARD = re.compile(
     r"based\s+on\s+market|market\s+(value|price)|on[\s-]?market\s+terms|\btransfer\b", re.I
 )
 _NIL = re.compile(r"\bnil\b|no\s+consideration", re.I)
+
+# A field that ENUMERATES several transactions cannot be described by one
+# classification. Catalyst Metals (CYL, 6A1339259) printed:
+#
+#     1. Conversion of vested Performance Rights
+#     2. On market trades
+#
+# against 534,188 acquired and 1,106,838 disposed. The rules match the first
+# mechanism and return 'vesting_incentive' — true of one event, and it
+# silently buries the other: a 1,000,000-share on-market sale for $6,410,050.
+# Labelling the line at all asserts something the form does not say, so an
+# enumerated field is 'unknown' and goes to review to be split into one row
+# per transaction (Invariant 8).
+#
+# Anchored to line starts and list markers so a share count ("1,000,000") or
+# a price ("$1.215") is never mistaken for an enumeration.
+_ENUMERATED = re.compile(
+    r"(?:(?<=\n)|^)\s*(?:\d{1,2}[.)]|[ivx]{1,4}[.)]|[a-h][.)])\s+", re.I | re.M)
 # Cash evidence in the text itself: money symbols/words, not bare digits (a
 # date or a share count is not a price).
 _CASH_HINT = re.compile(r"\$|\baud\b|\bcash\b|per\s+(share|security|unit)", re.I)
@@ -63,6 +81,10 @@ def classify_trade(
     text = (consideration_text or "").strip()
     acquired = qty_acquired is not None and qty_acquired > 0
     disposed = qty_disposed is not None and qty_disposed > 0
+
+    # Several transactions described in one field: no single label is honest.
+    if len(_ENUMERATED.findall(text)) >= 2:
+        return "unknown"
 
     for label, pattern in _RULES:
         if not pattern.search(text):

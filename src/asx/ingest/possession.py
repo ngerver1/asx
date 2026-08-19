@@ -201,8 +201,32 @@ def file_captured_documents(
     return stats
 
 
+# The ASX announcement number, as it appears in a captured filename. Saving a
+# document as "2A1690214.pdf" is what a person naturally does when the number
+# is in the URL they opened, and it is the strongest match available.
+_ANNOUNCEMENT_IN_NAME = re.compile(r"\b(\d[A-Z0-9]{6,})\b")
+
+
 def _match_detection(conn: psycopg.Connection, meta: dict, filename: str) -> int | None:
     with conn.cursor() as cur:
+        # Announcement number first: it is the ASX's own identity for the
+        # document, so a match is exact rather than inferred. Ticker-and-date
+        # matching below is a fallback that guesses when two announcements
+        # from one company land on the same day.
+        announcement = meta.get("asx_announcement_id")
+        if not announcement:
+            m = _ANNOUNCEMENT_IN_NAME.search(filename.upper())
+            announcement = m.group(1) if m else None
+        if announcement:
+            cur.execute(
+                """SELECT doc_id FROM documents
+                   WHERE asx_announcement_id = %s AND parse_status = 'detected'""",
+                (announcement,),
+            )
+            row = cur.fetchone()
+            if row:
+                return row["doc_id"]
+
         if meta.get("doc_id"):
             cur.execute(
                 "SELECT doc_id FROM documents WHERE doc_id = %s AND parse_status = 'detected'",

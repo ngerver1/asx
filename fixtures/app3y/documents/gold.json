@@ -1,0 +1,122 @@
+{
+  "_note": [
+    "Hand-labelled ground truth for the first four real Appendix 3Y/3Z forms",
+    "the platform has held, captured 19-20 Aug 2026. Every value was read off",
+    "the PDF by eye before any parser was pointed at it, which is the order",
+    "CLAUDE.md requires.",
+    "",
+    "These are public regulatory disclosures lodged with the ASX. They are",
+    "committed so that criterion 1.1 (>=98% field accuracy) is measured",
+    "against documents rather than against synthetic forms that agree with",
+    "the parser by construction.",
+    "",
+    "Read the `traps` on each case before changing the parser. Every one of",
+    "them is a real feature of a real lodgement, not a hypothetical."
+  ],
+  "cases": [
+    {
+      "file": "2A1690214.pdf",
+      "ticker": "AXP",
+      "form": "app_3z",
+      "entity_name": "AXP Energy Limited",
+      "abn": "98114198471",
+      "director": "James Dack",
+      "date_of_last_notice": "2025-10-27",
+      "date_ceased": "2026-08-18",
+      "holdings_registered": [],
+      "holdings_registered_text": "Nil",
+      "holdings_beneficial": [
+        {"holder": "Sunshine Group Investments Pty Ltd <Sunshine Group Inv Fam A/C>",
+         "nature": "Director", "quantity": 3326667, "security_class": "shares"},
+        {"holder": "James Dack Real Estate Pty Ltd <James Dack Super Fund A/C>",
+         "quantity": 500000, "security_class": "shares"}
+      ],
+      "traps": [
+        "Part 1 is the word 'Nil', not a number and not an empty cell. A parser that reads it as 0 is right; one that reads it as missing is not, and one that skips the part entirely loses the fact that the director held nothing directly.",
+        "The two beneficial holdings are labelled (A) and (B) inside a single table cell."
+      ]
+    },
+    {
+      "file": "2A1690462.pdf",
+      "ticker": "AT1",
+      "form": "app_3z",
+      "entity_name": "Atomo Diagnostics Limited",
+      "abn": "37142925684",
+      "director": "John Kelly",
+      "date_of_last_notice": "2025-07-04",
+      "date_ceased": "2026-08-19",
+      "holdings_registered": [
+        {"quantity": 8991870, "security_class": "Fully Paid Ordinary Shares"},
+        {"quantity": 1621622, "security_class": "Unlisted Options",
+         "exercise_price_aud": 0.04, "expiry": "2028-06-27"}
+      ],
+      "holdings_beneficial": [
+        {"holder": "Dalraida Holdings Pty Ltd", "nature": "controller",
+         "quantity": 65120000, "security_class": "Fully Paid Ordinary Shares"}
+      ],
+      "traps": [
+        "Two security classes in one cell, labelled a) and b), one of which is an option with its own exercise price and expiry embedded in free text.",
+        "The beneficial holding (65.1M) is over seven times the direct holding. A parser that reads only Part 1 understates this director's interest by 88%."
+      ]
+    },
+    {
+      "file": "2A1690463.pdf",
+      "ticker": "AHL",
+      "form": "app_3y",
+      "entity_name": "Adrad Holdings Limited",
+      "abn": "51121033396",
+      "director": "Paul Proctor",
+      "date_of_last_notice": "2025-11-19",
+      "interest_type": "Indirect",
+      "registered_holder": "BNP Paribas Nominees Pty Ltd <HUB24 Custodial Serv Ltd> for Owls Super Pty Ltd ATF Proctor Family SMSF",
+      "date_of_change_field": "2026-07-29",
+      "quantity_before": 13107,
+      "quantity_after": 13107,
+      "nature_of_change_text": "On market disposal & on market acquisition",
+      "transactions": [
+        {"seq": "i",   "event_date": "2026-08-19", "acquired": 7230, "price_aud": 1.215,  "classification": "onmkt_buy_cash"},
+        {"seq": "ii",  "event_date": "2026-08-19", "acquired": 5877, "price_aud": 1.215,  "classification": "onmkt_buy_cash"},
+        {"seq": "iii", "event_date": "2026-07-29", "disposed": 5877, "price_aud": 1.2104, "classification": "onmkt_sell"},
+        {"seq": "iv",  "event_date": "2026-08-14", "disposed": 7230, "price_aud": 1.1031, "classification": "onmkt_sell"}
+      ],
+      "aggregate_classification": "unknown",
+      "traps": [
+        "FOUR transactions in one notice, across three different dates, in both directions.",
+        "The header 'Date of change' says 29 July 2026 but two of the four transactions occurred on 19 August. Taking the header field as the event date dates half this notice wrongly, which is an Invariant 2 failure that no test on quantities would catch.",
+        "Net position change is ZERO: 13,107 before and 13,107 after. A parser that reconciles only on before/after totals sees nothing happened, while $30k of trading occurred.",
+        "The lodgement is a late notification correcting a breach of the company's trading policy, and the first two pages are a covering announcement, not the form. The form starts on page 3.",
+        "The aggregate 'Nature of change' names both directions, so no single classification is honest at the line level: it must split into four rows or go to review."
+      ]
+    },
+    {
+      "file": "6A1339259.pdf",
+      "ticker": "CYL",
+      "form": "app_3y",
+      "entity_name": "Catalyst Metals Limited",
+      "abn": "54118912495",
+      "director": "James Champion de Crespigny",
+      "date_of_last_notice": "2026-05-14",
+      "interest_type": "Direct and Indirect",
+      "registered_holder": "Melvista 1 Pty Ltd (Melvista A/C) - Trust Beneficiary",
+      "date_of_change_field": "2026-08-12/2026-08-14",
+      "quantity_before": 2885833,
+      "quantity_after": 2420021,
+      "closed_period": false,
+      "transactions": [
+        {"seq": "1", "acquired": 534188, "security_class": "Fully paid ordinary shares",
+         "consideration_aud": 0, "classification": "vesting_incentive",
+         "note": "conversion of 106,838 STI + 427,350 LTI performance rights, nil consideration"},
+        {"seq": "2", "disposed": 1000000, "security_class": "Fully paid ordinary shares",
+         "consideration_aud": 6410050, "classification": "onmkt_sell",
+         "note": "on-market trades"}
+      ],
+      "aggregate_classification": "unknown",
+      "traps": [
+        "The single most dangerous case in this set. 'Number acquired' and 'Number disposed' each enumerate more than one event, and the first mechanism named is a vesting. Classifying the line by its first match returns 'vesting_incentive' and silently buries a 1,000,000-share on-market SALE for $6,410,050 — the exact opposite of the buy signal this platform exists to find.",
+        "Date of change is a RANGE ('12-14 August 2026'), not a date.",
+        "Seven security classes in the before-position, five in the after. Only ordinary shares changed.",
+        "The disposal line double-counts by design: the performance rights are 'disposed' by being converted into the shares that are simultaneously 'acquired'. Netting acquired against disposed is meaningless here."
+      ]
+    }
+  ]
+}
