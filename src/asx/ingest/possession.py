@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import json
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -296,7 +297,17 @@ def file_captured_documents(
 # is in the URL they opened, and it is the strongest match available.
 _ANNOUNCEMENT_IN_NAME = re.compile(r"\b(\d[A-Z0-9]{6,})\b")
 
-# An ABN as printed on a lodged form: 11 digits, usually spaced 2-3-3-3.
+# Identifiers as printed on a lodged form. Labelled extraction is used first
+# because it is exact: these forms always write "ABN 51 121 033 396" or
+# "ACN 650 774 253" next to the entity name. Some 3Ys print only the ACN —
+# Terra Critical Minerals (329745) does — so looking for an ABN alone finds
+# nothing and the document ends up orphaned.
+#
+# \s* rather than a single space throughout: several issuers' PDFs extract
+# with tabs between every word.
+_ABN_LABELLED_RE = re.compile(r"\bABN\s*:?\s*(\d{2}\s*\d{3}\s*\d{3}\s*\d{3})\b", re.I)
+_ACN_LABELLED_RE = re.compile(r"\bACN\s*:?\s*(\d{3}\s*\d{3}\s*\d{3})\b", re.I)
+# Unlabelled fallback for an ABN printed without its label.
 _ABN_RE = re.compile(r"\b(\d{2}[\s]?\d{3}[\s]?\d{3}[\s]?\d{3})\b")
 
 
@@ -362,6 +373,88 @@ def _match_detection(conn: psycopg.Connection, meta: dict, filename: str) -> int
     return None
 
 
+@dataclass
+class DocumentFacts:
+    """What a lodged form says about itself."""
+    abns: list[str]
+    acns: list[str]
+    doc_class: str | None
+    entity_name: str | None
+    text: str
+
+
+def read_document_facts(content: bytes) -> DocumentFacts:
+    """Read the identifying facts off a PDF.
+
+    A lodged form is not ambiguous about what it is or who it belongs to: it
+    names the entity, prints its ABN, and says which appendix it is. Reading
+    that is how a file called "329721.pdf" becomes a Change of Director's
+    Interest Notice for Clean Teq Water rather than an untitled blob.
+    """
+    try:
+        import pypdf
+
+        reader = pypdf.PdfReader(io.BytesIO(content))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages[:4])
+    except Exception:
+        return DocumentFacts([], [], None, None, "")
+
+    doc_class = None
+    if re.search(r"appendix\s*3z|final\s+director", text, re.I):
+        doc_class = "app_3z"
+    elif re.search(r"appendix\s*3y|change\s+of\s+director", text, re.I):
+        doc_class = "app_3y"
+
+    name = None
+    m = re.search(r"Name\s+of\s+(?:the\s+)?entity\s*:?\s*(.{3,80}?)"
+                  r"(?=\s{2,}|\s*\b(?:ABN|ACN|ARBN)\b|\n)", text, re.I)
+    if m:
+        # Strip a trailing "(ASX: XYZ)" and collapse the whitespace these
+        # layouts scatter through the line.
+        name = re.sub(r"\s*\(ASX[:\s][^)]*\)\s*$", "", m.group(1))
+        name = re.sub(r"\s+", " ", name).strip(" .,:")
+
+    abns = [re.sub(r"\s+", "", a) for a in _ABN_LABELLED_RE.findall(text)]
+    if not abns:
+        abns = [re.sub(r"\s+", "", a) for a in _ABN_RE.findall(text)]
+    acns = [re.sub(r"\s+", "", a) for a in _ACN_LABELLED_RE.findall(text)]
+
+    return DocumentFacts(abns=abns, acns=acns, doc_class=doc_class,
+                         entity_name=name, text=text)
+
+
+def _entity_for_document(conn: psycopg.Connection,
+                         facts: DocumentFacts) -> int | None:
+    """The entity a captured document belongs to, from the document itself."""
+    if facts.abns:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT entity_id FROM entities "
+                "WHERE replace(abn, ' ', '') = ANY(%s)", (facts.abns,))
+            rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0]["entity_id"]
+    if facts.acns:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT entity_id FROM entities WHERE trim(acn) = ANY(%s)",
+                (facts.acns,))
+            rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0]["entity_id"]
+    if facts.entity_name:
+        from asx.ids.normalize import name_norm
+
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT entity_id FROM entity_names WHERE name_norm = %s",
+                (name_norm(facts.entity_name),))
+            rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0]["entity_id"]
+    return None
+
+
 def _match_by_content(conn: psycopg.Connection, content: bytes) -> int | None:
     """Match a captured PDF to a detection by reading the document itself.
 
@@ -383,26 +476,10 @@ def _match_by_content(conn: psycopg.Connection, content: bytes) -> int | None:
     two 3Ys the same day is common — so it stays unmatched rather than being
     attached to the likelier-looking one.
     """
-    try:
-        import pypdf
-
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages[:4])
-    except Exception:
-        return None            # scanned or unreadable: not a failure, just silent
-    if not text.strip():
+    facts = read_document_facts(content)
+    if not facts.abns:
         return None
-
-    abns = {re.sub(r"\s+", "", m) for m in _ABN_RE.findall(text)}
-    if not abns:
-        return None
-
-    # Form type from the document, so a 3Y is never attached to a 3Z detection.
-    doc_class = None
-    if re.search(r"appendix\s*3z|final\s+director", text, re.I):
-        doc_class = "app_3z"
-    elif re.search(r"appendix\s*3y|change\s+of\s+director", text, re.I):
-        doc_class = "app_3y"
+    abns, doc_class = set(facts.abns), facts.doc_class
 
     with conn.cursor() as cur:
         cur.execute(
@@ -428,24 +505,53 @@ def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
             from asx.ids.market_time import SYDNEY
 
             lodged_at = lodged_at.replace(tzinfo=SYDNEY)
+    # Read the document before deciding anything about it. Titling a capture
+    # from its filename made "329721.pdf" an untitled blob that classified as
+    # 'other' and was never parsed — and left entity_id NULL, so it was
+    # orphaned from its company and invisible to every join in the platform,
+    # which are all on entity_id (Invariant 1). Possession without a prior
+    # detection is legitimate; possession without an entity is useless.
+    facts = read_document_facts(content)
+    entity_id = _entity_for_document(conn, facts)
+    title = meta.get("title") or facts.entity_name or Path(filename).stem
+
     stored = ingest_document(
         conn, content,
         source=meta.get("source", "manual_capture"),
         source_ref=meta.get("source_ref", filename),
         ticker_as_lodged=meta.get("ticker"),
-        title=meta.get("title", Path(filename).stem),
+        title=title,
         lodged_at=lodged_at,
         possession_source="manual_capture",
     )
     from asx.ingest.classifier import classify
     from asx.parse.registry import parseable_doc_classes
 
-    doc_class, _ = classify(meta.get("title", Path(filename).stem))
+    # The document's own statement of what it is beats a guess from a title.
+    doc_class = facts.doc_class or classify(title)[0]
     with conn.cursor() as cur:
         cur.execute(
-            """UPDATE documents SET doc_class = %s,
+            """UPDATE documents SET doc_class = %s, entity_id = coalesce(%s, entity_id),
                    parse_status = CASE WHEN %s THEN 'unparsed' ELSE 'not_applicable' END
                WHERE doc_id = %s AND parse_status <> 'validated'""",
-            (doc_class, doc_class in parseable_doc_classes(), stored.doc_id),
+            (doc_class, entity_id, doc_class in parseable_doc_classes(),
+             stored.doc_id),
         )
+        if entity_id is None:
+            # An un-entitied document is a hole, not a filing. Say so.
+            cur.execute(
+                """INSERT INTO review_items (kind, doc_id, payload, reason)
+                   VALUES ('resolution', %s, %s, %s)""",
+                (stored.doc_id,
+                 json.dumps({"filename": filename, "abns": facts.abns,
+                             "acns": facts.acns,
+                             "entity_name": facts.entity_name,
+                             "doc_class": doc_class}),
+                 f"captured {doc_class or 'document'} could not be tied to an "
+                 f"entity: ABNs {facts.abns or 'none'}, ACNs "
+                 f"{facts.acns or 'none'}, entity name "
+                 f"{facts.entity_name!r}. Every join in the platform is on "
+                 f"entity_id, so this document is held but unusable until "
+                 f"someone says whose it is."),
+            )
     return stored.doc_id

@@ -117,7 +117,46 @@ exists. So it is checked by hand, weekly:
 
 | Week | Sample size | Misses | Notes |
 |---|---|---|---|
-| _(first run pending)_ | | | |
+| 19 Aug 2026 | 17 known 3Y/3Z lodged that day | **6** | Found accidentally, not by the spot-check: six Appendix 3Y documents were downloaded from another source and none had a detection. See below. |
+
+### The 19 Aug 2026 miss — detection is watchlist-scoped
+
+Six Appendix 3Y forms lodged on 19 August — ASM, CNQ, FSI, T92, MBG, LLM —
+reached the platform as documents and had **no detection at all**. Not late,
+not misclassified: no alert for those companies has *ever* arrived.
+
+| | 3Y/3Z on 19 Aug 2026 |
+|---|---|
+| Detected via alerts | 11 |
+| Held but never detected | 6 |
+| **Detection rate** | **≤65%**, and that is an upper bound — it counts only the misses that happened to be found |
+
+The cause is structural, not a bug: **Market Index alerts follow a watchlist**
+(up to 200 codes). The platform therefore detects announcements for companies
+the owner already follows, and is blind to the rest of the market by design.
+Nothing in the pipeline could have reported this, because detection is what
+makes a gap visible and there was no detection.
+
+This matters beyond completeness. The cluster-buy signal looks for several
+directors buying the same company — and a company you do not already follow
+can never produce that signal, no matter how strong it is. A watchlist-scoped
+feed can confirm a thesis about a company already on the list; it cannot
+surface one.
+
+Three ways to close it, for the owner's decision:
+
+1. **Widen the watchlist** to the coverage universe. If Market Index caps at
+   200 codes and the small-cap universe is ~1,475, this does not close it.
+2. **Add a market-wide alert source** whose alerts are not watchlist-scoped.
+   This is the strongest argument yet for evaluating investorpa.com or a
+   paid feed — not for the PDFs, but for *unfiltered detection*.
+3. **Accept the scope** and state it: the platform covers a followed list,
+   not the market, and the acceptance criteria should say so rather than
+   implying market-wide coverage.
+
+Until one is chosen, criterion 0.4's "zero parseable detections older than
+the capture SLA" measures the manual sweep keeping up with *what was
+detected*, which is a weaker claim than it appears.
 
 ## Phase 1 — Director transactions (SPEC §7)
 
