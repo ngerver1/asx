@@ -166,12 +166,96 @@ opposite of what the cluster-buy screen is for.
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms; ~120 targeted per access decision §2) | ◐ **4 of ~120** real forms captured and hand-labelled (19 Aug 2026); field extraction not yet measured — needs `ANTHROPIC_API_KEY` on the environment | fixtures/app3y/documents/gold.json |
+| 1.1 | Gold-set field accuracy ≥98% on identifiers and quantities (100 hand-labelled 3Y forms; ~120 targeted per access decision §2) | ✅ **98.5% (135/137)** over 23 dual-read lodgements, no API key — rules only. Both misses are the same self-contradicting form, where the parser refuses. Sample is 23 of the 100 the criterion asks for, so this is *met on the sample measured*, not closed | tests/test_app3y_rules.py::test_field_accuracy_against_dual_read_ground_truth |
 | 1.2 | `onmkt_buy_cash` classification precision ≥95% on a 100-notice labelled sample | ◐ 6/6 real transactions classified correctly; two aggregate lines correctly refused. Real documents already forced one fix — see below | tests/test_app3y_real_documents.py |
 | 1.3 | Full forward coverage; freshness monitor detects an injected one-day outage | ☐ | |
 | 1.4 | Backfill to the access-decision horizon (~24 months) complete, volume-per-week plotted and eyeballed | ☐ manual retrieval; expect this to be the long pole | |
 | 1.5 | Amended-notice dedupe demonstrated on real examples | ☐ mechanism tested synthetically | tests/test_db_integration.py |
 | 1.6 | **[new]** Cluster-buy screen output carries its coverage flags, including `size_ceiling_proxy` | ✅ enforced in signal v2 | src/asx/signals/director_signals.py |
+
+### Criterion 1.1, measured — and what it cost to get there
+
+Measured 20 Aug 2026 against `fixtures/app3y/documents/ground_truth.json`:
+23 lodgements, each read once and then re-read by a second reader who checked
+the quantities, dates and transaction counts against the PDF.
+
+| Field | Correct |
+|---|---|
+| entity_name | 23/23 |
+| form | 23/23 |
+| director_name | 23/23 |
+| date_of_change | 21/21 |
+| consideration | 9/9 |
+| qty_after | 19/20 |
+| qty_before | 17/18 |
+| **total** | **135/137 = 98.5%** |
+
+**No model, no API key.** An Appendix 3Y is a form: the ASX prescribes the
+layout, so extraction is locating printed labels and taking the text between
+them. The LLM fallback (SPEC §5.3) remains the answer for the residue — a
+scanned page, an issuer who invented their own headings — and that residue
+becomes review items rather than guesses.
+
+Across all 60 captured documents (71 Appendix 3Y forms, 2 3Z, 2 3X):
+entity name and director name **100%**, date of change 60/71, holding before
+60/71, holding after 61/71. Every refusal was inspected; each is a form that
+states more than one thing.
+
+**Both remaining misses are one document.** Aurora Labs (328627) declares the
+interest "Indirect", prints an unlabelled block of 540,907 ordinary shares
+above a block headed "Indirect:" holding 400,000, and puts the securities
+actually acquired in the *unlabelled* one. The form never reconciles this.
+The parser returns nothing and raises a review item. The ground-truth readers
+recorded 540,907 and flagged the same contradiction as unresolved — so this
+is not a parser that fails to read a legible form, it is a form that does not
+say. Counting it as a miss is deliberate: **this number must not be allowed
+to improve by refusing more**, so the test scores a refusal as wrong.
+
+#### The defects the measurement found
+
+Six, and only one of them was the quantity gap that prompted the exercise.
+
+1. **The ASX's own guidance was eating the values it guides.** The template
+   prints `Value/Consideration  Note: If consideration is non-cash, provide
+   details and estimated valuation  $40,000.00`. The pattern removing that
+   note ended in an open run, which walked past the note's last word, through
+   the value, and stopped at the first full stop it found — the decimal point.
+   `$40,000.00` became `00`. **Six of the nine measured considerations were
+   destroyed this way, silently.** Every pattern is now anchored on its own
+   closing words.
+
+2. **Words split mid-token defeated the patterns.** Brightstar's PDF extracts
+   as `Note: If c onsideration is non -cash`, Pivotal's as `secu rities`,
+   FMR's as `Shar e Performance Rights`. Patterns and labels are now matched
+   through a form that tolerates whitespace anywhere inside a word.
+
+3. **Holdings cells are lists, not numbers.** On a third of real lodgements
+   the cell enumerates several parcels by class and by holder. Taking the
+   first number read Terra Critical Minerals' director as holding
+   **1,205,155 shares instead of 27,765,832** — his direct parcel in place of
+   the indirect one the notice was about, understating an insider by 23× in
+   the direction that makes them look smaller. Cells are now read as parcels
+   and a parcel is chosen by evidence printed on the form: its class, the
+   form's own arithmetic (after − before = acquired − disposed), the stated
+   interest, or the printed TOTAL. Failing all four, nothing.
+
+4. **Dates.** `13th August 2026` read as nothing; `A. 17 August 2026
+   B. 13 August 2026` read as the first of two, which would date a conversion
+   to the day of an unrelated lapse. Ordinals are now read and enumerations
+   refused — the same defect that once buried a $6.4m sale behind a vesting.
+
+5. **A Word bookmark artifact hid two directors.** `0BName of Director Rowena
+   Smith`: the digits are word characters, so the word-boundary anchor in
+   front of the label never matched and the name was lost with no error.
+
+6. **A label nested inside another label stole its cell.** The 3Z prints
+   `Number & class of securities`, where the generic `Class` label matches
+   nine characters in — so the holding was captured as the class and the
+   holding read empty.
+
+Five of the six were invisible to the parser: it produced a plausible number
+or a clean blank, and nothing failed. They were found only by measuring
+against documents a human had read.
 
 ### What the first four real forms changed
 
