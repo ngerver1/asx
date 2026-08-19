@@ -34,8 +34,15 @@
  *        GMAIL_QUERY    optional, defaults to the query below
  *   3. Run checkSetup() first. It proves the properties are right and
  *      commits nothing. Approve the permission prompt when asked.
- *   4. Run forwardAlerts() once by hand.
- *   5. Triggers -> Add Trigger -> forwardAlerts, time-driven, hourly.
+ *   4. Run diagnoseMailbox() to see how much history is actually there.
+ *   5. Run backfillAlerts() repeatedly until it reports 0 remaining. This
+ *      ignores the date window and walks the whole mailbox; it stops at five
+ *      minutes to avoid Apps Script's six-minute kill and resumes cleanly.
+ *   6. Triggers -> Add Trigger -> forwardAlerts, time-driven, daily.
+ *
+ * forwardAlerts() only looks back GMAIL_QUERY's window (7 days by default),
+ * which is right for a recurring trigger and wrong for a first run against a
+ * mailbox with history. backfillAlerts() is the one to use for history.
  */
 
 var PROCESSED_LABEL = 'asx-ingested';
@@ -135,49 +142,150 @@ function checkSetup() {
   return 'setup ok';
 }
 
+/**
+ * Read-only census of the mailbox. Commits nothing, labels nothing.
+ *
+ * Answers "where did my emails go" from the only place the answer exists.
+ * The default query carries `newer_than:7d`, which is right for a daily
+ * trigger and wrong for a first run against a mailbox with history — this
+ * shows exactly how much sits outside that window.
+ */
+function diagnoseMailbox() {
+  var props = PropertiesService.getScriptProperties();
+  var sender = 'from:marketindex.com.au';
+  var windows = ['newer_than:1d', 'newer_than:7d', 'newer_than:30d',
+                 'newer_than:90d', 'newer_than:1y', ''];
+
+  console.log('Configured GMAIL_QUERY: ' +
+              (props.getProperty('GMAIL_QUERY') || DEFAULT_QUERY + '  (default)'));
+  console.log('');
+  console.log('Messages from marketindex.com.au, by age:');
+  for (var i = 0; i < windows.length; i++) {
+    var q = sender + (windows[i] ? ' ' + windows[i] : '');
+    var n = countMessages(q);
+    console.log('  ' + rpad(windows[i] || 'all time', 16) + n.messages +
+                ' message(s) in ' + n.threads + ' thread(s)');
+  }
+
+  var done = countMessages(sender + ' label:"' + PROCESSED_LABEL + '"');
+  var todo = countMessages(sender + ' -label:"' + PROCESSED_LABEL + '"');
+  console.log('');
+  console.log('Already committed : ' + done.messages);
+  console.log('Not yet committed : ' + todo.messages + '   <- backfillAlerts() takes these');
+
+  var all = GmailApp.search(sender, 0, 500);
+  if (all.length) {
+    var oldest = all[all.length - 1].getMessages()[0];
+    var newest = all[0].getMessages()[0];
+    console.log('');
+    console.log('Oldest: ' + oldest.getDate() + '  ' + oldest.getSubject().slice(0, 60));
+    console.log('Newest: ' + newest.getDate() + '  ' + newest.getSubject().slice(0, 60));
+  }
+
+  // Search skips Spam and Trash, so an alert filed there is invisible to the
+  // forwarder AND to this count unless asked for explicitly.
+  var spam = GmailApp.search(sender + ' in:spam', 0, 100).length;
+  var trash = GmailApp.search(sender + ' in:trash', 0, 100).length;
+  if (spam || trash) {
+    console.warn('IN SPAM: ' + spam + ' thread(s), IN TRASH: ' + trash +
+                 ' thread(s). GmailApp.search() cannot see either, so these ' +
+                 'will never be committed. Move them to the inbox.');
+  }
+  return 'diagnosis complete';
+}
+
+function countMessages(query) {
+  var threads = GmailApp.search(query, 0, 500);
+  var messages = 0;
+  for (var i = 0; i < threads.length; i++) messages += threads[i].getMessageCount();
+  return {threads: threads.length, messages: messages};
+}
+
+function rpad(s, n) { while (s.length < n) s += ' '; return s; }
+
+/**
+ * One-off backfill: every alert ever received, ignoring the date window.
+ *
+ * Apps Script kills an execution at six minutes, so this stops cleanly at
+ * five and reports what is left. It is resumable by construction — committed
+ * threads get the label, and the search excludes labelled threads — so
+ * running it repeatedly until it reports 0 remaining walks the whole mailbox
+ * without tracking any cursor.
+ */
+function backfillAlerts() {
+  return runForwarder('from:marketindex.com.au', 5 * 60 * 1000);
+}
+
 function forwardAlerts() {
+  var props = PropertiesService.getScriptProperties();
+  var query = props.getProperty('GMAIL_QUERY') || DEFAULT_QUERY;
+  return runForwarder(query, 5 * 60 * 1000);
+}
+
+/**
+ * Commit every message matching `query` that is not already labelled.
+ *
+ * Stops at `deadlineMs` rather than being killed mid-commit by Apps Script's
+ * six-minute limit, and says how many are left. Resumable by construction:
+ * committed threads are labelled and labelled threads are excluded, so there
+ * is no cursor to lose.
+ */
+function runForwarder(query, deadlineMs) {
+  var started = Date.now();
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('GITHUB_TOKEN');
   var repo = props.getProperty('GITHUB_REPO');
   if (!token || !repo) {
-    throw new Error('Set GITHUB_TOKEN and GITHUB_REPO in Script Properties.');
+    throw new Error('Set GITHUB_TOKEN and GITHUB_REPO in Script Properties. ' +
+                    'Run checkSetup() first.');
   }
   var branch = props.getProperty('GITHUB_BRANCH') || 'main';
-  var query = props.getProperty('GMAIL_QUERY') || DEFAULT_QUERY;
 
   var label = GmailApp.getUserLabelByName(PROCESSED_LABEL) ||
               GmailApp.createLabel(PROCESSED_LABEL);
+  var pending = query + ' -label:"' + PROCESSED_LABEL + '"';
 
-  // Exclude what we have already committed. Deliberately NOT "is:unread":
-  // reading an alert must not hide it from the platform.
-  var threads = GmailApp.search(query + ' -label:"' + PROCESSED_LABEL + '"', 0, 100);
-  var committed = 0, skipped = 0, failed = 0;
+  var committed = 0, skipped = 0, failed = 0, timedOut = false;
 
-  for (var t = 0; t < threads.length; t++) {
-    var messages = threads[t].getMessages();
-    var threadOk = true;
-    for (var m = 0; m < messages.length; m++) {
-      var msg = messages[m];
-      var path = repoPath(msg);
-      try {
-        if (commitMessage(token, repo, branch, path, msg)) {
-          committed++;
-        } else {
-          skipped++;   // already present: the run is idempotent
+  // Always start at 0: labelling a thread removes it from this search, so
+  // the next page walks up to meet us. Paging with an offset instead would
+  // skip threads as the result set shrinks underneath.
+  while (!timedOut) {
+    var threads = GmailApp.search(pending, 0, 25);
+    if (!threads.length) break;
+
+    for (var t = 0; t < threads.length; t++) {
+      if (Date.now() - started > deadlineMs) { timedOut = true; break; }
+      var messages = threads[t].getMessages();
+      var threadOk = true;
+      for (var m = 0; m < messages.length; m++) {
+        var msg = messages[m];
+        var path = repoPath(msg);
+        try {
+          if (commitMessage(token, repo, branch, path, msg)) committed++;
+          else skipped++;              // already present: the run is idempotent
+        } catch (err) {
+          failed++;
+          threadOk = false;
+          console.error('failed ' + path + ': ' + err);
         }
-      } catch (err) {
-        failed++;
-        threadOk = false;
-        console.error('failed ' + path + ': ' + err);
       }
+      // Label only a thread whose every message landed, so a partial failure
+      // is retried next run instead of being silently dropped.
+      if (threadOk) threads[t].addLabel(label);
     }
-    // Label only a thread whose every message landed, so a partial failure
-    // is retried next hour instead of being silently dropped.
-    if (threadOk) threads[t].addLabel(label);
   }
+
+  var remaining = GmailApp.search(pending, 0, 500).length;
   console.log('committed=' + committed + ' already_present=' + skipped +
-              ' failed=' + failed);
+              ' failed=' + failed + ' threads_remaining=' + remaining);
+  if (timedOut) {
+    console.warn('Stopped at the ' + (deadlineMs / 60000) + '-minute mark with ' +
+                 remaining + ' thread(s) left. Run again to continue — nothing ' +
+                 'is lost, labelled threads are skipped.');
+  }
   if (failed) throw new Error(failed + ' message(s) failed; see the log.');
+  return 'committed ' + committed + ', ' + remaining + ' thread(s) remaining';
 }
 
 /** alerts/2026/08/20260819T002103Z-<message-id-hash>.eml.gz */

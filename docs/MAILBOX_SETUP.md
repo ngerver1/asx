@@ -118,9 +118,31 @@ Three consequences, beyond dodging the billing prompt:
    query matches nothing, check the *From* address on a real alert and set
    `GMAIL_QUERY` accordingly.
 
-4. Run `forwardAlerts()` once by hand, then **Triggers → Add Trigger →**
-   `forwardAlerts`, time-driven. **Daily is enough**; hourly buys latency you
-   do not need.
+4. Run `diagnoseMailbox()`. It commits nothing and reports how much history
+   is actually in the mailbox — by age, how much is already committed, and
+   whether any alerts have been filed into Spam or Trash, which
+   `GmailApp.search()` cannot see at all:
+
+   ```
+   Messages from marketindex.com.au, by age:
+     newer_than:7d   26 message(s) in 26 thread(s)
+     newer_than:30d  118 message(s) in 118 thread(s)
+     all time        118 message(s) in 118 thread(s)
+
+   Already committed : 26
+   Not yet committed : 92   <- backfillAlerts() takes these
+   ```
+
+5. **Run `backfillAlerts()` repeatedly until it reports `0 remaining`.**
+   `forwardAlerts()` only looks back `GMAIL_QUERY`'s window — seven days by
+   default, which is right for a recurring trigger and wrong for a first run
+   against a mailbox with history. `backfillAlerts()` ignores the window
+   entirely, stops at the five-minute mark to avoid Apps Script's six-minute
+   kill, and resumes cleanly: committed threads get labelled and labelled
+   threads are excluded, so there is no cursor to lose.
+
+6. **Triggers → Add Trigger →** `forwardAlerts`, time-driven. **Daily is
+   enough**; hourly buys latency you do not need.
 
    The 96-hour capture SLA is measured from `detected_at`, which is the
    *alert's own send time*, not when the script picked it up — so a daily
