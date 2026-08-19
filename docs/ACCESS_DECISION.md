@@ -144,6 +144,45 @@ every ASX host, an organisation network policy unrelated to this decision.
 The route is implemented and tested; it will retrieve nothing until run
 somewhere with network access to the ASX.
 
+### Where ASX documents actually live
+
+Announcement documents are **not served from asx.com.au**. They come from the
+exchange's CDN/API gateway:
+
+```
+https://cdn-api.markitdigital.com/apiman-gateway/ASX/asx-research/1.0/file/
+    2924-03123039-2A1690462
+```
+
+Restricting only `asx.com.au` therefore guarded a door the documents never
+come through — the targeted gate was decorative for the exact path it exists
+to control. **The restriction follows the documents, not the brand in the
+hostname**, so the CDN host is restricted and declared on the same basis.
+Only the ASX-scoped gateway path counts: that host serves many of the
+provider's other customers, and their paths are not announcements.
+
+**These URLs cannot be constructed, and nothing in the codebase may try.**
+The middle component is an internal publication key, not a function of the
+announcement number:
+
+| Announcement | Document key |
+|---|---|
+| `6A1339247` | `03123008` |
+| `2A1690462` | `03123039` |
+
+The keys are 31 apart while the announcement numbers come from unrelated
+series — they are assigned at publication, ordered by lodgement time. So a
+URL must be *obtained* per document, never derived. A test asserts no source
+file builds one, because constructing addresses the exchange never issued is
+discovery wearing retrieval's clothes.
+
+The practical consequence is worth stating plainly: **automated retrieval
+does not scale on its own.** Each document needs its URL supplied first, and
+supplying it means someone looked it up. Targeted retrieval is therefore a
+convenience for documents already identified, not a route to bulk capture.
+Bulk capture remains the manual sweep, and the capture-gap alarm remains the
+measure of it.
+
 ### Third-party sources are not covered by this amendment
 
 The amendment is about the ASX. It does not extend to any other site, and a

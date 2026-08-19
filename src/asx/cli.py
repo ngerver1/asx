@@ -379,8 +379,10 @@ def cmd_set_doc_url(args) -> None:
     states it, rather than deriving addresses the ASX never gave it (access
     decision §6 amendment).
     """
-    from asx.ingest.fetch_guard import is_discovery_url, is_document_url
+    from asx.ingest.fetch_guard import (is_discovery_url, is_document_url,
+                                        normalise_document_url)
 
+    args.url = normalise_document_url(args.url)
     if is_discovery_url(args.url):
         raise SystemExit(f"{args.url} looks like a search or listing endpoint; "
                          f"record the document's own URL.")

@@ -48,7 +48,25 @@ from urllib.request import Request, urlopen
 # already-known document. Matched on the registrable domain and all
 # subdomains. Not a blocklist and not an allowlist: a gate that demands the
 # caller prove the request is targeted.
-RESTRICTED_HOSTS = ("asx.com.au",)
+# ASX announcement documents are NOT served from asx.com.au. They come from
+# the exchange's CDN/API provider, under an ASX-scoped gateway path:
+#
+#   https://cdn-api.markitdigital.com/apiman-gateway/ASX/asx-research/1.0/file/
+#       2924-03123039-2A1690462
+#
+# Restricting only asx.com.au therefore guarded a door the documents never
+# come through — the gate was decorative for the one path it exists to
+# control. The restriction follows the DOCUMENTS, not the brand in the
+# hostname.
+RESTRICTED_HOSTS = ("asx.com.au", "cdn-api.markitdigital.com")
+
+# The ASX document endpoint on that CDN. The host is a shared gateway serving
+# many of the provider's clients, so only the ASX-scoped path counts as an
+# announcement document; anything else on the host is not one, and is refused
+# rather than assumed.
+_ASX_CDN_DOCUMENT_RE = re.compile(
+    r"^https://cdn-api\.markitdigital\.com/apiman-gateway/ASX/"
+    r"asx-research/[\d.]+/file/[\w.-]+", re.I)
 
 # Kept as an alias so nothing silently changes meaning: code that asked
 # "is this prohibited?" is really asking "does this host need the targeted
@@ -62,8 +80,10 @@ _DISCOVERY_RE = re.compile(
     r"(/search|/browse|/find|/list|/index|/directory|/results|/query|"
     r"[?&](q|query|search|page|offset|start|from|to|keyword)=)", re.I)
 
-# What a retrievable document looks like. Deliberately narrow: a PDF. Widen
-# only against a verified example, never against a remembered URL shape.
+# What a retrievable document looks like. Deliberately narrow, and widened
+# only against a VERIFIED example: the ASX endpoint below was added after two
+# real announcement URLs were supplied and their shape confirmed, not from a
+# remembered pattern.
 _DOCUMENT_RE = re.compile(r"\.pdf($|[?#])", re.I)
 
 # A bounded run cannot become a crawl. Reset per process; the possession path
@@ -90,6 +110,13 @@ class SourceTerms:
 # deliberate act that records WHY a source is permitted — which is what
 # Invariant 11 asks for and what a later reader will need.
 DECLARED_SOURCES: dict[str, SourceTerms] = {
+    "cdn-api.markitdigital.com": SourceTerms(
+        basis="ASX announcement documents are served from this gateway under "
+              "/apiman-gateway/ASX/. Covered by the same access decision §6 "
+              "amendment as asx.com.au, because it is the exchange's document "
+              "endpoint rather than a third party's copy",
+        targeted_only=True,
+    ),
     "asx.com.au": SourceTerms(
         basis="access decision §6 amendment, 20 Aug 2026: targeted retrieval "
               "of specific announcement documents, on the owner's legal advice",
@@ -150,8 +177,22 @@ def is_discovery_url(url: str) -> bool:
 
 
 def is_document_url(url: str) -> bool:
-    """True if the URL addresses a document rather than a page about them."""
-    return bool(_DOCUMENT_RE.search(url))
+    """True if the URL addresses a document rather than a page about them.
+
+    Two accepted shapes: a plain PDF, and the ASX research file endpoint,
+    which serves a PDF without ever saying so in the path.
+    """
+    return bool(_DOCUMENT_RE.search(url) or _ASX_CDN_DOCUMENT_RE.match(url))
+
+
+def normalise_document_url(url: str) -> str:
+    """Strip the junk a browser address bar leaves on an ASX document URL.
+
+    The exchange's own UI appends `&v=undefined` — a JavaScript artifact with
+    no `?` before it, so it is not even a query string. It is removed so the
+    same document cannot be recorded under two different URLs.
+    """
+    return re.sub(r"&v=undefined\b", "", url.strip())
 
 
 def _declared_for(host: str) -> "SourceTerms | None":

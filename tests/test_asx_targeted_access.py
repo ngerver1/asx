@@ -133,3 +133,56 @@ def test_a_terms_basis_does_not_unlock_discovery_or_the_asx():
     with pytest.raises(ProhibitedSourceError, match="targeted-retrieval only"):
         assert_fetchable("https://announcements.asx.com.au/x.pdf",
                          terms_basis="stated")
+
+
+# --- the documents are not on asx.com.au ---------------------------------
+
+CDN = ("https://cdn-api.markitdigital.com/apiman-gateway/ASX/asx-research/"
+       "1.0/file/2924-03123039-2A1690462")
+
+
+def test_the_real_document_host_is_gated_not_just_the_brand_domain():
+    """ASX announcement documents are served from the exchange's CDN gateway,
+    not from asx.com.au. Restricting only the brand domain guarded a door the
+    documents never come through."""
+    from asx.ingest.fetch_guard import is_document_url, is_restricted
+
+    assert is_restricted(CDN)
+    assert is_document_url(CDN)          # no .pdf anywhere in it
+    assert_fetchable(CDN, targeted_document=True)
+    with pytest.raises(ProhibitedSourceError, match="targeted-retrieval only"):
+        assert_fetchable(CDN)
+
+
+def test_other_clients_on_the_shared_cdn_are_not_asx_documents():
+    """The gateway serves many of the provider's customers. Only the
+    ASX-scoped path is an announcement."""
+    with pytest.raises(ProhibitedSourceError, match="addresses a page"):
+        assert_fetchable(
+            "https://cdn-api.markitdigital.com/apiman-gateway/OTHER/x/1.0/file/1",
+            targeted_document=True)
+
+
+def test_the_browser_artifact_is_stripped():
+    """The exchange's own UI appends '&v=undefined' with no '?' before it — a
+    JavaScript artifact, not a query string. Left on, the same document could
+    be recorded under two different URLs."""
+    from asx.ingest.fetch_guard import normalise_document_url
+
+    assert normalise_document_url(CDN + "&v=undefined") == CDN
+    assert normalise_document_url(CDN) == CDN
+
+
+def test_document_urls_cannot_be_derived_from_announcement_ids():
+    """Recorded as an executable note. The middle component is an internal
+    publication key: 6A1339247 -> 03123008 and 2A1690462 -> 03123039, from
+    unrelated announcement-id series. Nothing in the codebase may construct
+    these, because building addresses the exchange never gave us is discovery
+    wearing retrieval's clothes."""
+    import pathlib
+    import re
+
+    src = pathlib.Path(__file__).parent.parent / "src" / "asx"
+    builder = re.compile(r"(f?['\"]).*apiman-gateway.*\{|asx-research/1\.0/file/['\"]?\s*\+")
+    offenders = [str(p) for p in src.rglob("*.py") if builder.search(p.read_text())]
+    assert not offenders, f"URL construction found in {offenders}"
