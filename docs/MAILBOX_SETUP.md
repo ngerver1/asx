@@ -119,7 +119,20 @@ Three consequences, beyond dodging the billing prompt:
    `GMAIL_QUERY` accordingly.
 
 4. Run `forwardAlerts()` once by hand, then **Triggers → Add Trigger →**
-   `forwardAlerts`, time-driven, hourly.
+   `forwardAlerts`, time-driven. **Daily is enough**; hourly buys latency you
+   do not need.
+
+   The 96-hour capture SLA is measured from `detected_at`, which is the
+   *alert's own send time*, not when the script picked it up — so a daily
+   run costs at most 24 hours of a 96-hour budget and leaves three days to
+   capture. The `newer_than:7d` window means a failed run is retried on the
+   next six days rather than losing anything.
+
+   Note what a trigger does and does not do: it keeps alerts accumulating in
+   git without a session running, which is the part that has to be
+   unattended. Ingesting them (`asx detect --from-dir alerts`) still needs a
+   session, and catching up on a week at once is one command — detections are
+   keyed on the ASX announcement number, so nothing double-counts.
 
 > **Two things will silently stop this feed.**
 > **Token expiry** — a fine-grained PAT must have one. When it lapses the

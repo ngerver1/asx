@@ -59,13 +59,14 @@ def test_api_messages_parse_identically_to_saved_eml():
     """The calibration set was built from .eml files. If the API path decoded
     differently, every gold expectation would be measuring the wrong thing."""
     stub = StubTransport(_fixture_bytes())
-    api = {d.announcement_id: d for d in
+    api = {d.key(): d for d in
            (detection_from_email(m) for m in
             GmailAPIMailbox(CREDS, opener=stub).fetch_new())}
-    disk = {d.announcement_id: d for d in
+    disk = {d.key(): d for d in
             (detection_from_email(m) for m in EmlDirectory(FIXTURES).fetch_new())}
 
-    assert set(api) == set(disk) and len(api) == 5
+    assert set(api) == set(disk)
+    assert len(api) == len(list(FIXTURES.glob("*.eml")))
     for key, d in api.items():
         other = disk[key]
         assert (d.ticker, d.title, d.lodged_at, d.price_sensitive,

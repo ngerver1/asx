@@ -301,7 +301,14 @@ def detection_from_email(msg: Message) -> Detection:
                 price_sensitive = kind.strip().lower().startswith("sensitive")
     if title is None:
         title = subject or None
-    if ticker is None:
+    if ticker is None and rule.subject_re is None:
+        # The greedy fallback is ONLY for senders whose format nobody has
+        # calibrated. Where the real format IS known, a subject that does not
+        # match means "this is not an announcement alert" — Market Index also
+        # sends editorial newsletters, and "Evening Wrap: ASX 200 slides on
+        # ..." produced ticker "200": a fabricated code attached to something
+        # that is not an announcement. Guessing harder is the wrong response
+        # to knowing the format and seeing it absent.
         for candidate in _TICKER_RE.findall(subject):
             if candidate.upper() not in _TICKER_STOPWORDS:
                 ticker = candidate

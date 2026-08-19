@@ -131,3 +131,15 @@ def test_the_asx_announcement_number_is_the_identity(conn):
     resent.source_ref = "<a-completely-different-message-id@elsewhere>"
     second_id, is_new = record_detection(conn, resent)
     assert not is_new and second_id == first_id
+
+
+def test_a_newsletter_from_the_same_sender_never_yields_a_ticker():
+    """Market Index also sends editorial newsletters. "Evening Wrap: ASX 200
+    slides on ..." matched the greedy ticker fallback and produced ticker
+    "200" — a fabricated code on a document that is not an announcement at
+    all. For a sender whose real format IS known, a subject that does not
+    match means "not an announcement", not "guess harder"."""
+    d = detection_from_email(_load("marketindex_evening_wrap_newsletter.eml"))
+    assert d.ticker is None
+    assert d.format_recognised is False
+    assert d.announcement_id is None

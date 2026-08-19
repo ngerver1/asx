@@ -342,7 +342,7 @@ def test_an_unresolvable_ticker_is_queued_not_silently_binned(conn):
     from asx.ingest.mailbox import detection_from_email
 
     raw = ("From: alerts@marketindex.com.au\n"
-           "Subject: ZZZ - Change in Director's Interest Notice\n"
+           "Subject: ASX:ZZZ - Announcement: Change in Director's Interest Notice\n"
            "Message-ID: <unknown-ticker@marketindex.com.au>\n"
            "Date: Tue, 18 Aug 2026 09:35:00 +1000\n\n"
            "Lodged 18/08/2026 9:30 AM\n")

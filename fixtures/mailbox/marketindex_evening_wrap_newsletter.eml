@@ -1,0 +1,2936 @@
+Delivered-To: owner@example.com
+Received: by 2002:ab0:3b14:0:b0:963:89d3:63e2 with SMTP id n20csp414841uaw;
+        Wed, 19 Aug 2026 00:47:36 -0700 (PDT)
+X-Received: by 2002:a05:6a21:a95:b0:3c3:bbe6:95c9 with SMTP id adf61e73a8af0-3cd012a4023mr6127191637.16.1787125656209;
+        Wed, 19 Aug 2026 00:47:36 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1787125656; cv=none;
+        d=google.com; s=arc-20260327;
+        b=XRPdDCTeY+gdifafrBkx22vvmrV60cZUKzxh04V1KFiJdbLr/kLp8EklAWz9vPruFd
+         p72lK+jblS1EA0wBLNktrB/wj/n33F2OrI388R6hjW4APxRIbWvd1b0olDjpuTbuGuun
+         CVRTaS55wveT3D1Mt98i349tbG/6/pd73RySgSqx6Xzjn1GNAY+CMPrkXskTHSvdvxf0
+         9QLYAX2MYqcKjBMDRjlnrdeRSNGzcI9KioNGSv4eA/JOKLzEJ8/uZ+/k35GDiqoDIxG9
+         Yo7Z3Af9bfgEdHBQQPf//1uCYB9n7qdPynckm1JDjxhrgDyUVcva10oQM8CzhsHIILlO
+         SYBQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=mime-version:list-unsubscribe-post:list-unsubscribe:precedence
+         :list-id:feedback-id:message-id:date:to:reply-to:from:subject
+         :dkim-signature:dkim-signature;
+        bh=rrrtqbDWhxefDGXTU9DScTS5AWn5LCTNp6hdUTkmM+w=;
+        fh=7IS8WQLuEJropq4OyZUpeHjZmMxNFvC45HH44XphjoI=;
+        b=FmPK/MrnKE5jzeMIq9L8YZxR2D1050Oy4rlLE6fGEQiT8Ij2JhHzOWfY2HOreR7K+C
+         Gi34hVBFWb2KX8XUEVxBauqXSptntzqfjl5HRa3+R2hVlmPTjwXrsqbjhEhLjpecvchl
+         dfqGHYcWpq8NMYDuxMrtktckBFblaMwNTabKcKdaWPo02irQ2Ntr21YShnoaxkZjVDgQ
+         lnPEzQChFZOJExtroaduf9Uf3U41kGJgU/GPinMWxYokWeAH9g8LwLn2xgQWF+LSL4LO
+         g54OE4z0cdT9tmz4Qn783WVLi6QNr3bMi6P9BMc1KuuXNPOgUguoQm0D5cMmMy0SgL1l
+         oz6g==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@gmail.mcsv.net header.s=k2 header.b=cViGLg9P;
+       dkim=pass header.i=@marketindex.com.au header.s=k3 header.b=AvOhkDts;
+       spf=pass (google.com: domain of bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net designates 148.105.12.105 as permitted sender) smtp.mailfrom=bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=marketindex.com.au
+Return-Path: <bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net>
+Received: from mail105.sea21.rsgsv.net (mail105.sea21.rsgsv.net. [148.105.12.105])
+        by mx.google.com with ESMTPS id 41be03b00d2f7-cc1556369b5si1697091a12.133.2026.08.19.00.47.36
+        for <owner@example.com>
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 19 Aug 2026 00:47:36 -0700 (PDT)
+Received-SPF: pass (google.com: domain of bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net designates 148.105.12.105 as permitted sender) client-ip=148.105.12.105;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@gmail.mcsv.net header.s=k2 header.b=cViGLg9P;
+       dkim=pass header.i=@marketindex.com.au header.s=k3 header.b=AvOhkDts;
+       spf=pass (google.com: domain of bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net designates 148.105.12.105 as permitted sender) smtp.mailfrom=bounce-mc.us8_31549155.16542058-16c993ab1d@mail105.sea21.rsgsv.net;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=marketindex.com.au
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmail.mcsv.net;
+	s=k2; t=1787125653; x=1787212053;
+	bh=rrrtqbDWhxefDGXTU9DScTS5AWn5LCTNp6hdUTkmM+w=;
+	h=Subject:From:Reply-To:To:Date:Message-ID:X-MC-User:Feedback-ID:
+	 List-ID:List-Unsubscribe:List-Unsubscribe-Post:Content-Type:
+	 MIME-Version:CC:Date:Subject:From;
+	b=cViGLg9PNBfvR5wjBDsk7hR8iv007dgb8Nf61s79T3S7FZcKSMwQ0qkTW9mNV6Uc5
+	 3zROhCM0aGTA5hHzUqgl91/Yslu9R/bfiBGR9HpE+bdA8lRu3TLMyVZKadtUirB/hw
+	 QlWAg3N1ZD6tw1D9HFakXTqUTGeSQ4RDjQ2BjiNIwgVf2YnZcAY1SJBdZkCgXIuCtW
+	 faFjT7rYQXaLdM0AkLrn3VNIZZ3i2OFHF0sVOK9wm8tdjzyRqeoxWs/qxOzhN2CxzP
+	 tvGPOycTjLyENek2rYetGoyBN2T2n83cQPEvmaOrfuqKU9q0cHzT3s56lAzzVzbNc5
+	 hiwoonWYOuNwQ==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=marketindex.com.au;
+	s=k3; t=1787125653; x=1787395653; i=info@marketindex.com.au;
+	bh=rrrtqbDWhxefDGXTU9DScTS5AWn5LCTNp6hdUTkmM+w=;
+	h=Subject:From:Reply-To:To:Date:Message-ID:X-MC-User:Feedback-ID:
+	 List-ID:List-Unsubscribe:List-Unsubscribe-Post:Content-Type:
+	 MIME-Version:CC:Date:Subject:From;
+	b=AvOhkDts0QfyinK/MmpFh1D6pqJiDUYGq7IKeVJJFXG2dTL+Osjb7397ceH6mI3YF
+	 jVUPCLBl58wNGJR/BLPh2NcqZ3KopF5PbLArMTxRReW67ImCZ3Mj51VwDc3OXbdJht
+	 wSeDsUC59QxnRs/5HSXFqWE4EDijPcvoX52pQn7Fhs/y+bcIJM+2GbAG9R08fsuwWX
+	 4mL1Tchh1oUXEnPFLy4M1gjomm6GbNPV/s8JDUpIPR8Bg9g2SGwfN5LqsLJmTdkct0
+	 Ua0oC73N/cKu1KFATPPMYvAHVJUwcHXgm67I3W8O63OFM0a47Oj1D45qpYgmakXpI6
+	 Y66n9t2z9DV0g==
+Received: from localhost (localhost [127.0.0.1])
+	by mail105.sea21.rsgsv.net (Mailchimp) with ESMTP id 4hPzF10TZ1zDRSxBl
+	for <owner@example.com>; Wed, 19 Aug 2026 07:47:33 +0000 (UTC)
+Subject: =?utf-8?Q?Evening=20Wrap=3A=20ASX=20200=20slides=20on=20another=20WTC=20corporate=20governance=20shock=2C=20critical=20minerals=20stock=20slump=20continues?=
+From: Market Index <info@marketindex.com.au>
+Reply-To: =?utf-8?Q?Market=20Index?= <info@marketindex.com.au>
+To: <owner@example.com>
+Date: Wed, 19 Aug 2026 07:47:31 +0000
+Message-ID: <178a9f99c942c15cd57e649b8.16c993ab1d.20260819074716.aed939620d.e8d763b6@mail105.sea21.rsgsv.net>
+X-Mailer: Mailchimp Mailer - **CIDaed939620d16c993ab1d**
+X-Campaign: mailchimp178a9f99c942c15cd57e649b8.aed939620d
+X-campaignid: mailchimp178a9f99c942c15cd57e649b8.aed939620d
+X-Report-Abuse: Please report abuse for this campaign here: https://mailchimp.com/contact/abuse/?u=178a9f99c942c15cd57e649b8&id=aed939620d&e=16c993ab1d
+X-MC-User: 178a9f99c942c15cd57e649b8
+Feedback-ID: 31549155:31549155.16542058:us8:mc
+List-ID: 178a9f99c942c15cd57e649b8mc list <178a9f99c942c15cd57e649b8.438049.list-id.mcsv.net>
+Precedence: bulk
+X-Accounttype: pr
+List-Unsubscribe: <https://marketindex.us8.list-manage.com/unsubscribe?u=178a9f99c942c15cd57e649b8&id=de21e9d29c&t=h&e=16c993ab1d&c=aed939620d>, <mailto:unsubscribe-mc.us8_178a9f99c942c15cd57e649b8.aed939620d-16c993ab1d@unsubscribe.mailchimpapp.net?subject=unsubscribe>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Content-Type: multipart/alternative; boundary="_----------=_MCPart_1229883974"
+MIME-Version: 1.0
+
+This is a multi-part message in MIME format
+
+--_----------=_MCPart_1229883974
+Content-Type: text/plain; charset="utf-8"; format="fixed"
+Content-Transfer-Encoding: quoted-printable
+
+The S&P/ASX 200 closed 16.2 points lower=2C down 0.18%.
+
+19 Aug 26
+Read online (https://www.marketindex.com.au/news/evening-wrap-asx-200-slid=
+es-on-another-wtc-corporate-governance-shock-critical?utm_source=3DMarket+=
+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_=
+medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+Good evening=2C
+
+The S&P/ASX 200 closed 16.2 points lower=2C down 0.18%.
+
+The ASX 200 fell as US benchmark bond yields tipped 22-year highs overnigh=
+t=2C dragging real estate=2C banks=2C and technology stocks sharply lower=
+ =E2=80=94 while healthcare extended its historic two-day run=2C energy he=
+ld firm on elevated crude=2C and investors in WiseTech Global endured a th=
+ird corporate governance shock that sent the stock down nearly 9%.
+
+Be sure to click/scroll through for the usual reporting of the major secto=
+r and stock-specific moves=2C the broker responses to them=2C as well as a=
+ll the key economic data in tonight's Evening Wrap. Also=2C I have detaile=
+d technical analysis on the Nasdaq Composite and the S&P/ASX 200 in today'=
+s ChartWatch.
+
+Let=E2=80=99s dive in!
+Read full Evening Wrap (https://www.marketindex.com.au/news/evening-wrap-a=
+sx-200-slides-on-another-wtc-corporate-governance-shock-critical?utm_sourc=
+e=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026=
+-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+CMC Markets
+CMC Markets (https://www.marketindex.com.au/pulse-redirect/newsletter/cta/=
+597?utm_content=3DCID_aed939620d&cm_id=3Downer@example.com&h=3DaHR0cHM6Ly93=
+d3cuY21jbWFya2V0cy5jb20vZW4tYXUvbHAvbm9uLXN0b3AtdHJhZGluZz91dG1fc291cmNlPW=
+xpdmV3aXJlJnV0bV9tZWRpdW09ZW1haWwmdXRtX2NhbXBhaWduPWF1LWNmZC1hcm91bmQtdGhl=
+LWNsb2NrJnV0bV9jb250ZW50PWNvbW1vZGl0aWVz&utm_source=3DMarket+Index+-+Maste=
+r+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demai=
+l&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+A message from our partner
+Never tap out. Trade around the clock Commodity CFDs (https://www.marketin=
+dex.com.au/pulse-redirect/newsletter/cta/597?utm_content=3DCID_aed939620d&=
+cm_id=3Downer@example.com&h=3DaHR0cHM6Ly93d3cuY21jbWFya2V0cy5jb20vZW4tYXUvb=
+HAvbm9uLXN0b3AtdHJhZGluZz91dG1fc291cmNlPWxpdmV3aXJlJnV0bV9tZWRpdW09ZW1haWw=
+mdXRtX2NhbXBhaWduPWF1LWNmZC1hcm91bmQtdGhlLWNsb2NrJnV0bV9jb250ZW50PWNvbW1vZ=
+Gl0aWVz&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-=
+Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed9396=
+20d-623876410)
+Take advantage of every opportunity
+Trade energy and metals markets such as gold=2C silver=2C Brent and WTI be=
+yond standard market hours.
+LEARN MORE (https://www.marketindex.com.au/pulse-redirect/newsletter/cta/5=
+97?utm_content=3DCID_aed939620d&cm_id=3Downer@example.com&h=3DaHR0cHM6Ly93d=
+3cuY21jbWFya2V0cy5jb20vZW4tYXUvbHAvbm9uLXN0b3AtdHJhZGluZz91dG1fc291cmNlPWx=
+pdmV3aXJlJnV0bV9tZWRpdW09ZW1haWwmdXRtX2NhbXBhaWduPWF1LWNmZC1hcm91bmQtdGhlL=
+WNsb2NrJnV0bV9jb250ZW50PWNvbW1vZGl0aWVz&utm_source=3DMarket+Index+-+Master=
++List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail=
+&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+CMC Markets provides general information only. CFD trading carries signifi=
+cant risks=2C you do not own underlying assets. Please visit cmcmarkets.co=
+m to view the PDS=2C FSG and TMD for CFDs. CMC Markets Asia Pacific Pty Lt=
+d.
+
+[ ] Today in Review
+ASX 200            9=2C053.8 -0.18%
+All Ords           9=2C255.2 -0.20%
+Small Ords         3=2C500.9 -0.38%
+All Tech           3=2C135.6 -1.74%
+Emerging Companies 3=2C054.9 -0.09%
+AUD/USD            0.7074  -0.17%
+[ ] ASX sector performance
+Health Care            31=2C604.8 +2.60%
+Energy                 11=2C023.7 +0.77%
+Utilities              10=2C271.6 +0.35%
+Consumer Staples       13=2C248.2 +0.31%
+Industrials            8=2C235.5  +0.05%
+Communication Services 1=2C624.0  +0.04%
+Materials              24=2C946.9 -0.07%
+Consumer Discretionary 3=2C861.1  -0.58%
+Financials             9=2C371.2  -0.64%
+Real Estate            3=2C518.4  -1.13%
+Information Technology 1=2C895.2  -3.15%
+
+[ ] Interesting Movers
+
+
+** Trading Higher
+------------------------------------------------------------
+Macmahon Holdings (MAH) (https://www.marketindex.com.au/asx/mah?src=3Dew-i=
+nteresting-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Da=
+ed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d2=
+9c-aed939620d-623876410) +12.7%
+
+No news today=2C rebounded from sharp selloff following yesterday's FY24 r=
+esults announcement. Two directors increased their stakes as rights under=
+ salary sacrifice plan vested.
+
+Stockland (SGP) (https://www.marketindex.com.au/asx/sgp?src=3Dew-interesti=
+ng-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620=
+d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed93=
+9620d-623876410)         +12.3%
+
+Reported FY26 results: NPAT $892 million=2C =E2=86=91 10% vs previous corr=
+esponding period (pcp0 and =E2=86=91 1.5% vs consensus.
+
+Fletcher Building (FBU) (https://www.marketindex.com.au/asx/fbu?src=3Dew-i=
+nteresting-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Da=
+ed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d2=
+9c-aed939620d-623876410) +8.8%
+
+Reported FY26 results: Underlying NPAT $250 million=2C vs -$419 million lo=
+ss FY25.
+
+
+** Trading Lower
+------------------------------------------------------------
+Wisetech Global (WTC) (https://www.marketindex.com.au/asx/wtc?src=3Dew-int=
+eresting-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed=
+939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c=
+-aed939620d-623876410) -8.7%
+
+Same old same old at WTC unfortunately for shareholders... Search warrant=
+ was executed on the Company requiring the production of documents and ele=
+ctronic data in relation to the supply of global logistics services and so=
+ftware as part of an ACCC investigation into alleged contraventions of the=
+ Competition and Consumer Act.
+
+IperionX (IPX) (https://www.marketindex.com.au/asx/ipx?src=3Dew-interestin=
+g-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d=
+-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939=
+620d-623876410) -7.9%
+
+No news. Performance reflected general weakness in the broader critical mi=
+nerals and rare earths sector. IPX is a regular in the ChartWatch ASX Scan=
+s Downtrends List.
+
+Life360 Inc (360) (https://www.marketindex.com.au/asx/360?src=3Dew-interes=
+ting-movers&utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed9396=
+20d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed=
+939620d-623876410) -6.9%
+
+No news=2C continued negative response to recent results announcement. 360=
+ was added was added to the ChartWatch ASX Scans Downtrends List yesterday=
+=2E
+
+See All Interesting Movers (https://www.marketindex.com.au/news/evening-wr=
+ap-asx-200-slides-on-another-wtc-corporate-governance-shock-critical?utm_s=
+ource=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_=
+2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+[ ] Market News
+Reporting Season (https://www.marketindex.com.au/news/category/reporting-s=
+eason?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Ev=
+ening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620=
+d-623876410)  =C2=B7 STO  (https://www.marketindex.com.au/asx/sto?ut=
+m_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wr=
+ap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+Santos hits ~12-year high after paying out all its free cash flow in a sho=
+w of board confidence (https://www.marketindex.com.au/news/santos-hits-12-=
+year-high-after-paying-out-all-its-free-cash-flow-in-a-show-of-board-confi=
+dence?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Ev=
+ening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620=
+d-623876410)
+Santos paid out effectively all its first-half operating cash flow with it=
+s dividend=2C backing its view that production will deliver in 2H.
+Read Full Story (https://www.marketindex.com.au/news/santos-hits-12-year-h=
+igh-after-paying-out-all-its-free-cash-flow-in-a-show-of-board-confidence?=
+utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_=
+Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+Technical Analysis (https://www.marketindex.com.au/news/category/technical=
+-analysis?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620=
+d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed93=
+9620d-623876410)  =C2=B7 ANN  (https://www.marketindex.com.au/asx/an=
+n?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evenin=
+g_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410) BB1  (https://www.marketindex.com.au/asx/bb1?utm_source=3DM=
+arket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-1=
+9&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)=
+ =C2=B7=C2=B7=C2=B7
+ChartWatch ASX Scans: CSL=2C Pro Medicus=2C Cochlear=2C Sonic Healthcare=
+=2C Ansell=2C Wisetech Global=2C Xero (https://www.marketindex.com.au/news=
+/chartwatch-asx-scans-csl-pro-medicus-cochlear-sonic-healthcare-ansell-wis=
+etech-global-xero?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Da=
+ed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d2=
+9c-aed939620d-623876410)
+Your daily dose of the most actionable uptrends and downtrends on the ASX=
+ based on expert technical analysis.
+Read Full Story (https://www.marketindex.com.au/news/chartwatch-asx-scans-=
+csl-pro-medicus-cochlear-sonic-healthcare-ansell-wisetech-global-xero?utm_=
+source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap=
+_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+Funds (https://www.livewiremarkets.com/categories/funds?utm_source=3DMarke=
+t+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&ut=
+m_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)  =C2=
+=B7 https://www.livewiremarkets.com/?utm_source=3DMarket+Index+-+Master+Li=
+st&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&ut=
+m_term=3D0_de21e9d29c-aed939620d-623876410
+Buy Hold Sell: Hot themes=2C cold calls - 6 thematic ETFs rated (https://w=
+ww.livewiremarkets.com/wires/buy-hold-sell-hot-themes-cold-calls-6-themati=
+c-etfs-rated?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed939=
+620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-ae=
+d939620d-623876410)
+Adam Dawes and Andrew Wielandt weigh in on six thematic ETFs across techno=
+logy=2C semiconductors=2C biotech=2C bitcoin and Australian property.
+Read Full Story (https://www.livewiremarkets.com/wires/buy-hold-sell-hot-t=
+hemes-cold-calls-6-thematic-etfs-rated?utm_source=3DMarket+Index+-+Master+=
+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&=
+utm_term=3D0_de21e9d29c-aed939620d-623876410)
+Funds (https://www.livewiremarkets.com/categories/funds?utm_source=3DMarke=
+t+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&ut=
+m_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)  =C2=
+=B7 https://www.livewiremarkets.com/?utm_source=3DMarket+Index+-+Master+Li=
+st&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&ut=
+m_term=3D0_de21e9d29c-aed939620d-623876410
+Buy Hold Sell: 5 giant ETFs rated (VAS=2C QUAL=2C NDQ plus more) (https://=
+www.livewiremarkets.com/wires/buy-hold-sell-5-giant-etfs-rated-vas-qual-nd=
+q-plus-more?utm_source=3DMarket+Index+-+Master+List&utm_campaign=3Daed9396=
+20d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed=
+939620d-623876410)
+Australia's $371 billion ETF industry is booming=2C but are the biggest fu=
+nds still the best ones to own?
+Read Full Story (https://www.livewiremarkets.com/wires/buy-hold-sell-5-gia=
+nt-etfs-rated-vas-qual-ndq-plus-more?utm_source=3DMarket+Index+-+Master+Li=
+st&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&ut=
+m_term=3D0_de21e9d29c-aed939620d-623876410)
+Stay ahead of financial trends - unlock comprehensive insights and explore=
+ all our Market News.
+Discover All News (https://www.marketindex.com.au/news?utm_source=3DMarket=
++Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm=
+_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+In today's full Evening Wrap:
+Get deeper=2C exclusive insights into the day's market activity with our E=
+vening Wrap:
+* Session insights & analysis
+* ASX sector performance
+* Key economic events & major announcements
+* Broker updates
+* Scans
+
+Read full Evening Wrap (https://www.marketindex.com.au/news/evening-wrap-a=
+sx-200-slides-on-another-wtc-corporate-governance-shock-critical?utm_sourc=
+e=3DMarket+Index+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026=
+-08-19&utm_medium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+** (https://www.facebook.com/MarketIndexAU?utm_source=3DMarket+Index+-+Mas=
+ter+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Dem=
+ail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+** (https://www.linkedin.com/company/80092241/admin/?utm_source=3DMarket+I=
+ndex+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_m=
+edium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+** (https://twitter.com/marketindexau?utm_source=3DMarket+Index+-+Master+L=
+ist&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&u=
+tm_term=3D0_de21e9d29c-aed939620d-623876410)
+** (https://www.marketindex.com.au/?utm_source=3DMarket+Index+-+Master+Lis=
+t&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm=
+_term=3D0_de21e9d29c-aed939620d-623876410)
+Want to change your email settings?
+Manage what ** emails you receive (https://www.marketindex.com.au/dashboar=
+d/email-preferences?contact_id=3Df1666946aa9b4f961e8d3260a1bcce2e&utm_source=3DMarket+Ind=
+ex+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_med=
+ium=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+=2C ** change your email address (https://www.marketindex.com.au/dashboard=
+/email-preferences?contact_id=3Df1666946aa9b4f961e8d3260a1bcce2e&utm_source=3DMarket+Inde=
+x+-+Master+List&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medi=
+um=3Demail&utm_term=3D0_de21e9d29c-aed939620d-623876410)
+or ** Unsubscribe (https://www.marketindex.com.au/dashboard/email-preferen=
+ces?contact_id=3Df1666946aa9b4f961e8d3260a1bcce2e&utm_source=3DMarket+Index+-+Master+List=
+&utm_campaign=3Daed939620d-Evening_Wrap_2026-08-19&utm_medium=3Demail&utm_=
+term=3D0_de21e9d29c-aed939620d-623876410)
+from this email.
+** View this email in your browser (https://us8.campaign-archive.com/?e=3D=
+16c993ab1d&u=3D178a9f99c942c15cd57e649b8&id=3Daed939620d)
+Our mailing address is: Market Index Level 1=2C 26 Railway Rd SUBIACO=2C W=
+A 6008 Australia
+Copyright =C2=A9 2025 Market Index=2C All rights reserved.
+**   (https://marketindex.us8.list-manage.com/unsubscribe?u=3D178a9f99c942=
+c15cd57e649b8&id=3Dde21e9d29c&t=3Db&e=3D16c993ab1d&c=3Daed939620d)
+--_----------=_MCPart_1229883974
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html>
+<html xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:schemas-micros=
+oft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:office" id=3D"712=
+" status=3D"READY" authorid=3D"53" articletitle=3D"Evening Wrap: ASX 200 s=
+lides on another WTC corporate governance shock=2C critical minerals stock=
+ slump continues" articleslug=3D"evening-wrap-asx-200-slides-on-another-wt=
+c-corporate-governance-shock-critical" createdat=3D"2026-08-19T00:18:04.56=
+7Z" updatedat=3D"2026-08-19T07:45:40.303Z" lastupdatedby=3D"carl@livewirem=
+arkets.com"><head><!--[if gte mso 15]>
+        <xml>
+          <o:OfficeDocumentSettings> <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch> </o:OfficeDocumentSettings=
+>
+        </xml>
+      <![endif]--><meta charset=3D"UTF-8"><meta http-equiv=3D"X-UA-Compat=
+ible" content=3D"IE=3Dedge"><meta name=3D"viewport" content=3D"width=3Ddev=
+ice-width=2C initial-scale=3D1"><title>Evening Wrap: ASX 200 slides on ano=
+ther WTC corporate governance shock=2C critical minerals stock slump conti=
+nues</title><link rel=3D"preconnect" href=3D"https://fonts.googleapis.com"=
+><link rel=3D"preconnect" href=3D"https://fonts.gstatic.com" crossorigin=
+=3D""></head><body style=3D"height:100%;margin:0;padding:0;width:100%;back=
+ground-color:#ffffff;-ms-text-size-adjust:100%;-webkit-text-size-adjust:10=
+0%;"><div><style type=3D"text/css">
+  p {
+    margin: 0 0 0 0;
+    padding: 0;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  h1=2C
+  h2=2C
+  h3=2C
+  h4=2C
+  h5=2C
+  h6 {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+  body=2C
+  #bodyTable=2C
+  #bodyCell {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    background-color: #ffffff;
+  }
+  .mcnPreviewText {
+    display: none !important;
+  }
+  #outlook a {
+    padding: 0;
+  }
+  img {
+    -ms-interpolation-mode: bicubic;
+  }
+  table {
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+  }
+  .ReadMsgBody {
+    width: 100%;
+  }
+  .ExternalClass {
+    width: 100%;
+  }
+  p=2C
+  a=2C
+  li=2C
+  td=2C
+  blockquote {
+    mso-line-height-rule: exactly;
+  }
+  a[href^=3D'tel']=2C
+  a[href^=3D'sms'] {
+    color: inherit;
+    cursor: default;
+    text-decoration: none;
+  }
+  p=2C
+  a=2C
+  li=2C
+  td=2C
+  body=2C
+  table=2C
+  blockquote {
+    -ms-text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+  ul{
+    margin-top:0.2rem !important;
+    padding-left:20px !important;
+    list-style-type: disc;
+  }
+  ol {
+    margin-top:0.2rem !important;
+    padding-left:20px !important;
+    list-style-type: decimal;
+  }
+  .ExternalClass=2C
+  .ExternalClass p=2C
+  .ExternalClass td=2C
+  .ExternalClass div=2C
+  .ExternalClass span=2C
+  .ExternalClass font {
+    line-height: 100%;
+  }
+  a[x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+    font-size: inherit !important;
+    font-family: inherit !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
+  }
+  #bodyCell {
+    padding: 0;
+    border-top: 0;
+  }
+  .templateContainer {
+    max-width: 600px !important;
+    border: 0;
+  }
+  a.mcnButton {
+    display: block;
+  }
+  .mcnImage=2C
+  .mcnRetinaImage {
+    vertical-align: bottom;
+  }
+  .mcnTextContent {
+    word-break: break-word;
+  }
+  .mcnTextContent img {
+    height: auto !important;
+  }
+  .mcnDividerBlock {
+    table-layout: fixed !important;
+  }
+  body=2C
+  #bodyTable {
+    background-color: #ffffff;
+  }
+  #bodyCell {
+    border-top: 0;
+  }
+  .templateContainer {
+    border: 0;
+  }
+  h1 {
+    color: #040707;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 26px;
+    font-style: normal;
+    font-weight: bold;
+    line-height: 125%;
+    letter-spacing: 1px;
+    text-align: left;
+  }
+  h2 {
+    color: #040707;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: bold;
+    line-height: 125%;
+    letter-spacing: normal;
+    text-align: left;
+  }
+  h3 {
+    color: #040707;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 22px;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 125%;
+    letter-spacing: normal;
+    text-align: left;
+  }
+  h4 {
+    color: #040707;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 18px;
+    font-style: normal;
+    font-weight: bold;
+    line-height: 125%;
+    letter-spacing: normal;
+    text-align: left;
+  }
+  #templatePreheader {
+    background-color: #ffffff;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-top: 1px none;
+    border-bottom: 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  #templatePreheader .mcnTextContent=2C
+  #templatePreheader .mcnTextContent p {
+    color: #061147;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 16px;
+    line-height: 100%;
+    text-align: left;
+  }
+  #templatePreheader .mcnTextContent a=2C
+  #templatePreheader .mcnTextContent p a {
+    color: #061147;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+  #templateHeader {
+    background-color: #ffffff;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-top: 0;
+    border-bottom: 0;
+    padding-top: 9px;
+    padding-bottom: 0;
+  }
+  #templateHeader .mcnTextContent=2C
+  #templateHeader .mcnTextContent p {
+    color: #202020;
+    font-family: Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;
+    font-size: 16px;
+    line-height: 150%;
+    text-align: left;
+  }
+  #templateHeader .mcnTextContent a=2C
+  #templateHeader .mcnTextContent p a {
+    color: #007c89;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+  #templateBody {
+    background-color: #ffffff;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-top: 0;
+    border-bottom: 0;
+    padding: 9px;
+  }
+  #templateBody .mcnTextContent=2C
+  #templateBody .mcnTextContent p {
+    color: #202020;
+    font-family: Helvetica;
+    font-size: 16px;
+    line-height: 150%;
+    text-align: left;
+  }
+  #templateBody .mcnTextContent a=2C
+  #templateBody .mcnTextContent p a {
+    color: #007c89;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+  #templateColumns {
+    background-color: #ffffff;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-top: 0;
+    border-bottom: 2px solid #eaeaea;
+    padding-top: 0;
+    padding-bottom: 9px;
+  }
+  #templateColumns .columnContainer .mcnTextContent=2C
+  #templateColumns .columnContainer .mcnTextContent p {
+    color: #202020;
+    font-family: Helvetica;
+    font-size: 16px;
+    line-height: 150%;
+    text-align: left;
+  }
+  #templateColumns .columnContainer .mcnTextContent a=2C
+  #templateColumns .columnContainer .mcnTextContent p a {
+    color: #007c89;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+  #templateFooter {
+    background-color: #f6f6f8;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    border-top: 0;
+    border-bottom: 0;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+  #templateFooter .mcnTextContent=2C
+  #templateFooter .mcnTextContent p {
+    color: #656565;
+    font-family: Helvetica;
+    font-size: 12px;
+    line-height: 150%;
+    text-align: center;
+  }
+  #templateFooter .mcnTextContent a=2C
+  #templateFooter .mcnTextContent p a {
+    color: #656565;
+    font-weight: normal;
+    text-decoration: underline;
+  }
+  @media only screen and (min-width: 768px) {
+    .templateContainer {
+      width: 600px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    body=2C
+    table=2C
+    td=2C
+    p=2C
+    a=2C
+    li=2C
+    blockquote {
+      -webkit-text-size-adjust: none !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    body {
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .columnWrapper {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnRetinaImage {
+      max-width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImage {
+      width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnCartContainer=2C
+    .mcnCaptionTopContent=2C
+    .mcnRecContentContainer=2C
+    .mcnCaptionBottomContent=2C
+    .mcnTextContentContainer=2C
+    .mcnBoxedTextContentContainer=2C
+    .mcnImageGroupContentContainer=2C
+    .mcnCaptionLeftTextContentContainer=2C
+    .mcnCaptionRightTextContentContainer=2C
+    .mcnCaptionLeftImageContentContainer=2C
+    .mcnCaptionRightImageContentContainer=2C
+    .mcnImageCardLeftTextContentContainer=2C
+    .mcnImageCardRightTextContentContainer=2C
+    .mcnImageCardLeftImageContentContainer=2C
+    .mcnImageCardRightImageContentContainer {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnBoxedTextContentContainer {
+      min-width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageGroupContent {
+      padding: 9px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnCaptionLeftContentOuter .mcnTextContent=2C
+    .mcnCaptionRightContentOuter .mcnTextContent {
+      padding-top: 9px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageCardTopImageContent=2C
+    .mcnCaptionBottomContent:last-child .mcnCaptionBottomImageContent=2C
+    .mcnCaptionBlockInner
+      .mcnCaptionTopContent:last-child
+      .mcnTextContent {
+      padding-top: 18px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageCardBottomImageContent {
+      padding-bottom: 9px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageGroupBlockInner {
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageGroupBlockOuter {
+      padding-top: 9px !important;
+      padding-bottom: 9px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnTextContent=2C
+    .mcnBoxedTextContentColumn {
+      padding-right: 0px !important;
+      padding-left: 0px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .whiteContentStartTd {
+      padding-top: 0px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .bodyTitle {
+      padding-top: 16px;
+      font-size: 28px !important;
+      line-height: 100%;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .mcnTextContent=2C
+    .mcnBoxedTextContentColumn {
+      padding-right: 0 !important;
+      padding-left: 0 !important;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .whiteContentStartTd {
+      padding-top: 24px !important;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .bodyTitle {
+      font-size: 32px;
+      line-height: 125%;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnImageCardLeftImageContent=2C
+    .mcnImageCardRightImageContent {
+      padding-right: 9px !important;
+      padding-bottom: 0 !important;
+      padding-left: 9px !important;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .mcnImageCardLeftImageContent=2C
+    .mcnImageCardRightImageContent {
+      padding-right: 0px !important;
+      padding-bottom: 0 !important;
+      padding-left: 0px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #bodyCell {
+      padding: 15px 0 0 0 !important;
+      border-top: 0;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mi-header-desktop {
+      display: none;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .body-title {
+      font-size: 28px !important;
+      line-height: 115% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mi-header-mobile {
+      display: table-row-group !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .hide-mobile {
+      display: none;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .display-mobile {
+      display: none;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .body-title {
+      font-size: 32px !important;
+      line-height: 115% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templateBody {
+      padding: 18px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcpreview-image-uploader {
+      display: none !important;
+      width: 100% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .miLogo {
+      width: 144px !important;
+      max-width: 144px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .headerMobLogoTable {
+      width: 145px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .miHeaderSpacer {
+      display: none !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .headerMobDate {
+      font-size: 12px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .headerMobPadding {
+      padding-top: 0 !important;
+      padding-left: 4px !important;
+      padding-right: 4px !important;
+      margin-bottom: 3px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .contentPadLeft {
+      padding-left: 0px !important;
+    }
+  }
+  @media only screen and (min-width: 481px) {
+    .contentPadLeft {
+      padding-left: 6px !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    h1 {
+      font-size: 16px !important;
+      line-height: 125% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    h2 {
+      font-size: 14px !important;
+      line-height: 125% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    h3 {
+      font-size: 13px !important;
+      line-height: 125% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    h4 {
+      font-size: 12px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    .mcnBoxedTextContentContainer .mcnTextContent=2C
+    .mcnBoxedTextContentContainer .mcnTextContent p {
+      font-size: 13px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templatePreheader {
+      display: block !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templatePreheader .mcnTextContent=2C
+    #templatePreheader .mcnTextContent p {
+      font-size: 14px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templateHeader .mcnTextContent=2C
+    #templateHeader .mcnTextContent p {
+      font-size: 16px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templateBody .mcnTextContent=2C
+    #templateBody .mcnTextContent p {
+      font-size: 16px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templateColumns .columnContainer .mcnTextContent=2C
+    #templateColumns .columnContainer .mcnTextContent p {
+      font-size: 16px !important;
+      line-height: 150% !important;
+    }
+  }
+  @media only screen and (max-width: 480px) {
+    #templateFooter .mcnTextContent=2C
+    #templateFooter .mcnTextContent p {
+      font-size: 13px !important;
+      line-height: 150% !important;
+    }
+  }
+  .ad-disclaimer=2C
+  .ad-disclaimer p {
+    font-size: 9px !important;
+    line-height: 150% !important;
+  }
+  .ew-interesting-movers-context=2C
+  .ew-interesting-movers-context p {
+    font-size: 12px !important;
+    line-height: 125% !important;
+  }
+  .ew-interesting-movers-context a {
+    color: #1865d8 !important;
+    font-weight: normal !important;
+    text-decoration: underline !important;
+  }
+</style></div><!----><!--[if !gte mso 9]>--><span class=3D"mcnPreviewText=
+" style=3D"display:none;font-size:0px;line-height:0px;max-height:0px;max-w=
+idth:0px;opacity:0;overflow:hidden;visibility:hidden;mso-hide:all;">The S&=
+amp;P/ASX 200 closed 16.2 points lower=2C down 0.18%.</span><!--<![endif]=
+--><!----><center><table align=3D"center" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" height=3D"100%" width=3D"100%" id=3D"bodyTable" style=3D"=
+border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-tex=
+t-size-adjust:100%;-webkit-text-size-adjust:100%;height:100%;margin:0;padd=
+ing:0;width:100%;background-color:#ffffff;"><tr><td align=3D"center" valig=
+n=3D"top" id=3D"bodyCell" style=3D"background:#ffffff !important;mso-line-=
+height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;height:100%;margin:0;padding:0;width:100%;background-color:#ffffff;borde=
+r-top:0;"><!--[if !mso]><!--><table align=3D"center" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"border-collapse:colla=
+pse;mso-table-lspace:0pt;mso-table-rspace:0pt;width:100%;margin:0;padding:=
+0;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tr><td style=
+=3D"height:3.2468px;background:linear-gradient(to right=2C #5c6ad4=2C #3c7=
+dc6);mso-line-height-rule:exactly;line-height:0;font-size:0;margin:0;paddi=
+ng:0;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"></td></tr><=
+/table><!--<![endif]--><table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"100%" style=3D"border-collapse:collapse;mso-table-lspace:0=
+pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust=
+:100%;"><!--[if mso]>
+      <tr>
+        <td align=3D"center" style=3D"padding: 0; margin: 0;" style=3D"pad=
+ding: 0;
+        margin: 0; height: 3px; border-bottom: 3px solid #4C74CD; border-i=
+mage:
+        linear-gradient(to right=2C #5C6AD4=2C #3C7DC6) 1; line-height: 0;
+        font-size: 0;"></td>
+      </tr>
+    <![endif]--><tr><td align=3D"center" valign=3D"top" class=3D"headerMo=
+bPadding" data-template-container=3D"" style=3D"background:#f6fafe none no=
+-repeat center/cover;mso-line-height-rule:exactly;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;background-color:#f6fafe;background-image:=
+none;background-repeat:no-repeat;background-position:center;background-siz=
+e:cover;border-top:0;border-bottom:0;padding-top:5px;padding-bottom:5px;">=
+<div><!--[if (gte mso 9)|(IE)]>
+  <table align=3D"center" border=3D"0" cellspacing=3D"0" cellpadding=3D"0"=
+ width=3D"600" style=3D"width:600px;">
+    <tr>
+      <td align=3D"center" valign=3D"top" width=3D"600" style=3D"width:600=
+px;">
+        <![endif]--><table align=3D"center" border=3D"0" cellpadding=3D"0=
+" cellspacing=3D"0" width=3D"100%" class=3D"templateContainer" style=3D"bo=
+rder-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;max-width:600px !important;=
+border:0;"><tr><td valign=3D"top" style=3D"padding-top:15px !important;pad=
+ding-bottom:0;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><!--[if mso]>
+                  <table
+                    role=3D"presentation"
+                    border=3D"0"
+                    cellpadding=3D"0"
+                    cellspacing=3D"0"
+                  >
+                    <tr> <td height=3D"10" style=3D"font-size: 0; line-hei=
+ght: 0;">
+                    &nbsp; </td> </tr>
+                  </table>
+                <![endif]--><table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" width=3D"100%" style=3D"border-collapse:collapse;mso-table-lspa=
+ce:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-ad=
+just:100%;"><tbody><tr><td class=3D"" valign=3D"middle" style=3D"padding:9=
+px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-siz=
+e-adjust:100%;"><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" cl=
+ass=3D"" width=3D"100%" style=3D"border-collapse:collapse;mso-table-lspace=
+:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;"><tbody><tr><td valign=3D"middle" class=3D"headerMobPadding" styl=
+e=3D"padding:0px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-w=
+ebkit-text-size-adjust:100%;"><table align=3D"left" border=3D"0" cellpaddi=
+ng=3D"0" cellspacing=3D"0" class=3D"headerMobLogoTable" width=3D"264" styl=
+e=3D"border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-m=
+s-text-size-adjust:100%;-webkit-text-size-adjust:100%;float:left;"><tbody>=
+<tr><td align=3D"left" valign=3D"bottom" style=3D"mso-line-height-rule:exa=
+ctly;vertical-align:bottom;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;"><img alt=3D"" class=3D"mcnImage miLogo" src=3D"https://mcuserco=
+ntent.com/178a9f99c942c15cd57e649b8/images/96625e74-0801-336b-8fa0-c8752af=
+5cffb.png" width=3D"190" style=3D"display:inline-block;max-width:190px;bor=
+der:0;height:auto;outline:none;text-decoration:none;-ms-interpolation-mode=
+:bicubic;vertical-align:bottom;"></td></tr></tbody></table><table align=3D=
+"right" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"border-c=
+ollapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-a=
+djust:100%;-webkit-text-size-adjust:100%;float:right;border-left:1px solid=
+ #d9ebfc;"><tbody><tr style=3D"font-size:14px;line-height:0;"><td style=3D=
+"font-size:0;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webki=
+t-text-size-adjust:100%;"><img src=3D"https://mcusercontent.com/178a9f99c9=
+42c15cd57e649b8/images/2b367d2f-f935-0ea6-f49d-0eaf88459a2a.png" width=3D"=
+1" height=3D"21" class=3D"miHeaderSpacer" style=3D"-ms-interpolation-mode:=
+bicubic;width:1px;height:21px;aspect-ratio:auto 1 / 21;"></td><td valign=
+=3D"middle" style=3D"display:inline-block;mso-line-height-rule:exactly;ver=
+tical-align:middle;line-height:1.3;font-size:0;-ms-text-size-adjust:100%;-=
+webkit-text-size-adjust:100%;"><span style=3D"font-size:12px;">=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0</span></td><td width=3D"75" valign=3D"middle"=
+ style=3D"display:inline-block;width:75px;mso-line-height-rule:exactly;tex=
+t-align:right;vertical-align:middle;line-height:1.3;font-size:14px;font-fa=
+mily:Helvetica=2C Arial=2C
+                                            sans-serif;-ms-text-size-adjus=
+t:100%;-webkit-text-size-adjust:100%;" class=3D"headerMobDate">19 Aug 26</=
+td></tr><tr style=3D"font-size:14px;line-height:0;"><td style=3D"font-size=
+:0;height:21px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;"><img src=3D"https://mcusercontent.com/178a9f99=
+c942c15cd57e649b8/images/2b367d2f-f935-0ea6-f49d-0eaf88459a2a.png" width=
+=3D"1" height=3D"21" class=3D"miHeaderSpacer" style=3D"-ms-interpolation-m=
+ode:bicubic;width:1px;height:21px;aspect-ratio:auto 1 / 21;"></td><td vali=
+gn=3D"middle" style=3D"display:inline-block;mso-line-height-rule:exactly;v=
+ertical-align:middle;line-height:1.3;font-size:0;-ms-text-size-adjust:100%=
+;-webkit-text-size-adjust:100%;"><span style=3D"font-size:12px;">=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0</span></td><td width=3D"75" valign=3D"middle"=
+ style=3D"display:inline-block;width:75px;mso-line-height-rule:exactly;ver=
+tical-align:middle;line-height:1.3;font-size:13px;text-align:right;font-fa=
+mily:Helvetica=2C Arial=2C
+                                            sans-serif;-ms-text-size-adjus=
+t:100%;-webkit-text-size-adjust:100%;" class=3D"headerMobDate"><a href=3D"=
+https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd5=
+7e649b8&id=3D48b5a2bd6c&e=3D16c993ab1d" target=3D"_blank" style=3D"mso-li=
+ne-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:=
+100%;color:#2877e2;text-decoration:underline;line-height:1.3;font-size:13p=
+x;white-space:nowrap;"><strong>Read=C2=A0online</strong></a></td></tr></tb=
+ody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr>=
+</table><!--[if (gte mso 9)|(IE)]>
+      </td>
+    </tr>
+  </table>
+<![endif]--></div></td></tr></table><!--[--><!--[if (gte mso 9)|(IE)]>
+                <table align=3D"center" border=3D"0" cellspacing=3D"0" cel=
+lpadding=3D"0" width=3D"600" style=3D"width:600px;">
+                <tr>
+                    <td align=3D"center" valign=3D"top" width=3D"600" cell=
+padding=3D"0" cellspacing=3D"0" style=3D"width:600px;">
+                <![endif]--><table border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" width=3D"100%" class=3D"templateContainer" style=3D"border-coll=
+apse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adju=
+st:100%;-webkit-text-size-adjust:100%;max-width:600px !important;border:0;=
+"><tr><td valign=3D"top" id=3D"templateBody" class=3D"tdOuter" cellpadding=
+=3D"0" cellspacing=3D"0" style=3D"background:#ffffff none no-repeat center=
+/cover;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text=
+-size-adjust:100%;background-color:#ffffff;background-image:none;backgroun=
+d-repeat:no-repeat;background-position:center;background-size:cover;border=
+-top:0;border-bottom:0;padding:9px;"><!--[--><table border=3D"0" cellpadd=
+ing=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D=
+"min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;=
+mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:10=
+0%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" class=3D"mc=
+nTextBlockInner whiteContentStartTd" cellpadding=3D"0" cellspacing=3D"0" s=
+tyle=3D"mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" c=
+ellpadding=3D"0" cellspacing=3D"0" style=3D"width:600px;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;" width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=
+=3D"top" class=3D"mcnTextContent bodyTitle" style=3D"padding-bottom:9px;co=
+lor:#131b2c;font-size:16px;font-family:Arial=2C 'Helvetica Neue'=2C Helvet=
+ica=2C sans-serif;font-style:normal;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;word-break:break-word;line-=
+height:150%;text-align:left;"> Good evening=2C </td></tr></tbody></table><=
+!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border:none;border-collap=
+se:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust=
+:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><=
+tr><td valign=3D"top" class=3D"mcnTextBlockInner" style=3D"mso-line-height=
+-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><!=
+--[if mso]>
+                                    <table align=3D"left" border=3D"0" cel=
+lspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; borde=
+r: none;">
+                                    <tr>
+                                    <![endif]--><!--[if mso]>
+                                    <td valign=3D"top" width=3D"600" style=
+=3D"width:600px; padding: 0px !important;">
+                                    <![endif]--><table align=3D"left" bor=
+der=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;min-=
+width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;mso-t=
+able-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=3D=
+"top" class=3D"mcnTextContent" style=3D"padding:12px 0px 9px 0px;color:#13=
+1b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;font=
+-size:18px;font-style:normal;font-weight:bold;mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;word-break:break-=
+word;line-height:150%;text-align:left;"><div style=3D"mso-line-height-rule=
+:exactly;line-height:150%;"><p style=3D"margin:0 0 0 0;padding:0;mso-line-=
+height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;color:#202020;font-family:Helvetica;font-size:16px;line-height:150%;text=
+-align:left;"><!--  The S&P/ASX 200 closed 7.9 points higher=2C up 0.09%.-=
+-><strong>The S&amp;P/ASX 200 closed <span style=3D"color: #d22d20">16.2 p=
+oints lower=2C down 0.18%</span>. </strong></p></div></td></tr></tbody></t=
+able><!--[if mso]>
+                                    </td>
+                                    <![endif]--><!--[if mso]>
+                                    </tr>
+                                    </table>
+                                    <![endif]--></td></tr></tbody></table=
+><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" cl=
+ass=3D"mcnTextBlock" style=3D"min-width:100%;border:none;border-collapse:c=
+ollapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><=
+td valign=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:0px;mso=
+-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0px !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;" width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=
+=3D"top" class=3D"mcnTextContent" style=3D"padding-top:9px;padding-bottom:=
+9px;color:#131b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C sa=
+ns-serif;font-size:16px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;word-break:break-word;line-height:150%;=
+text-align:left;"><div><p>The ASX 200 fell as US benchmark bond yields tip=
+ped 22-year highs overnight=2C dragging real estate=2C banks=2C and techno=
+logy stocks sharply lower =E2=80=94 while healthcare extended its historic=
+ two-day run=2C energy held firm on elevated crude=2C and investors in Wis=
+eTech Global endured a third corporate governance shock that sent the stoc=
+k down nearly 9%.<br><br>Be sure to click/scroll through for the usual rep=
+orting of the major sector and stock-specific moves=2C the broker response=
+s to them=2C as well as all the key economic data in tonight's Evening Wra=
+p. Also=2C I have detailed technical analysis on the Nasdaq Composite and=
+ the S&amp;P/ASX 200 in today's ChartWatch.</p><p>Let=E2=80=99s dive in!</=
+p></div></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnButtonBlock" style=3D"min-width:100%;border:none;border-coll=
+apse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adju=
+st:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnButtonBlockOute=
+r"><tr><td style=3D"padding-top:18px;padding-bottom:18px;mso-line-height-r=
+ule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;word-b=
+reak:break-word;color:#202020;font-family:Helvetica;font-size:16px;line-he=
+ight:150%;text-align:left;" valign=3D"top" align=3D"left" class=3D"mcnButt=
+onBlockInner mcnTextContent"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0px !important;">
+                                        <![endif]--><table border=3D"0" c=
+ellpadding=3D"0" cellspacing=3D"0" class=3D"mcnButtonContentContainer" sty=
+le=3D"border-collapse:separate !important;border-radius:6px;background-col=
+or:#0060db;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;"><tbody><tr><td align=3D"center" class=
+=3D"mcnButtonContent" valign=3D"middle" style=3D"font-family:Arial;font-si=
+ze:16px;padding:16px;mso-line-height-rule:exactly;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;"><div><a class=3D"mcnButton" title=3D"Vie=
+w Evening Wrap" href=3D"https://marketindex.us8.list-manage.com/track/clic=
+k?u=3D178a9f99c942c15cd57e649b8&id=3D8281ef0ffd&e=3D16c993ab1d" target=3D=
+"_blank" style=3D"font-weight:normal;letter-spacing:normal;line-height:100=
+%;text-align:center;text-decoration:none;color:#ffffff;mso-line-height-rul=
+e:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:=
+block;"><span style=3D"color:#ffffff;">Read full Evening Wrap</span></a></=
+div></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><!--]--><div>=C2=A0</div><!--[--><!----><!----><!--[--><!--[if mso]>
+  <table role=3D"presentation" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" width=3D"600" align=3D"center">
+  <tr>
+    <td>
+  <![endif]--><div class=3D"layout one-col fixed-width stack" style=3D"ma=
+rgin: 0 auto 20px;max-width: 600px;overflow-wrap:break-word;word-wrap:brea=
+k-word;word-break:break-word;"><table align=3D"center" cellpadding=3D"0" c=
+ellspacing=3D"0" border=3D"0" width=3D"100%" role=3D"presentation" style=
+=3D"max-width:600px;width:100%;"><tr><td style=3D"border-collapse:collapse=
+;border-left:3px solid #b2c3d2;padding-left:18px;"><table cellpadding=3D"0=
+" cellspacing=3D"0" border=3D"0" width=3D"100%" role=3D"presentation" styl=
+e=3D"width:100%;table-layout:fixed;"><tbody><tr><td width=3D"64" valign=3D=
+"top" align=3D"left" style=3D"width:64px;vertical-align:top;padding:0;"><i=
+mg src=3D"https://lw-prod-pulse-files.s3.ap-southeast-2.amazonaws.com/uplo=
+ads/advertisement/cf67e75800a15213b3317069-Untitled%20design%20(4).png" al=
+t=3D"CMC Markets" width=3D"64" height=3D"64" style=3D"margin:0;padding:0;d=
+isplay:block;max-width:64px;width:64px;height:64px;"></td><td valign=3D"to=
+p" style=3D"vertical-align:middle;padding:0 0 0 10px;overflow-wrap:break-w=
+ord;word-wrap:break-word;word-break:break-word;"><table cellpadding=3D"0"=
+ cellspacing=3D"0" border=3D"0" width=3D"100%" role=3D"presentation"><tbod=
+y><tr><td style=3D"color:#4a6173;font-family:Arial=2CHelvetica Neue=2CHelv=
+etica=2Csans-serif;font-size:14px;font-weight:bold;line-height:16px!import=
+ant;overflow-wrap:break-word;word-wrap:break-word;word-break:break-word;">=
+<a href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f9=
+9c942c15cd57e649b8&id=3Dab8f8eed70&e=3D16c993ab1d" style=3D"color:#2877E2=
+;text-decoration:none;font-weight:normal" target=3D"_blank"><strong>CMC Ma=
+rkets</strong></a></td></tr><tr><td style=3D"color:#4a6173;font-family:Ari=
+al=2CHelvetica Neue=2CHelvetica=2Csans-serif;font-size:12px;line-height:16=
+px!important;"> A message from our partner </td></tr></tbody></table></td>=
+</tr></tbody></table><table cellpadding=3D"0" cellspacing=3D"0" border=3D"=
+0" width=3D"100%" role=3D"presentation" style=3D"width:100%;"><tbody><tr><=
+td style=3D"padding:14px 0 0 0;color:#293945;font-family:Arial=2CHelvetica=
+ Neue=2CHelvetica=2Csans-serif;font-size:24px;font-weight:bold;line-height=
+:32px!important;overflow-wrap:break-word;word-wrap:break-word;word-break:b=
+reak-word;"><a href=3D"https://marketindex.us8.list-manage.com/track/click=
+?u=3D178a9f99c942c15cd57e649b8&id=3D2ac57e9441&e=3D16c993ab1d" target=3D"=
+_blank" style=3D"color:#293945;text-decoration:none;">Never tap out. Trade=
+ around the clock Commodity CFDs</a></td></tr><tr><td style=3D"padding:14p=
+x 0 0 0;color:#293945;font-family:Arial=2CHelvetica Neue=2CHelvetica=2Csan=
+s-serif;font-size:18px;font-weight:bold;line-height:150%;overflow-wrap:bre=
+ak-word;word-wrap:break-word;word-break:break-word;">Take advantage of eve=
+ry opportunity</td></tr><tr><td style=3D"padding:14px 0 0 0;color:#293945;=
+font-family:Arial=2CHelvetica Neue=2CHelvetica=2Csans-serif;font-size:16px=
+;line-height:150%;overflow-wrap:break-word;word-wrap:break-word;word-break=
+:break-word;">Trade energy and metals markets such as gold=2C silver=2C Br=
+ent and WTI beyond standard market hours. </td></tr><tr><td style=3D"paddi=
+ng:18px 0 0 0;"><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" ro=
+le=3D"presentation" style=3D"border-collapse:separate!important;border-rad=
+ius:6px;border:1px solid #2877E2;"><tbody><tr><td align=3D"center" valign=
+=3D"middle" style=3D"font-family:Arial;font-size:16px;padding:10px 16px;li=
+ne-height:16px!important;"><a href=3D"https://marketindex.us8.list-manage.=
+com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3Ddc8beea71f&e=3D16c993ab1d" style=3D"font-weight:normal;letter-spacing:normal;line-height:100%;te=
+xt-align:center;text-decoration:none;color:#2877E2;" target=3D"_blank"><sp=
+an style=3D"color:#2877E2;">LEARN MORE</span></a></td></tr></tbody></table=
+></td></tr><tr><td class=3D"advert" style=3D"padding:18px 0 0 0;color:#293=
+945;font-family:Arial=2CHelvetica Neue=2CHelvetica=2Csans-serif;font-size:=
+9px;line-height:150%;overflow-wrap:break-word;word-wrap:break-word;word-br=
+eak:break-word;"><p>CMC Markets provides general information only. CFD tra=
+ding carries significant risks=2C you do not own underlying assets. Please=
+ visit <a target=3D"_blank" rel=3D"noopener noreferrer nofollow" class=3D"=
+link" href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a=
+9f99c942c15cd57e649b8&id=3Df30aadc039&e=3D16c993ab1d">cmcmarkets.com</a>=
+ to view the PDS=2C FSG and TMD for CFDs. CMC Markets Asia Pacific Pty Ltd=
+=2E</p></td></tr></tbody></table></td></tr></table></div><!--[if mso]>
+  </td>
+  </tr>
+  </table>
+  <![endif]--><!--]--><table width=3D"100%" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation"><tr><td style=3D"padding-bottom:20px;"><table=
+ width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" role=3D"presentation">=
+<tr><td style=3D"border-top:1px solid #E5E9F0;line-height:1px;font-size:1p=
+x;">=C2=A0</td></tr></table></td></tr></table><!--]--><!--[--><table bord=
+er=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnTe=
+xtBlock" style=3D"min-width:100%;border:none;border-collapse:collapse;mso-=
+table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-te=
+xt-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valign=3D=
+"top" class=3D"mcnTextBlockInner" style=3D"padding-top:18px;mso-line-heigh=
+t-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><=
+!--[if mso]>
+                <table align=3D"left" border=3D"0" cellspacing=3D"0" cellp=
+adding=3D"0" width=3D"100%" style=3D"width:100%; border: none;">
+                  <tr>
+                    <td valign=3D"top" width=3D"600" style=3D"width:600px;=
+ padding: 0px !important;">
+                <![endif]--><table align=3D"left" border=3D"0" cellpaddin=
+g=3D"0" cellspacing=3D"0" style=3D"max-width:100%;min-width:100%;border-co=
+llapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-ad=
+just:100%;-webkit-text-size-adjust:100%;" width=3D"100%" class=3D"mcnTextC=
+ontentContainer"><tbody><tr><td class=3D"contentPadLeft" style=3D"padding-=
+right:0 !important;font-family:Helvetica=2C sans-serif;font-size:14px;marg=
+in:0;padding:0 0 9px 0;margin-top:0;font-weight:normal;width:24px;height:2=
+4px;vertical-align:top;mso-line-height-rule:exactly;-ms-text-size-adjust:1=
+00%;-webkit-text-size-adjust:100%;" valign=3D"top" align=3D"left"><!--[if=
+ mso]>&zwnj;<!
+                  [endif]--><img style=3D"font-family:Helvetica=2C sans-s=
+erif;font-size:100%;margin:0;padding:0;max-width:24px;width:24px;margin-to=
+p:0;height:24px;-ms-interpolation-mode:bicubic;" width=3D"24" height=3D"24=
+" src=3D"https://files.marketindex.com.au/files/mi-brandmark-sm.png" alt=
+=3D"[ ]"></td><td valign=3D"top" style=3D"vertical-align:top;padding-left=
+:16px;padding-bottom:9px;color:#031b2c;font-family:Arial=2C 'Helvetica Neu=
+e'=2C Helvetica=2C sans-serif;font-size:22px;font-style:normal;font-weight=
+:normal;line-height:23px !important;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Today in Review</=
+strong></td></tr></tbody></table><!--[if mso]>
+                    </td>
+                  </tr>
+                </table>
+                <![endif]--></td></tr></tbody></table><table border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock"=
+ style=3D"min-width:100%;border:none;border-collapse:collapse;mso-table-ls=
+pace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-=
+adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" cl=
+ass=3D"mcnTextBlockInner" style=3D"padding-top:0px;mso-line-height-rule:ex=
+actly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><!--[if m=
+so]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;" width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=
+=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0px;padding-bottom:=
+9px;color:#131b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C sa=
+ns-serif;font-size:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;word-break:break-word;line-height:150%;=
+text-align:left;"><div><div style=3D"font-size:16px;"><table style=3D"widt=
+h:100%;margin-top:0.2rem !important;border-collapse:collapse;mso-table-lsp=
+ace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-a=
+djust:100%;" width=3D"100%"><tbody><!--[--><tr><td style=3D"padding-botto=
+m:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>ASX 200<=
+/strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">9=2C053.8</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.18%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>All Ords=
+</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">9=2C255.2</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.20%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Small Or=
+ds</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Aria=
+l=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">3=2C500.9</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.38%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>All Tech=
+</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">3=2C135.6</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-1.74%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Emerging=
+ Companies</strong></td><td style=3D"width:25%;padding-bottom:3px;font-fam=
+ily:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">3=2C054.9</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.09%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>AUD/USD<=
+/strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">0.7074</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.17%</td></tr><!--]--></tb=
+ody></table></div></div></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border:none;border-collap=
+se:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust=
+:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><=
+tr><td valign=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:18p=
+x;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size=
+-adjust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rsp=
+ace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" width=3D=
+"100%" class=3D"mcnTextContentContainer"><tbody><tr><td class=3D"contentPa=
+dLeft" style=3D"padding-right:0 !important;font-family:Helvetica=2C sans-s=
+erif;font-size:14px;margin:0;padding:0 0 9px 0;margin-top:0;font-weight:no=
+rmal;width:24px;height:24px;vertical-align:top;mso-line-height-rule:exactl=
+y;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" valign=3D"top"=
+ align=3D"left"><!--[if mso]>&zwnj;<!
+                  [endif]--><img style=3D"font-family:Helvetica=2C sans-s=
+erif;font-size:100%;margin:0;padding:0;max-width:24px;width:24px;margin-to=
+p:0;height:24px;-ms-interpolation-mode:bicubic;" width=3D"24" height=3D"24=
+" src=3D"https://files.marketindex.com.au/files/mi-brandmark-sm.png" alt=
+=3D"[ ]"></td><td valign=3D"top" style=3D"vertical-align:top;padding-left=
+:16px;padding-bottom:9px;color:#031b2c;font-family:Arial=2C 'Helvetica Neu=
+e'=2C Helvetica=2C sans-serif;font-size:22px;font-style:normal;font-weight=
+:normal;line-height:23px !important;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>ASX sector perfor=
+mance</strong></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border:none;border-collap=
+se:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust=
+:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><=
+tr><td valign=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:0px=
+;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-=
+adjust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;" width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=
+=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0px;padding-bottom:=
+9px;color:#131b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C sa=
+ns-serif;font-size:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;word-break:break-word;line-height:150%;=
+text-align:left;"><div><div style=3D"font-size:16px;"><table style=3D"widt=
+h:100%;margin-top:0.2rem !important;border-collapse:collapse;mso-table-lsp=
+ace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-a=
+djust:100%;"><tbody><!--[--><tr><td style=3D"padding-bottom:3px;font-fami=
+ly:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Health C=
+are</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Ari=
+al=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">31=2C604.8</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+2.60%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Energy</=
+strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=2C=
+ 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">11=2C023.7</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+0.77%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Utilitie=
+s</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">10=2C271.6</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+0.35%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Consumer=
+ Staples</strong></td><td style=3D"width:25%;padding-bottom:3px;font-famil=
+y:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">13=2C248.2</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+0.31%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Industri=
+als</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Ari=
+al=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">8=2C235.5</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+0.05%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Communic=
+ation Services</strong></td><td style=3D"width:25%;padding-bottom:3px;font=
+-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">1=2C624.0</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #0f8a5d;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">+0.04%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Material=
+s</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">24=2C946.9</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.07%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Consumer=
+ Discretionary</strong></td><td style=3D"width:25%;padding-bottom:3px;font=
+-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">3=2C861.1</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.58%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Financia=
+ls</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Aria=
+l=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">9=2C371.2</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-0.64%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Real Est=
+ate</strong></td><td style=3D"width:25%;padding-bottom:3px;font-family:Ari=
+al=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">3=2C518.4</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-1.13%</td></tr><tr><td styl=
+e=3D"padding-bottom:3px;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C
+                                  sans-serif;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Informat=
+ion Technology</strong></td><td style=3D"width:25%;padding-bottom:3px;font=
+-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;text-align:right;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"25%">1=2C895.2</td><td style=3D"
+                                width: 25%;
+                                padding-bottom: 3px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-3.15%</td></tr><!--]--></tb=
+ody></table></div></div></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><!--]--><!--[--><table border=3D"0" cellpadding=3D"0" cellspacing=3D=
+"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-width:100%;borde=
+r-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-siz=
+e-adjust:100%;-webkit-text-size-adjust:100%;table-layout:fixed !important;=
+"><tbody class=3D"mcnDividerBlockOuter"><tr><td class=3D"mcnDividerBlockIn=
+ner mcnBoxedTextContentColumn" style=3D"min-width:100%;padding-top:18px;ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px;">
+                                        <![endif]--><table class=3D"mcnDi=
+viderContent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"10=
+0%" style=3D"min-width:100%;border-top:2px solid #e9edf0;border-collapse:c=
+ollapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-=
+rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">=
+ =C2=A0 </td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border-collapse:collapse;=
+mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webki=
+t-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valig=
+n=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:0px;mso-line-he=
+ight-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;=
+"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rsp=
+ace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" width=3D=
+"100%" class=3D"mcnTextContentContainer"><tbody><tr><td class=3D"contentPa=
+dLeft" style=3D"padding-right:0 !important;font-family:Helvetica=2C sans-s=
+erif;font-size:14px;margin:0;padding-top:9px;padding-bottom:9px;margin-top=
+:0;font-weight:normal;width:24px;height:24px;vertical-align:top;mso-line-h=
+eight-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%=
+;" valign=3D"top" align=3D"left"><!--[if mso]>&zwnj;<!
+                  [endif]--><img style=3D"font-family:Helvetica=2C sans-s=
+erif;font-size:100%;margin:0;padding:0;max-width:24px;width:24px;margin-to=
+p:0;height:24px;-ms-interpolation-mode:bicubic;" width=3D"24" height=3D"24=
+" src=3D"https://files.marketindex.com.au/files/mi-brandmark-sm.png" alt=
+=3D"[ ]"></td><td valign=3D"top" style=3D"vertical-align:top;padding-left=
+:10px;padding-top:9px;padding-bottom:9px;color:#031b2c;font-family:Arial=
+=2C 'Helvetica Neue'=2C Helvetica=2C sans-serif;font-size:22px;font-style:=
+normal;font-weight:normal;line-height:23px !important;mso-line-height-rule=
+:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><strong=
+>Interesting Movers</strong></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border:none;border-collap=
+se:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust=
+:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><=
+tr><td valign=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:9px=
+;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-=
+adjust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%; b=
+order: none;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;" width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=
+=3D"top" class=3D"mcnTextContent" style=3D"padding-top:0px;padding-bottom:=
+9px;color:#131b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C sa=
+ns-serif;font-size:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;word-break:break-word;line-height:150%;=
+text-align:left;"><div><table style=3D"width:100%;font-size:16px;border-co=
+llapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-ad=
+just:100%;-webkit-text-size-adjust:100%;" width=3D"100%"><tbody><tr><td co=
+lspan=3D"2" style=3D"padding-top:0;mso-line-height-rule:exactly;-ms-text-s=
+ize-adjust:100%;-webkit-text-size-adjust:100%;"><h4 style=3D"display:block=
+;margin:0;padding:0;color:#040707;font-family:Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;font-size:18px;font-style:nor=
+mal;font-weight:bold;line-height:125%;letter-spacing:normal;text-align:lef=
+t;"> Trading Higher </h4></td></tr><!--[--><!--[--><tr><td style=3D"
+                                padding-top: 4px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>Macmahon Holdings=C2=A0</strong><a=
+ href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c=
+942c15cd57e649b8&id=3D349eddda81&e=3D16c993ab1d" style=3D"color:#1865d8;m=
+so-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-ad=
+just:100%;font-weight:normal;text-decoration:underline;">(MAH)</a></td><td=
+ style=3D"
+                              width: 25%;
+                              padding-top: 4px;
+                              font-family: Arial=2C 'Helvetica Neue'=2C He=
+lvetica=2C
+                                sans-serif;
+                              color: #0f8a5d;
+                              text-align: right;
+                              mso-line-height-rule: exactly;
+                              -ms-text-size-adjust: 100%;
+                              -webkit-text-size-adjust: 100%;
+                            " width=3D"25%;">+12.7%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>No news today=2C rebounded=
+ from sharp selloff following yesterday's FY24 results announcement. Two d=
+irectors increased their stakes as rights under salary sacrifice plan vest=
+ed.</p></div></td><td style=3D"mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"> =C2=A0 </td></tr><!--]--><!--=
+[--><tr><td style=3D"
+                                padding-top: 18px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>Stockland=C2=A0</strong><a href=3D=
+"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd=
+57e649b8&id=3Dd05570e307&e=3D16c993ab1d" style=3D"color:#1865d8;mso-line-=
+height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;font-weight:normal;text-decoration:underline;">(SGP)</a></td><td style=
+=3D"
+                              width: 25%;
+                              padding-top: 4px;
+                              font-family: Arial=2C 'Helvetica Neue'=2C He=
+lvetica=2C
+                                sans-serif;
+                              color: #0f8a5d;
+                              text-align: right;
+                              mso-line-height-rule: exactly;
+                              -ms-text-size-adjust: 100%;
+                              -webkit-text-size-adjust: 100%;
+                            " width=3D"25%;">+12.3%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>Reported FY26 results: NPAT=
+ $892 million=2C =E2=86=91 10% vs previous corresponding period (pcp0 and=
+ =E2=86=91 1.5% vs consensus. </p></div></td><td style=3D"mso-line-height-=
+rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">=
+ =C2=A0 </td></tr><!--]--><!--[--><tr><td style=3D"
+                                padding-top: 18px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>Fletcher Building=C2=A0</strong><a=
+ href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c=
+942c15cd57e649b8&id=3D635de17e4a&e=3D16c993ab1d" style=3D"color:#1865d8;m=
+so-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-ad=
+just:100%;font-weight:normal;text-decoration:underline;">(FBU)</a></td><td=
+ style=3D"
+                              width: 25%;
+                              padding-top: 4px;
+                              font-family: Arial=2C 'Helvetica Neue'=2C He=
+lvetica=2C
+                                sans-serif;
+                              color: #0f8a5d;
+                              text-align: right;
+                              mso-line-height-rule: exactly;
+                              -ms-text-size-adjust: 100%;
+                              -webkit-text-size-adjust: 100%;
+                            " width=3D"25%;">+8.8%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>Reported FY26 results: Unde=
+rlying NPAT $250 million=2C vs -$419 million loss FY25.</p></div></td><td=
+ style=3D"mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-t=
+ext-size-adjust:100%;"> =C2=A0 </td></tr><!--]--><!--]--></tbody></table><=
+table style=3D"width:100%;font-size:16px;border-collapse:collapse;mso-tabl=
+e-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-s=
+ize-adjust:100%;" width=3D"100%"><tbody><tr><td colspan=3D"2" style=3D"pad=
+ding-top:27px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><h4 style=3D"display:block;margin:0;padding:0;c=
+olor:#040707;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=2C
+                                  sans-serif;font-size:18px;font-style:nor=
+mal;font-weight:bold;line-height:125%;letter-spacing:normal;text-align:lef=
+t;"> Trading Lower </h4></td></tr><!--[--><!--[--><tr><td style=3D"
+                                padding-top: 4px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>Wisetech Global=C2=A0</strong><a h=
+ref=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c94=
+2c15cd57e649b8&id=3D81d4c9373e&e=3D16c993ab1d" style=3D"color:#1865d8;mso=
+-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;font-weight:normal;text-decoration:underline;">(WTC)</a></td><td s=
+tyle=3D"
+                                width: 25%;
+                                padding-top: 4px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-8.7%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>Same old same old at WTC un=
+fortunately for shareholders... Search warrant was executed on the Company=
+ requiring the production of documents and electronic data in relation to=
+ the supply of global logistics services and software as part of an ACCC i=
+nvestigation into alleged contraventions of the Competition and Consumer A=
+ct.</p></div></td><td style=3D"mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"> =C2=A0 </td></tr><!--]--><!--=
+[--><tr><td style=3D"
+                                padding-top: 18px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>IperionX=C2=A0</strong><a href=3D"=
+https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd5=
+7e649b8&id=3D4707b1d245&e=3D16c993ab1d" style=3D"color:#1865d8;mso-line-h=
+eight-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%=
+;font-weight:normal;text-decoration:underline;">(IPX)</a></td><td style=3D=
+"
+                                width: 25%;
+                                padding-top: 4px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-7.9%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>No news. Performance reflec=
+ted general weakness in the broader critical minerals and rare earths sect=
+or. IPX is a regular in the <em>ChartWatch </em>ASX Scans Downtrends List.=
+</p></div></td><td style=3D"mso-line-height-rule:exactly;-ms-text-size-adj=
+ust:100%;-webkit-text-size-adjust:100%;"> =C2=A0 </td></tr><!--]--><!--[--=
+><tr><td style=3D"
+                                padding-top: 18px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              "><strong>Life360 Inc=C2=A0</strong><a href=
+=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c1=
+5cd57e649b8&id=3Dcba63b6c9c&e=3D16c993ab1d" style=3D"color:#1865d8;mso-li=
+ne-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:=
+100%;font-weight:normal;text-decoration:underline;">(360)</a></td><td styl=
+e=3D"
+                                width: 25%;
+                                padding-top: 4px;
+                                font-family: Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C
+                                  sans-serif;
+                                color: #a71b1b;
+                                text-align: right;
+                                mso-line-height-rule: exactly;
+                                -ms-text-size-adjust: 100%;
+                                -webkit-text-size-adjust: 100%;
+                              " width=3D"25%">-6.9%</td></tr><tr><td class=
+=3D"ew-interesting-movers-context"><div style=3D"font-family:Arial=2C 'Hel=
+vetica Neue'=2C
+                                      Helvetica=2C sans-serif;font-size:12=
+px;line-height:125% !important;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><p>No news=2C continued negati=
+ve response to recent results announcement. 360 was added was added to the=
+ <em>ChartWatch </em>ASX Scans Downtrends List yesterday.</p></div></td><t=
+d style=3D"mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-=
+text-size-adjust:100%;"> =C2=A0 </td></tr><!--]--><!--]--><tr><td colspan=
+=3D"2" style=3D"padding-top:27px;mso-line-height-rule:exactly;-ms-text-siz=
+e-adjust:100%;-webkit-text-size-adjust:100%;"><table border=3D"0" cellpadd=
+ing=3D"0" cellspacing=3D"0" class=3D"mcnButtonContentContainer" style=3D"b=
+order-collapse:separate !important;border-radius:6px;background-color:#006=
+0db;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-w=
+ebkit-text-size-adjust:100%;"><tbody><tr><td align=3D"center" class=3D"mcn=
+ButtonContent" valign=3D"middle" style=3D"font-family:Arial;font-size:16px=
+;padding:16px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><a class=3D"mcnButton" title=3D"View Evening Wr=
+ap" href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f=
+99c942c15cd57e649b8&id=3D3163b3b5d1&e=3D16c993ab1d" target=3D"_blank" sty=
+le=3D"font-weight:normal;letter-spacing:normal;line-height:100%;text-align=
+:center;text-decoration:none;color:#ffffff;mso-line-height-rule:exactly;-m=
+s-text-size-adjust:100%;-webkit-text-size-adjust:100%;display:block;"><spa=
+n style=3D"color:#ffffff;">See All Interesting Movers</span></a></td></tr>=
+</tbody></table></td></tr></tbody></table></div></td></tr></tbody></table>=
+<!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><!--]--><!--[--><table border=3D"0" cellpadding=3D"0" cellspacing=3D=
+"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-width:100%;borde=
+r-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-siz=
+e-adjust:100%;-webkit-text-size-adjust:100%;table-layout:fixed !important;=
+"><tbody class=3D"mcnDividerBlockOuter"><tr><td class=3D"mcnDividerBlockIn=
+ner mcnBoxedTextContentColumn" style=3D"min-width:100%;padding-top:18px;ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px;">
+                                        <![endif]--><table class=3D"mcnDi=
+viderContent" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"10=
+0%" style=3D"min-width:100%;border-top:2px solid #e9edf0;border-collapse:c=
+ollapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-=
+rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">=
+ =C2=A0 </td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border-collapse:collapse;=
+mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webki=
+t-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valig=
+n=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:9px;mso-line-he=
+ight-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;=
+"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"600" s=
+tyle=3D"width:600px; padding: 0 !important;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rsp=
+ace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" width=3D=
+"100%" class=3D"mcnTextContentContainer"><tbody><tr><td class=3D"contentPa=
+dLeft" style=3D"padding-right:0 !important;font-family:Helvetica=2C sans-s=
+erif;font-size:14px;margin:0;padding-bottom:9px;margin-top:0;font-weight:n=
+ormal;width:24px;height:24px;vertical-align:top;mso-line-height-rule:exact=
+ly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" valign=3D"top=
+" align=3D"left"><!--[if mso]>&zwnj;<!
+                  [endif]--><img style=3D"font-family:Helvetica=2C sans-s=
+erif;font-size:100%;margin:0;padding:0;max-width:24px;width:24px;margin-to=
+p:0;height:24px;-ms-interpolation-mode:bicubic;" width=3D"24" height=3D"24=
+" src=3D"https://files.marketindex.com.au/files/mi-brandmark-sm.png" alt=
+=3D"[ ]"></td><td valign=3D"top" style=3D"vertical-align:top;padding-left=
+:10px;padding-bottom:9px;color:#031b2c;font-family:Arial=2C 'Helvetica Neu=
+e'=2C Helvetica=2C sans-serif;font-size:22px;font-style:normal;font-weight=
+:normal;line-height:23px !important;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;"><strong>Market News</stro=
+ng></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%=
+" class=3D"mcnTextBlock" style=3D"min-width:100%;border-collapse:collapse;=
+mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webki=
+t-text-size-adjust:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valig=
+n=3D"top" class=3D"mcnTextBlockInner" style=3D"padding-top:9px;mso-line-he=
+ight-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;=
+"><!--[if mso]>
+                                        <table align=3D"left" border=3D"0"=
+ cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                        <tr>
+                                        <![endif]--><!--[if mso]>
+                                        <td valign=3D"top" width=3D"506" s=
+tyle=3D"width:506px; padding: 0;">
+                                        <![endif]--><table align=3D"left"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;=
+min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rsp=
+ace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" width=3D=
+"100%" class=3D"mcnTextContentContainer"><tbody><tr><td class=3D"mcnTextCo=
+ntent" valign=3D"top" style=3D"vertical-align:top;padding-left:0px;padding=
+-bottom:0;color:#031b2c;font-family:Arial=2C 'Helvetica Neue'=2C Helvetica=
+=2C sans-serif;font-size:22px;font-style:normal;font-weight:normal;line-he=
+ight:23px !important;mso-line-height-rule:exactly;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;word-break:break-word;text-align:left;"><d=
+iv style=3D"font-size:16px;"><table align=3D"left" border=3D"0" cellpaddin=
+g=3D"0" cellspacing=3D"0" class=3D"" style=3D"border-collapse:collapse;mso=
+-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-t=
+ext-size-adjust:100%;"><tbody><!--[--><!--[--><tr><td valign=3D"middle" st=
+yle=3D"padding-top:0px;padding-bottom:10px;mso-line-height-rule:exactly;-m=
+s-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><a href=3D"https:/=
+/marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8=
+&id=3D32e9d38ca8&e=3D16c993ab1d" style=3D"display:inline-block;mso-line-h=
+eight-rule:exactly;line-height:0;font-family:Arial;font-size:12px;color:#1=
+865d8;font-weight:bold;text-decoration:none;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;">Reporting Season</a><!--[--><span style=3D"dis=
+play:inline-block;mso-line-height-rule:exactly;line-height:0;vertical-alig=
+n:-3px;font-size:17px;color:#4a6173;margin:0;padding:0;font-weight:bold;">=
+=C2=A0=C2=B7=C2=A0</span><!--[--><a href=3D"https://marketindex.us8.list-m=
+anage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3Dbe9215fbe4&e=3D16c993ab1d" style=3D"display:inline-block;mso-line-height-rule:exactly;line=
+-height:0;font-family:Arial;font-size:12px;color:#4a6173;font-weight:bold;=
+text-decoration:none;-ms-text-size-adjust:100%;-webkit-text-size-adjust:10=
+0%;">STO=C2=A0</a><!--]--><!----><!--]--><!----></td></tr><tr><td style=3D=
+"padding-bottom:10px;line-height:125%;mso-line-height-rule:exactly;-ms-tex=
+t-size-adjust:100%;-webkit-text-size-adjust:100%;"><a href=3D"https://mark=
+etindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=
+=3Deed01e5e98&e=3D16c993ab1d" style=3D"font-family:Arial;font-size:20px;c=
+olor:#131b2c;font-weight:bold;text-decoration:none;mso-line-height-rule:ex=
+actly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" target=3D"=
+_blank">Santos hits ~12-year high after paying out all its free cash flow=
+ in a show of board confidence </a></td></tr><tr><td style=3D"line-height:=
+115%;mso-line-height-rule:exactly;font-family:Arial;font-size:16px;color:#=
+4a6173;font-weight:normal;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;">Santos paid out effectively all its first-half operating cash fl=
+ow with its dividend=2C backing its view that production will deliver in 2=
+H.</td></tr><tr><td style=3D"padding-top:20px;mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><table border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"mcnButtonContentContai=
+ner" style=3D"border:1px solid #0060db;border-collapse:separate !important=
+;border-radius:4px;background-color:#ffffff;mso-table-lspace:0pt;mso-table=
+-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tbo=
+dy><tr><td align=3D"center" class=3D"mcnButtonContent" valign=3D"middle" s=
+tyle=3D"font-family:Arial;font-size:14px;padding:8px 10px;mso-line-height-=
+rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><a=
+ class=3D"mcnButton" title=3D"" href=3D"https://marketindex.us8.list-manag=
+e.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3Dbc269cd319&e=3D16c993ab1d" target=3D"_blank" style=3D"display:block;height:100%;font-weight:no=
+rmal;letter-spacing:normal;line-height:100%;text-align:center;text-decorat=
+ion:none;color:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adjust:1=
+00%;-webkit-text-size-adjust:100%;"><span style=3D"color:#0060db;">Read Fu=
+ll Story</span></a></td></tr></tbody></table></td></tr><tr><td style=3D"ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;"><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=
+=3D"100%" class=3D"mcnDividerBlock" style=3D"min-width:100%;border-collaps=
+e:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;table-layout:fixed !important;"><tbody=
+ class=3D"mcnDividerBlockOuter"><tr><td class=3D"mcnDividerBlockInner" sty=
+le=3D"min-width:100%;padding:20px 0px;mso-line-height-rule:exactly;-ms-tex=
+t-size-adjust:100%;-webkit-text-size-adjust:100%;"><!--[if mso]>
+                          <table align=3D"left" border=3D"0" cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                          <tr>
+                          <![endif]--><!--[if mso]>
+                          <td valign=3D"top" width=3D"506" style=3D"width:=
+506px;">
+                          <![endif]--><table class=3D"mcnDividerContent"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"=
+min-width:100%;border-top:1px solid #e9f1f9;border-collapse:collapse;mso-t=
+able-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><span></span></t=
+d></tr></tbody></table><!--[if mso]>
+                          </td>
+                          <![endif]--><!--[if mso]>
+                          </tr>
+                          </table>
+                          <![endif]--></td></tr></tbody></table></td></tr=
+><!--]--><!--[--><tr><td valign=3D"middle" style=3D"padding-top:0px;paddin=
+g-bottom:10px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><a href=3D"https://marketindex.us8.list-manage.=
+com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D001c9c0432&e=3D16c993ab1d" style=3D"display:inline-block;mso-line-height-rule:exactly;line-heigh=
+t:0;font-family:Arial;font-size:12px;color:#1865d8;font-weight:bold;text-d=
+ecoration:none;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">T=
+echnical Analysis</a><!--[--><span style=3D"display:inline-block;mso-line-=
+height-rule:exactly;line-height:0;vertical-align:-3px;font-size:17px;color=
+:#4a6173;margin:0;padding:0;font-weight:bold;">=C2=A0=C2=B7=C2=A0</span><!=
+--[--><a href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D1=
+78a9f99c942c15cd57e649b8&id=3D3777dfd4d1&e=3D16c993ab1d" style=3D"display=
+:inline-block;mso-line-height-rule:exactly;line-height:0;font-family:Arial=
+;font-size:12px;color:#4a6173;font-weight:bold;text-decoration:none;-ms-te=
+xt-size-adjust:100%;-webkit-text-size-adjust:100%;">ANN=C2=A0</a><a href=
+=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c1=
+5cd57e649b8&id=3D3e6f1eebce&e=3D16c993ab1d" style=3D"display:inline-block=
+;mso-line-height-rule:exactly;line-height:0;font-family:Arial;font-size:12=
+px;color:#4a6173;font-weight:bold;text-decoration:none;-ms-text-size-adjus=
+t:100%;-webkit-text-size-adjust:100%;">BB1=C2=A0</a><!--]--><span style=3D=
+"display:inline-block;mso-line-height-rule:exactly;line-height:0;vertical-=
+align:-3px;font-size:17px;color:#4a6173;margin:0;padding:0;font-weight:bol=
+d;">=C2=B7=C2=B7=C2=B7</span><!--]--><!----></td></tr><tr><td style=3D"pad=
+ding-bottom:10px;line-height:125%;mso-line-height-rule:exactly;-ms-text-si=
+ze-adjust:100%;-webkit-text-size-adjust:100%;"><a href=3D"https://marketin=
+dex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3Db47=
+52257bc&e=3D16c993ab1d" style=3D"font-family:Arial;font-size:20px;color:#=
+131b2c;font-weight:bold;text-decoration:none;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" target=3D"_blank=
+">ChartWatch ASX Scans: CSL=2C Pro Medicus=2C Cochlear=2C Sonic Healthcare=
+=2C Ansell=2C Wisetech Global=2C Xero</a></td></tr><tr><td style=3D"line-h=
+eight:115%;mso-line-height-rule:exactly;font-family:Arial;font-size:16px;c=
+olor:#4a6173;font-weight:normal;-ms-text-size-adjust:100%;-webkit-text-siz=
+e-adjust:100%;">Your daily dose of the most actionable uptrends and downtr=
+ends on the ASX based on expert technical analysis.</td></tr><tr><td style=
+=3D"padding-top:20px;mso-line-height-rule:exactly;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;"><table border=3D"0" cellpadding=3D"0" ce=
+llspacing=3D"0" class=3D"mcnButtonContentContainer" style=3D"border:1px so=
+lid #0060db;border-collapse:separate !important;border-radius:4px;backgrou=
+nd-color:#ffffff;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-a=
+djust:100%;-webkit-text-size-adjust:100%;"><tbody><tr><td align=3D"center"=
+ class=3D"mcnButtonContent" valign=3D"middle" style=3D"font-family:Arial;f=
+ont-size:14px;padding:8px 10px;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;"><a class=3D"mcnButton" title=
+=3D"" href=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a=
+9f99c942c15cd57e649b8&id=3De44fc6196f&e=3D16c993ab1d" target=3D"_blank" s=
+tyle=3D"display:block;height:100%;font-weight:normal;letter-spacing:normal=
+;line-height:100%;text-align:center;text-decoration:none;color:#ffffff;mso=
+-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;"><span style=3D"color:#0060db;">Read Full Story</span></a></td></=
+tr></tbody></table></td></tr><tr><td style=3D"mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><table border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnDivi=
+derBlock" style=3D"min-width:100%;border-collapse:collapse;mso-table-lspac=
+e:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;table-layout:fixed !important;"><tbody class=3D"mcnDividerBlockOu=
+ter"><tr><td class=3D"mcnDividerBlockInner" style=3D"min-width:100%;paddin=
+g:20px 0px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-=
+text-size-adjust:100%;"><!--[if mso]>
+                          <table align=3D"left" border=3D"0" cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                          <tr>
+                          <![endif]--><!--[if mso]>
+                          <td valign=3D"top" width=3D"506" style=3D"width:=
+506px;">
+                          <![endif]--><table class=3D"mcnDividerContent"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"=
+min-width:100%;border-top:1px solid #e9f1f9;border-collapse:collapse;mso-t=
+able-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><span></span></t=
+d></tr></tbody></table><!--[if mso]>
+                          </td>
+                          <![endif]--><!--[if mso]>
+                          </tr>
+                          </table>
+                          <![endif]--></td></tr></tbody></table></td></tr=
+><!--]--><!--[--><tr><td valign=3D"middle" style=3D"padding-top:0px;paddin=
+g-bottom:10px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><a href=3D"https://marketindex.us8.list-manage.=
+com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D4cee3527eb&e=3D16c993ab1d" style=3D"display:inline-block;mso-line-height-rule:exactly;line-heigh=
+t:0;font-family:Arial;font-size:12px;color:#1865d8;font-weight:bold;text-d=
+ecoration:none;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">F=
+unds</a><!----><!--[--><span style=3D"display:inline-block;mso-line-height=
+-rule:exactly;line-height:0;vertical-align:-3px;font-size:17px;color:#4a61=
+73;margin:0;padding:0;font-weight:bold;">=C2=A0=C2=B7=C2=A0</span><a href=
+=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c1=
+5cd57e649b8&id=3D76d826d771&e=3D16c993ab1d" target=3D"_blank" style=3D"ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;color:#007c89;font-weight:normal;text-decoration:underline;"><spa=
+n style=3D"display:inline-block;mso-line-height-rule:exactly;line-height:0=
+;vertical-align:-3px;margin:0;padding:0;"><img src=3D"https://files.market=
+index.com.au/files/edm-livewire-brandmark-v4.png" width=3D"51" height=3D"1=
+4" style=3D"max-width:51px;width:51px;height:14px;-ms-interpolation-mode:b=
+icubic;"></span></a><!--]--></td></tr><tr><td style=3D"padding-bottom:10px=
+;line-height:125%;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-=
+webkit-text-size-adjust:100%;"><a href=3D"https://marketindex.us8.list-man=
+age.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D9bbf0b81eb&e=3D16c993ab1d" style=3D"font-family:Arial;font-size:20px;color:#131b2c;font-weig=
+ht:bold;text-decoration:none;mso-line-height-rule:exactly;-ms-text-size-ad=
+just:100%;-webkit-text-size-adjust:100%;" target=3D"_blank">Buy Hold Sell:=
+ Hot themes=2C cold calls - 6 thematic ETFs rated</a></td></tr><tr><td sty=
+le=3D"line-height:115%;mso-line-height-rule:exactly;font-family:Arial;font=
+-size:16px;color:#4a6173;font-weight:normal;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;">Adam Dawes and Andrew Wielandt weigh in on six=
+ thematic ETFs across technology=2C semiconductors=2C biotech=2C bitcoin a=
+nd Australian property.</td></tr><tr><td style=3D"padding-top:20px;mso-lin=
+e-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:1=
+00%;"><table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"mcn=
+ButtonContentContainer" style=3D"border:1px solid #0060db;border-collapse:=
+separate !important;border-radius:4px;background-color:#ffffff;mso-table-l=
+space:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size=
+-adjust:100%;"><tbody><tr><td align=3D"center" class=3D"mcnButtonContent"=
+ valign=3D"middle" style=3D"font-family:Arial;font-size:14px;padding:8px 1=
+0px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-si=
+ze-adjust:100%;"><a class=3D"mcnButton" title=3D"" href=3D"https://marketi=
+ndex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D85=
+51ab9432&e=3D16c993ab1d" target=3D"_blank" style=3D"display:block;height:=
+100%;font-weight:normal;letter-spacing:normal;line-height:100%;text-align:=
+center;text-decoration:none;color:#ffffff;mso-line-height-rule:exactly;-ms=
+-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><span style=3D"colo=
+r:#0060db;">Read Full Story</span></a></td></tr></tbody></table></td></tr>=
+<tr><td style=3D"mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-w=
+ebkit-text-size-adjust:100%;"><table border=3D"0" cellpadding=3D"0" cellsp=
+acing=3D"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-width:10=
+0%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-=
+text-size-adjust:100%;-webkit-text-size-adjust:100%;table-layout:fixed !im=
+portant;"><tbody class=3D"mcnDividerBlockOuter"><tr><td class=3D"mcnDivide=
+rBlockInner" style=3D"min-width:100%;padding:20px 0px;mso-line-height-rule=
+:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><!--[i=
+f mso]>
+                          <table align=3D"left" border=3D"0" cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                          <tr>
+                          <![endif]--><!--[if mso]>
+                          <td valign=3D"top" width=3D"506" style=3D"width:=
+506px;">
+                          <![endif]--><table class=3D"mcnDividerContent"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"=
+min-width:100%;border-top:1px solid #e9f1f9;border-collapse:collapse;mso-t=
+able-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><span></span></t=
+d></tr></tbody></table><!--[if mso]>
+                          </td>
+                          <![endif]--><!--[if mso]>
+                          </tr>
+                          </table>
+                          <![endif]--></td></tr></tbody></table></td></tr=
+><!--]--><!--[--><tr><td valign=3D"middle" style=3D"padding-top:0px;paddin=
+g-bottom:10px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webk=
+it-text-size-adjust:100%;"><a href=3D"https://marketindex.us8.list-manage.=
+com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3Dd5ebf7feb0&e=3D16c993ab1d" style=3D"display:inline-block;mso-line-height-rule:exactly;line-heigh=
+t:0;font-family:Arial;font-size:12px;color:#1865d8;font-weight:bold;text-d=
+ecoration:none;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">F=
+unds</a><!----><!--[--><span style=3D"display:inline-block;mso-line-height=
+-rule:exactly;line-height:0;vertical-align:-3px;font-size:17px;color:#4a61=
+73;margin:0;padding:0;font-weight:bold;">=C2=A0=C2=B7=C2=A0</span><a href=
+=3D"https://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c1=
+5cd57e649b8&id=3D61188af093&e=3D16c993ab1d" target=3D"_blank" style=3D"ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;color:#007c89;font-weight:normal;text-decoration:underline;"><spa=
+n style=3D"display:inline-block;mso-line-height-rule:exactly;line-height:0=
+;vertical-align:-3px;margin:0;padding:0;"><img src=3D"https://files.market=
+index.com.au/files/edm-livewire-brandmark-v4.png" width=3D"51" height=3D"1=
+4" style=3D"max-width:51px;width:51px;height:14px;-ms-interpolation-mode:b=
+icubic;"></span></a><!--]--></td></tr><tr><td style=3D"padding-bottom:10px=
+;line-height:125%;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-=
+webkit-text-size-adjust:100%;"><a href=3D"https://marketindex.us8.list-man=
+age.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3De7c58c2883&e=3D16c993ab1d" style=3D"font-family:Arial;font-size:20px;color:#131b2c;font-weig=
+ht:bold;text-decoration:none;mso-line-height-rule:exactly;-ms-text-size-ad=
+just:100%;-webkit-text-size-adjust:100%;" target=3D"_blank">Buy Hold Sell:=
+ 5 giant ETFs rated (VAS=2C QUAL=2C NDQ plus more)</a></td></tr><tr><td st=
+yle=3D"line-height:115%;mso-line-height-rule:exactly;font-family:Arial;fon=
+t-size:16px;color:#4a6173;font-weight:normal;-ms-text-size-adjust:100%;-we=
+bkit-text-size-adjust:100%;">Australia&#39;s $371 billion ETF industry is=
+ booming=2C but are the biggest funds still the best ones to own? </td></t=
+r><tr><td style=3D"padding-top:20px;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;"><table border=3D"0" cellp=
+adding=3D"0" cellspacing=3D"0" class=3D"mcnButtonContentContainer" style=
+=3D"border:1px solid #0060db;border-collapse:separate !important;border-ra=
+dius:4px;background-color:#ffffff;mso-table-lspace:0pt;mso-table-rspace:0p=
+t;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tbody><tr><td=
+ align=3D"center" class=3D"mcnButtonContent" valign=3D"middle" style=3D"fo=
+nt-family:Arial;font-size:14px;padding:8px 10px;mso-line-height-rule:exact=
+ly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><a class=3D"m=
+cnButton" title=3D"" href=3D"https://marketindex.us8.list-manage.com/track=
+/click?u=3D178a9f99c942c15cd57e649b8&id=3Deea97d62ed&e=3D16c993ab1d" targ=
+et=3D"_blank" style=3D"display:block;height:100%;font-weight:normal;letter=
+-spacing:normal;line-height:100%;text-align:center;text-decoration:none;co=
+lor:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit=
+-text-size-adjust:100%;"><span style=3D"color:#0060db;">Read Full Story</s=
+pan></a></td></tr></tbody></table></td></tr><tr><td style=3D"mso-line-heig=
+ht-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">=
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" cla=
+ss=3D"mcnDividerBlock" style=3D"min-width:100%;border-collapse:collapse;ms=
+o-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-=
+text-size-adjust:100%;table-layout:fixed !important;"><tbody class=3D"mcnD=
+ividerBlockOuter"><tr><td class=3D"mcnDividerBlockInner" style=3D"min-widt=
+h:100%;padding:20px 0px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;"><!--[if mso]>
+                          <table align=3D"left" border=3D"0" cellspacing=
+=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                          <tr>
+                          <![endif]--><!--[if mso]>
+                          <td valign=3D"top" width=3D"506" style=3D"width:=
+506px;">
+                          <![endif]--><table class=3D"mcnDividerContent"=
+ border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"=
+min-width:100%;border-top:1px solid #e9f1f9;border-collapse:collapse;mso-t=
+able-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;"><tbody><tr><td style=3D"mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><span></span></t=
+d></tr></tbody></table><!--[if mso]>
+                          </td>
+                          <![endif]--><!--[if mso]>
+                          </tr>
+                          </table>
+                          <![endif]--></td></tr></tbody></table></td></tr=
+><!--]--><!--]--><tr><td style=3D"font-family:Helvetica=2C Arial;font-size=
+:16px;color:#131b2c;mso-line-height-rule:exactly;-ms-text-size-adjust:100%=
+;-webkit-text-size-adjust:100%;"> Stay ahead of financial trends - unlock=
+ comprehensive insights and explore all our Market News. </td></tr><tr><td=
+ style=3D"padding-top:20px;mso-line-height-rule:exactly;-ms-text-size-adju=
+st:100%;-webkit-text-size-adjust:100%;"><table border=3D"0" cellpadding=3D=
+"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnButtonBlock" style=3D"min=
+-width:100%;border:none;border-collapse:collapse;mso-table-lspace:0pt;mso-=
+table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+><tbody class=3D"mcnButtonBlockOuter"><tr><td style=3D"padding-top:0;paddi=
+ng-bottom:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;" valign=3D"top" align=3D"left" class=3D"mcnButt=
+onBlockInner"><!--[if mso]>
+                      <table align=3D"left" border=3D"0" cellspacing=3D"0"=
+ cellpadding=3D"0" width=3D"100%" style=3D"width:100%; border: none;">
+                      <tr>
+                      <![endif]--><!--[if mso]>
+                      <td valign=3D"top" width=3D"506" style=3D"width:506p=
+x; padding: 0;">
+                      <![endif]--><table border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" class=3D"mcnButtonContentContainer" style=3D"border-colla=
+pse:separate !important;border-radius:6px;background-color:#0060db;mso-tab=
+le-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-=
+size-adjust:100%;"><tbody><tr><td align=3D"center" class=3D"mcnButtonConte=
+nt" valign=3D"middle" style=3D"font-family:Arial;font-size:16px;padding:16=
+px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-siz=
+e-adjust:100%;"><a class=3D"mcnButton" title=3D"" href=3D"https://marketin=
+dex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3De96=
+12b96d0&e=3D16c993ab1d" target=3D"_blank" style=3D"font-weight:normal;let=
+ter-spacing:normal;line-height:100%;text-align:center;text-decoration:none=
+;color:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;display:block;"><span style=3D"color:#ffffff;">D=
+iscover All News</span></a></td></tr></tbody></table><!--[if mso]>
+                      </td>
+                      <![endif]--><!--[if mso]>
+                      </tr>
+                      </table>
+                      <![endif]--></td></tr></tbody></table></td></tr></t=
+body></table></div></td></tr></tbody></table><!--[if mso]>
+                                        </td>
+                                        <![endif]--><!--[if mso]>
+                                        </tr>
+                                        </table>
+                                        <![endif]--></td></tr></tbody></t=
+able><!--]--><!--[--><table border=3D"0" cellpadding=3D"0" cellspacing=3D=
+"0" width=3D"100%" class=3D"mcnDividerBlock" style=3D"min-width:100%;borde=
+r-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-siz=
+e-adjust:100%;-webkit-text-size-adjust:100%;table-layout:fixed !important;=
+"><tbody class=3D"mcnDividerBlockOuter"><tr><td class=3D"mcnDividerBlockIn=
+ner mcnBoxedTextContentColumn" style=3D"min-width:100%;padding-top:18px;ms=
+o-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adj=
+ust:100%;"><!--[if mso]>
+          <table align=3D"left" border=3D"0" cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"100%" style=3D"width:100%;">
+            <tr>
+              <td valign=3D"top" width=3D"600" style=3D"width:600px;">
+          <![endif]--><table class=3D"mcnDividerContent" border=3D"0" cel=
+lpadding=3D"0" cellspacing=3D"0" width=3D"100%" style=3D"min-width:100%;bo=
+rder-top:2px solid #e9edf0;border-collapse:collapse;mso-table-lspace:0pt;m=
+so-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;"><tbody><tr><td style=3D"mso-line-height-rule:exactly;-ms-text-size-adj=
+ust:100%;-webkit-text-size-adjust:100%;"> =C2=A0 </td></tr></tbody></table=
+><!--[if mso]>
+              </td>
+            </tr>
+          </table>
+          <![endif]--></td></tr></tbody></table><table border=3D"0" cellp=
+adding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=
+=3D"min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table=
+-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tbo=
+dy class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" class=3D"mcnTextBloc=
+kInner" style=3D"padding-top:9px;mso-line-height-rule:exactly;-ms-text-siz=
+e-adjust:100%;-webkit-text-size-adjust:100%;"><!--[if mso]>
+          <table align=3D"left" border=3D"0" cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"100%" style=3D"width:100%;">
+            <tr>
+              <td valign=3D"top" width=3D"600" style=3D"width:600px; paddi=
+ng: 0px 26px;">
+          <![endif]--><table align=3D"left" border=3D"0" cellpadding=3D"0=
+" cellspacing=3D"0" style=3D"max-width:100%;min-width:100%;border-collapse=
+:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:1=
+00%;-webkit-text-size-adjust:100%;" width=3D"100%" class=3D"mcnTextContent=
+Container"><tbody><tr><td valign=3D"top" class=3D"mcnTextContent" style=3D=
+"padding-bottom:9px;color:#031b2c;font-family:Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C sans-serif;font-size:22px;font-style:normal;font-weight:norm=
+al;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-siz=
+e-adjust:100%;word-break:break-word;line-height:150%;text-align:left;"><di=
+v style=3D"font-size:22px;line-height:135%;"><strong>In today&#39;s full E=
+vening Wrap:</strong><br></div></td></tr></tbody></table><!--[if mso]>
+              </td>
+            </tr>
+          </table>
+          <![endif]--></td></tr></tbody></table><table border=3D"0" cellp=
+adding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=
+=3D"min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table=
+-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tbo=
+dy class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" class=3D"mcnTextBloc=
+kInner" style=3D"mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-w=
+ebkit-text-size-adjust:100%;"><!--[if mso]>
+          <table align=3D"left" border=3D"0" cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"100%" style=3D"width:100%;">
+            <tr>
+              <td valign=3D"top" width=3D"600" style=3D"width:600px; paddi=
+ng: 0px 26px;">
+          <![endif]--><table align=3D"left" border=3D"0" cellpadding=3D"0=
+" cellspacing=3D"0" style=3D"max-width:100%;min-width:100%;border-collapse=
+:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:1=
+00%;-webkit-text-size-adjust:100%;" width=3D"100%" class=3D"mcnTextContent=
+Container"><tbody><tr><td valign=3D"top" class=3D"mcnTextContent" style=3D=
+"padding-bottom:9px;color:#031b2c;font-family:Arial=2C 'Helvetica Neue'=2C=
+ Helvetica=2C sans-serif;font-style:normal;font-weight:normal;mso-line-hei=
+ght-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;w=
+ord-break:break-word;font-size:16px;line-height:150%;text-align:left;"><di=
+v style=3D"font-size:16px;"> Get deeper=2C exclusive insights into the day=
+&#39;s market activity with our Evening Wrap: <ul style=3D"margin-top:0.2r=
+em !important;margin-bottom:1rem !important;padding-top:0;padding-left:20p=
+x !important;"><li style=3D"font-size:16px;mso-line-height-rule:exactly;-m=
+s-text-size-adjust:100%;-webkit-text-size-adjust:100%;"> Session insights=
+ &amp; analysis </li><li style=3D"font-size:16px;mso-line-height-rule:exac=
+tly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"> ASX sector=
+ performance </li><li style=3D"font-size:16px;mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"> Key economic e=
+vents &amp; major announcements </li><li style=3D"font-size:16px;mso-line-=
+height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100=
+%;"> Broker updates </li><li style=3D"font-size:16px;mso-line-height-rule:=
+exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"> Scans <=
+/li></ul></div></td></tr></tbody></table><!--[if mso]>
+              </td>
+            </tr>
+          </table>
+          <![endif]--></td></tr></tbody></table><table border=3D"0" cellp=
+adding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnButtonBlock" sty=
+le=3D"min-width:100%;border:none;border-collapse:collapse;mso-table-lspace=
+:0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adju=
+st:100%;"><tbody class=3D"mcnButtonBlockOuter"><tr><td style=3D"padding-to=
+p:0;padding-bottom:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;word-break:break-word;color:#202020;fon=
+t-family:Helvetica;font-size:16px;line-height:150%;text-align:left;" valig=
+n=3D"top" align=3D"left" class=3D"mcnButtonBlockInner mcnTextContent"><!--=
+[if mso]>
+          <table align=3D"left" border=3D"0" cellspacing=3D"0" cellpadding=
+=3D"0" width=3D"100%" style=3D"width:100%; border: none;">
+            <tr>
+              <td valign=3D"top" width=3D"600" style=3D"width:600px; paddi=
+ng: 0px 26px;">
+          <![endif]--><table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" class=3D"mcnButtonContentContainer" style=3D"border-collapse:separa=
+te !important;border-radius:6px;background-color:#0060db;mso-table-lspace:=
+0pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjus=
+t:100%;"><tbody><tr><td align=3D"center" class=3D"mcnButtonContent" valign=
+=3D"middle" style=3D"font-family:Arial;font-size:16px;padding:16px;mso-lin=
+e-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:1=
+00%;"><div><a class=3D"mcnButton" title=3D"View Evening Wrap" href=3D"http=
+s://marketindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e64=
+9b8&id=3D4e9b1f6df7&e=3D16c993ab1d" target=3D"_blank" style=3D"font-weigh=
+t:normal;letter-spacing:normal;line-height:100%;text-align:center;text-dec=
+oration:none;color:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adju=
+st:100%;-webkit-text-size-adjust:100%;display:block;"><span style=3D"color=
+:#ffffff;">Read full Evening Wrap</span></a></div></td></tr></tbody></tabl=
+e><!--[if mso]>
+              </td>
+            </tr>
+          </table>
+          <![endif]--></td></tr></tbody></table><!--]--></td></tr><tr><td=
+ valign=3D"top" id=3D"templateColumns" style=3D"background:#ffffff none no=
+-repeat center/cover;mso-line-height-rule:exactly;-ms-text-size-adjust:100=
+%;-webkit-text-size-adjust:100%;background-color:#ffffff;background-image:=
+none;background-repeat:no-repeat;background-position:center;background-siz=
+e:cover;border-top:0;border-bottom:2px solid #eaeaea;padding-top:0;padding=
+-bottom:9px;"><!--[if (gte mso 9)|(IE)]>
+                            <table align=3D"center" border=3D"0" cellspaci=
+ng=3D"0" cellpadding=3D"0" width=3D"600" style=3D"width:600px;">
+                            <tr>
+                                <td align=3D"center" valign=3D"top" width=
+=3D"300" style=3D"width:300px;">
+                            <![endif]--><table align=3D"left" border=3D"0=
+" cellpadding=3D"0" cellspacing=3D"0" width=3D"300" class=3D"columnWrapper=
+" style=3D"border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:=
+0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tr><td vali=
+gn=3D"top" class=3D"columnContainer" style=3D"mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><table border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnText=
+Block" style=3D"min-width:100%;border-collapse:collapse;mso-table-lspace:0=
+pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust=
+:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" class=3D=
+"mcnTextBlockInner" style=3D"padding-top:9px;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><!--[if mso]>
+                                                <table align=3D"left" bord=
+er=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width=
+:100%;">
+                                                <tr>
+                                                <![endif]--><!--[if mso]=
+>
+                                                <td valign=3D"top" width=
+=3D"300" style=3D"width:300px;">
+                                                <![endif]--><table align=
+=3D"left" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-wi=
+dth:100%;min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-=
+table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=3D=
+"top" class=3D"mcnTextContent" style=3D"padding-top:0;padding-right:18px;p=
+adding-bottom:9px;padding-left:18px;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;word-break:break-word;color=
+:#202020;font-family:Helvetica;font-size:16px;line-height:150%;text-align:=
+left;"></td></tr></tbody></table><!--[if mso]>
+                                                </td>
+                                                <![endif]--><!--[if mso]=
+>
+                                                </tr>
+                                                </table>
+                                                <![endif]--></td></tr></t=
+body></table></td></tr></table><!--[if (gte mso 9)|(IE)]>
+                            </td>
+                            <td align=3D"center" valign=3D"top" width=3D"3=
+00" style=3D"width:300px;">
+                            <![endif]--><table align=3D"left" border=3D"0=
+" cellpadding=3D"0" cellspacing=3D"0" width=3D"300" class=3D"columnWrapper=
+" style=3D"border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:=
+0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tr><td vali=
+gn=3D"top" class=3D"columnContainer" style=3D"mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><table border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"mcnText=
+Block" style=3D"min-width:100%;border-collapse:collapse;mso-table-lspace:0=
+pt;mso-table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust=
+:100%;"><tbody class=3D"mcnTextBlockOuter"><tr><td valign=3D"top" class=3D=
+"mcnTextBlockInner" style=3D"padding-top:9px;mso-line-height-rule:exactly;=
+-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"><!--[if mso]>
+                                                <table align=3D"left" bord=
+er=3D"0" cellspacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width=
+:100%;">
+                                                <tr>
+                                                <![endif]--><!--[if mso]=
+>
+                                                <td valign=3D"top" width=
+=3D"300" style=3D"width:300px;">
+                                                <![endif]--><table align=
+=3D"left" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-wi=
+dth:100%;min-width:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-=
+table-rspace:0pt;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;"=
+ width=3D"100%" class=3D"mcnTextContentContainer"><tbody><tr><td valign=3D=
+"top" class=3D"mcnTextContent" style=3D"padding-top:0;padding-right:18px;p=
+adding-bottom:9px;padding-left:18px;mso-line-height-rule:exactly;-ms-text-=
+size-adjust:100%;-webkit-text-size-adjust:100%;word-break:break-word;color=
+:#202020;font-family:Helvetica;font-size:16px;line-height:150%;text-align:=
+left;"></td></tr></tbody></table><!--[if mso]>
+                                                </td>
+                                                <![endif]--><!--[if mso]=
+>
+                                                </tr>
+                                                </table>
+                                                <![endif]--></td></tr></t=
+body></table></td></tr></table><!--[if (gte mso 9)|(IE)]>
+                            </td>
+                            </tr>
+                            </table>
+                            <![endif]--></td></tr></table><!--[if (gte m=
+so 9)|(IE)]>
+                </td>
+                </tr>
+                </table>
+                <![endif]--><!--]--></td></tr><tr><td align=3D"center" va=
+lign=3D"top" id=3D"templateFooter" data-template-container=3D"" style=3D"b=
+ackground:#333333 none no-repeat center/cover;mso-line-height-rule:exactly=
+;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;background-color:=
+#333333;background-image:none;background-repeat:no-repeat;background-posit=
+ion:center;background-size:cover;border-top:0;border-bottom:0;padding-top:=
+45px;padding-bottom:63px;"><!--[if (gte mso 9)|(IE)]>
+              <table align=3D"center" border=3D"0" cellspacing=3D"0" cellp=
+adding=3D"0" width=3D"600" style=3D"width:600px;">
+                <tr>
+                  <td align=3D"center" valign=3D"top" width=3D"600" style=
+=3D"width:600px;">
+                    <![endif]--><table border=3D"0" cellpadding=3D"0" cel=
+lspacing=3D"0" width=3D"100%" class=3D"mcnTextBlock" style=3D"min-width:10=
+0%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;-ms-=
+text-size-adjust:100%;-webkit-text-size-adjust:100%;"><tbody class=3D"mcnT=
+extBlockOuter"><tr><td valign=3D"top" class=3D"mcnTextBlockInner" style=3D=
+"padding-top:9px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-w=
+ebkit-text-size-adjust:100%;"><!--[if mso]>
+                                  <table align=3D"left" border=3D"0" cells=
+pacing=3D"0" cellpadding=3D"0" width=3D"100%" style=3D"width:100%;">
+                                  <tr>
+                                  <![endif]--><!--[if mso]>
+                                  <td valign=3D"top" width=3D"600" style=
+=3D"width:600px;">
+                                  <![endif]--><table align=3D"left" borde=
+r=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"max-width:100%;min-wi=
+dth:100%;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0p=
+t;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;" width=3D"100%"=
+><tbody><tr><td valign=3D"top" class=3D"mcnTextContent" style=3D"padding-b=
+ottom:10px;padding-right:18px;padding-left:18px;text-align:center;mso-line=
+-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:10=
+0%;word-break:break-word;color:#656565;font-family:Helvetica;font-size:12p=
+x;line-height:150%;"><a href=3D"https://marketindex.us8.list-manage.com/tr=
+ack/click?u=3D178a9f99c942c15cd57e649b8&id=3D81844afb43&e=3D16c993ab1d" t=
+arget=3D"_blank" style=3D"color:#131b2c;text-decoration:underline;font-wei=
+ght:bold;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-te=
+xt-size-adjust:100%;display:inline-block;"><img src=3D"https://files.marke=
+tindex.com.au/files/email-social-fb-white.png" width=3D"24" style=3D"width=
+:24px;-ms-interpolation-mode:bicubic;height:auto !important;"></a>=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0<a href=3D"https://marketindex.us8.list-mana=
+ge.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D5401261df2&e=3D16c993ab1d" target=3D"_blank" style=3D"color:#131b2c;text-decoration:underline=
+;font-weight:bold;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-=
+webkit-text-size-adjust:100%;display:inline-block;"><img src=3D"https://fi=
+les.marketindex.com.au/files/email-social-linkedin-white.png" width=3D"24"=
+ style=3D"width:24px;-ms-interpolation-mode:bicubic;height:auto !important=
+;"></a>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0<a href=3D"https://marketindex.=
+us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D431bbef=
+201&e=3D16c993ab1d" target=3D"_blank" style=3D"color:#131b2c;text-decorat=
+ion:underline;font-weight:bold;mso-line-height-rule:exactly;-ms-text-size-=
+adjust:100%;-webkit-text-size-adjust:100%;display:inline-block;"><img src=
+=3D"https://files.marketindex.com.au/files/email-social-x-white.png" width=
+=3D"24" style=3D"width:24px;-ms-interpolation-mode:bicubic;height:auto !im=
+portant;"></a>=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0<a href=3D"https://marke=
+tindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=3D=
+96e2236de3&e=3D16c993ab1d" target=3D"_blank" style=3D"color:#131b2c;text-=
+decoration:underline;font-weight:bold;mso-line-height-rule:exactly;-ms-tex=
+t-size-adjust:100%;-webkit-text-size-adjust:100%;display:inline-block;"><i=
+mg src=3D"https://files.marketindex.com.au/files/email-social-mi-white.png=
+" width=3D"24" style=3D"width:24px;-ms-interpolation-mode:bicubic;height:a=
+uto !important;"></a></td></tr><tr><td valign=3D"top" class=3D"mcnTextCont=
+ent" style=3D"padding-top:0;padding-right:18px;padding-bottom:0;padding-le=
+ft:18px;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-tex=
+t-size-adjust:100%;word-break:break-word;color:#656565;font-family:Helveti=
+ca;font-size:12px;line-height:150%;text-align:center;"><div style=3D"text-=
+align:center;font-size:12px;color:#f7fafc;"> Want to change your email set=
+tings?<br> Manage what <a href=3D"https://marketindex.us8.list-manage.com/=
+track/click?u=3D178a9f99c942c15cd57e649b8&id=3D0022f301b3&e=3D16c993ab1d"=
+ style=3D"color:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adjust:=
+100%;-webkit-text-size-adjust:100%;font-weight:normal;text-decoration:unde=
+rline;"><strong>emails you receive</strong></a>=2C <a href=3D"https://mark=
+etindex.us8.list-manage.com/track/click?u=3D178a9f99c942c15cd57e649b8&id=
+=3D33c6100b63&e=3D16c993ab1d" style=3D"color:#ffffff;mso-line-height-rule=
+:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;font-weig=
+ht:normal;text-decoration:underline;"><strong>change your email address</s=
+trong></a> or <a href=3D"https://marketindex.us8.list-manage.com/track/cli=
+ck?u=3D178a9f99c942c15cd57e649b8&id=3D7ce0fd4939&e=3D16c993ab1d" style=3D=
+"color:#ffffff;mso-line-height-rule:exactly;-ms-text-size-adjust:100%;-web=
+kit-text-size-adjust:100%;font-weight:normal;text-decoration:underline;"><=
+strong>Unsubscribe</strong></a> from this email. </div></td></tr><tr><td v=
+align=3D"top" class=3D"mcnTextContent" style=3D"padding-top:10px;padding-r=
+ight:18px;padding-bottom:10px;padding-left:18px;text-align:center;mso-line=
+-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:10=
+0%;word-break:break-word;color:#656565;font-family:Helvetica;font-size:12p=
+x;line-height:150%;"><a href=3D"https://us8.campaign-archive.com/?e=3D16c993ab1d&u=3D178a9f99c942c15cd57e649b8&id=3Daed939620d" target=3D"_blank" styl=
+e=3D"color:#f7fafc;font-size:12px;mso-line-height-rule:exactly;-ms-text-si=
+ze-adjust:100%;-webkit-text-size-adjust:100%;font-weight:normal;text-decor=
+ation:underline;"><strong>View this email in your browser</strong></a></td=
+></tr><tr><td valign=3D"top" class=3D"mcnTextContent" style=3D"padding-top=
+:0;padding-right:18px;padding-bottom:9px;padding-left:18px;text-align:cent=
+er;color:#f7fafc;font-size:11px;mso-line-height-rule:exactly;-ms-text-size=
+-adjust:100%;-webkit-text-size-adjust:100%;word-break:break-word;font-fami=
+ly:Helvetica;line-height:150%;"><div style=3D"text-align:center;font-size:=
+12px;color:#f7fafc;"> Our mailing address is: Market Index Level 1=2C 26 R=
+ailway Rd SUBIACO=2C WA 6008 Australia<br> Copyright =C2=A9 2025 Market In=
+dex=2C All rights reserved. </div><a style=3D"text-decoration:none;mso-lin=
+e-height-rule:exactly;-ms-text-size-adjust:100%;-webkit-text-size-adjust:1=
+00%;color:#656565;font-weight:normal;" href=3D"https://marketindex.us8.lis=
+t-manage.com/unsubscribe?u=3D178a9f99c942c15cd57e649b8&id=3Dde21e9d29c&t=
+=3Db&e=3D16c993ab1d&c=3Daed939620d">=C2=A0</a></td></tr></tbody></table><!--=
+[if mso]>
+                                  </td>
+                                  <![endif]--><!--[if mso]>
+                                  </tr>
+                                  </table>
+                                  <![endif]--></td></tr></tbody></table><=
+!--[if (gte mso 9)|(IE)]>
+                  </td>
+                </tr>
+              </table>
+              <![endif]--></td></tr></table></center><div style=3D"displa=
+y:none;"><img src=3D"https://us.list-manage.com/CrE_ApskgDjUupz4pKSCBM?e=
+=3D16c993ab1d&c2id=3Df1666946aa9b4f961e8d3260a1bcce2e" height=3D"1" width=3D"1" style=3D"di=
+splay:none;" alt=3D""></div></body></html>
+--_----------=_MCPart_1229883974--

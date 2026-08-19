@@ -208,9 +208,11 @@ def _queue_detection_reviews(conn: psycopg.Connection, detection: Detection,
     problems = []
     if not detection.format_recognised:
         problems.append(
-            "the sender's expected subject format did not match, so the "
-            "ticker and title are guesses and the email may describe SEVERAL "
-            "announcements of which only one was recorded"
+            "the sender's expected subject format did not match. Either this "
+            "is not an announcement alert at all (Market Index also sends "
+            "editorial newsletters), or the provider changed their format — "
+            "in which case every alert since is being read wrongly and "
+            "SENDER_RULES needs recalibrating against a fresh sample"
         )
     if detection.ticker and entity_id is None:
         problems.append(
