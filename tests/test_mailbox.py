@@ -184,3 +184,58 @@ def test_provider_and_list_management_links_are_never_fetch_candidates():
     # The ASX link is KEPT for the owner, not destroyed.
     assert d.manual_open_urls == [
         "https://www.asx.com.au/asxpdf/20260818/pdf/xyz.pdf"]
+
+
+def test_gzipped_alerts_read_identically(tmp_path):
+    """Alerts land in the repo gzipped — a Market Index email is ~68 KB of
+    styled HTML and compresses about 8x. The parse must not care."""
+    import gzip as _gzip
+
+    from asx.ingest.mailbox import EmlDirectory
+
+    (tmp_path / "a.eml").write_text(RAW_ALERT)
+    with _gzip.open(tmp_path / "b.eml.gz", "wb") as fh:
+        fh.write(RAW_ALERT.replace("XYZ", "ABC").encode())
+
+    got = {detection_from_email(m).ticker for m in EmlDirectory(tmp_path).fetch_new()}
+    assert got == {"XYZ", "ABC"}
+
+
+def test_dotted_filenames_are_still_recognised_as_email(tmp_path):
+    """The committed filename carries a Mandrill message id full of dots, so
+    Path.suffixes[0] returned '.20260818073903' and every alert was skipped —
+    reading nothing and reporting an empty mailbox."""
+    import gzip as _gzip
+
+    from asx.ingest.mailbox import EmlDirectory
+
+    name = "20260818T073903Z-31137204.20260818073903.6a840c17.02633952.eml.gz"
+    (tmp_path / "2026" / "08").mkdir(parents=True)
+    with _gzip.open(tmp_path / "2026" / "08" / name, "wb") as fh:
+        fh.write(RAW_ALERT.encode())
+    assert len(list(EmlDirectory(tmp_path).fetch_new())) == 1
+
+
+def test_a_directory_of_unrecognised_files_is_an_alarm_not_an_empty_inbox(tmp_path):
+    """Zero detections is what a working quiet day looks like, so it must
+    never also be what a broken naming convention looks like (Invariant 7)."""
+    import pytest
+
+    from asx.ingest.mailbox import EmlDirectory
+
+    (tmp_path / "alert-1.email").write_text(RAW_ALERT)
+    (tmp_path / "alert-2.email").write_text(RAW_ALERT)
+    with pytest.raises(ValueError, match="none look like an email"):
+        list(EmlDirectory(tmp_path).fetch_new())
+
+    # A genuinely empty directory is a genuinely quiet day.
+    (tmp_path / "empty").mkdir()
+    assert list(EmlDirectory(tmp_path / "empty").fetch_new()) == []
+
+
+def test_the_readme_in_the_alerts_directory_is_not_mistaken_for_mail(tmp_path):
+    from asx.ingest.mailbox import EmlDirectory
+
+    (tmp_path / "README.md").write_text("# alerts\n")
+    (tmp_path / "a.eml").write_text(RAW_ALERT)
+    assert len(list(EmlDirectory(tmp_path).fetch_new())) == 1

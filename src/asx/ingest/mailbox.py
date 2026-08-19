@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import email
 import email.policy
+import gzip
 import hashlib
 import imaplib
 import re
@@ -360,6 +361,16 @@ def detection_from_email(msg: Message) -> Detection:
     )
 
 
+def _message_extension(path: Path) -> tuple[str, bool]:
+    """(extension, is_gzipped) for a saved message, tolerant of dotted names."""
+    name = path.name.lower()
+    gzipped = name.endswith(".gz")
+    if gzipped:
+        name = name[: -len(".gz")]
+    dot = name.rfind(".")
+    return (name[dot:] if dot > 0 else ""), gzipped
+
+
 class EmlDirectory:
     """Reads alert emails saved as .eml files in a directory.
 
@@ -384,11 +395,35 @@ class EmlDirectory:
     def fetch_new(self) -> Iterable[Message]:
         if not self.path.exists():
             raise FileNotFoundError(f"no such alert directory: {self.path}")
-        for file in sorted(self.path.glob("**/*")):
-            if not file.is_file() or file.suffix.lower() not in (".eml", ".txt", ".msg"):
+        files = [f for f in sorted(self.path.glob("**/*"))
+                 if f.is_file() and f.name != "README.md"]
+        matched = 0
+        for file in files:
+            # NOT Path.suffixes[0]: it splits on every dot, and the committed
+            # filenames carry a Mandrill message id full of them, so the
+            # "extension" came back as '.20260818073903' and every alert was
+            # skipped. Read nothing, said nothing.
+            ext, gzipped = _message_extension(file)
+            if ext not in (".eml", ".txt", ".msg"):
                 continue
-            with open(file, "rb") as fh:
+            matched += 1
+            # Alerts committed to the repo are gzipped: a Market Index email
+            # is ~68 KB of mostly styled HTML and compresses about 6x, which
+            # is the difference between hundreds of megabytes of git history
+            # a year and tens. The bytes are the publisher's, unmodified.
+            opener = gzip.open if gzipped else open
+            with opener(file, "rb") as fh:
                 yield email.message_from_binary_file(fh, policy=email.policy.default)
+        if files and not matched:
+            # Silence is an alarm (Invariant 7). A directory full of files
+            # none of which were recognised reads identically to a quiet day,
+            # and that is how a rename convention silently stops a feed.
+            raise ValueError(
+                f"{self.path} holds {len(files)} file(s) but none look like an "
+                f"email (.eml/.txt/.msg, optionally .gz). Refusing to report "
+                f"an empty mailbox, which is what a working quiet day looks "
+                f"like. Saw: {[f.name for f in files[:3]]}"
+            )
 
 
 class IMAPMailbox:

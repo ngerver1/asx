@@ -44,62 +44,101 @@ This path exists for three reasons, and it is not a lesser option:
   over — saving it to disk is how it gets ingested rather than silently lost.
   See "The read-first hole" below.
 
-### B. Gmail API — the only automated route from a cloud container
+### B. Apps Script → repository (free, no Google Cloud)
 
-**IMAP does not work from a Claude Code cloud session, and no credential
-fixes it.** Direct TCP is unavailable; everything leaves through an HTTPS
-policy proxy. That proxy accepts a CONNECT to `imap.gmail.com:993` and then
-resets the connection during the TLS handshake, because IMAP is not HTTPS.
-Measured, with an HTTPS control through the same tunnel:
+**Use this one.** It needs no Google Cloud project, no billing account and no
+OAuth client, and it is the only option where **no credential ever reaches the
+machine running the platform**.
+
+A ~140-line script (`tools/apps-script/ForwardAlertsToRepo.gs`) runs inside
+your own Google account at [script.google.com](https://script.google.com),
+free with any consumer Gmail. Apps Script's built-in `GmailApp` service reads
+the mailbox under the account's own authority — granted once by clicking
+Allow. On an hourly trigger it commits each new alert to this repository as a
+gzipped `.eml` under `alerts/YYYY/MM/`.
+
+Three consequences, beyond dodging the billing prompt:
+
+- **The container holds nothing worth stealing.** The GitHub token lives in
+  the script's properties inside your Google account. A cloud VM that is
+  reclaimed without warning takes no secret with it.
+- **The repository becomes the raw zone for alerts.** The bytes are the
+  publisher's, unmodified, append-only, content-addressed by git — which is
+  what SPEC §3 asks of raw documents anyway. Gzip takes a Market Index alert
+  from 68 KB to 11 KB, so a year of them is tens of megabytes, not hundreds.
+- **It survives the container.** Alerts accumulate whether or not a session is
+  running, so a week away is not a week-shaped hole in the dataset.
+
+**Setup:**
+
+1. [script.google.com](https://script.google.com) → **New project** → paste
+   `tools/apps-script/ForwardAlertsToRepo.gs`.
+2. **Project Settings → Script Properties**:
+
+   | Property | Value |
+   |---|---|
+   | `GITHUB_TOKEN` | a **fine-grained** PAT, *Contents: read and write*, scoped to this one repository |
+   | `GITHUB_REPO` | `ngerver1/asx` |
+   | `GITHUB_BRANCH` | `claude/go-is75md` |
+   | `GMAIL_QUERY` | optional; defaults to `from:marketindex.com.au newer_than:7d` |
+
+3. Run `forwardAlerts()` once by hand and approve the permission prompt.
+4. **Triggers → Add Trigger →** `forwardAlerts`, time-driven, hourly.
+
+Then, in any session:
+
+```bash
+asx detect --from-dir alerts
+```
+
+The script labels a thread `asx-ingested` only after every message in it
+commits successfully, so a failed run retries rather than losing an alert. It
+never uses read state as the marker — reading an alert on your phone must not
+hide it from the platform.
+
+### C. Gmail API — if you would rather use Google Cloud
+
+Works, and is what I would have recommended if the Console were free of
+friction. The Gmail API itself costs nothing — *"All standard use of the Gmail
+API is available at no additional cost"*
+([usage limits](https://developers.google.com/workspace/gmail/api/reference/quota))
+— and reading a few dozen emails a day is far inside the free quota. Whether
+the Console forces a billing account on you before it will enable the API is
+not something these docs settle, so treat option B as the default.
+
+If you do go this way, OAuth scoped to `gmail.readonly` **cannot send, delete
+or mark anything read**, which makes the read-first hole below structurally
+impossible rather than merely avoided.
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → new project
+   → enable the **Gmail API**.
+2. *APIs & Services → Credentials* → **OAuth client ID**, type *Desktop app*.
+3. *OAuth consent screen* → add the alert account as a test user. In
+   **testing** mode Google expires refresh tokens after seven days; publish
+   the app (no verification needed for a read-only scope) to avoid redoing
+   this weekly.
+4. On a machine with a browser:
+
+   ```bash
+   python -m asx.ingest.gmail_consent --client-id ... --client-secret ...
+   python -m asx.ingest.gmail_consent --client-id ... --client-secret ... --code ...
+   ```
+
+5. Set `ASX_GMAIL_CLIENT_ID`, `ASX_GMAIL_CLIENT_SECRET`,
+   `ASX_GMAIL_REFRESH_TOKEN` (and optionally `ASX_GMAIL_LABEL`) as environment
+   variables on the cloud environment — never in the repo or a chat message.
+
+`asx detect` then uses the API automatically.
+
+**IMAP does not work from a cloud container, whichever credential you hold.**
+Direct TCP is unavailable; everything leaves through an HTTPS policy proxy,
+which accepts a CONNECT to `imap.gmail.com:993` and then resets the
+connection during the TLS handshake because IMAP is not HTTPS. Measured, with
+an HTTPS control through the same tunnel:
 
 ```
 gmail.googleapis.com:443   CONNECT 200 -> TLS ok -> HTTP 401
 imap.gmail.com:993         CONNECT 200 -> ConnectionResetError
-```
-
-External Postgres (port 5432) is blocked by the same policy.
-
-The Gmail REST API is ordinary HTTPS, so it passes — and it is the better
-credential anyway. An app password grants full account access and bypasses
-2-Step Verification; this uses OAuth scoped to `gmail.readonly`, which
-**cannot send, delete, or mark anything read**. The read-first hole below is
-not merely avoided by convention, it is impossible. The grant is revocable on
-its own without touching the account password.
-
-**Setup, once:**
-
-1. At [console.cloud.google.com](https://console.cloud.google.com), create a
-   project and enable the **Gmail API**.
-2. Under *APIs & Services → Credentials*, create an **OAuth client ID** of
-   type *Desktop app*. Note the client ID and secret.
-3. On the *OAuth consent screen*, add the alert account as a test user. Note:
-   while the app is in **testing** mode Google expires refresh tokens after
-   seven days — publish the app (no verification is needed for a single test
-   user on a read-only scope) if you want it to keep running.
-4. On any machine with a browser, get a refresh token:
-
-   ```bash
-   python -m asx.ingest.gmail_consent --client-id ... --client-secret ...
-   # open the printed URL, approve, copy the code= from the address bar
-   python -m asx.ingest.gmail_consent --client-id ... --client-secret ... --code ...
-   ```
-
-5. Set the three values as **environment variables on the cloud environment**
-   (claude.ai → environment settings → environment variables), not in the
-   repo and not in a chat message:
-
-   ```
-   ASX_GMAIL_CLIENT_ID
-   ASX_GMAIL_CLIENT_SECRET
-   ASX_GMAIL_REFRESH_TOKEN
-   ASX_GMAIL_LABEL          # optional, to scope the search to one label
-   ```
-
-Then `asx detect` uses the API automatically:
-
-```bash
-asx detect                      # Gmail API when ASX_GMAIL_REFRESH_TOKEN is set
-asx detect --since-days 3       # narrow the search window
 ```
 
 ### C. IMAP — from a machine of your own
