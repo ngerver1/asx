@@ -389,3 +389,90 @@ def test_ir_fetch_refuses_to_store_a_non_pdf_response(conn, monkeypatch):
         row = cur.fetchone()
     assert row["parse_status"] == "detected"   # still an open capture gap
     assert row["sha256"] is None
+
+
+def test_a_pdf_with_a_useless_filename_is_matched_by_reading_it(conn, tmp_path):
+    """A browser names downloads whatever it likes — "documentdownload (3).pdf"
+    carries no ticker and no announcement number. Matching on the filename
+    then fails and the document lands standalone: possession with no link to
+    the detection that predicted it, which leaves the capture gap open forever
+    while the bytes sit in the raw zone.
+
+    The document is not ambiguous about who it belongs to. Every lodged form
+    prints the entity's ABN.
+    """
+    import shutil
+
+    from asx.ingest.possession import file_captured_documents
+
+    from pathlib import Path as _Path
+
+    gold = (_Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
+            / "6A1339259.pdf")
+    if not gold.exists():
+        import pytest
+        pytest.skip("gold document not present")
+
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO entities (abn, entity_kind) VALUES "
+                    "('54118912495', 'company') RETURNING entity_id")
+        entity_id = cur.fetchone()["entity_id"]
+        cur.execute(
+            """INSERT INTO documents (source, entity_id, ticker_as_lodged,
+                   title, doc_class, detection_source, detected_at,
+                   detection_key, parse_status)
+               VALUES ('market_index_alert', %s, 'CYL',
+                   'Change of Director''s Interest Notice', 'app_3y',
+                   'market_index_alert', now(), 'k-content-match', 'detected')
+               RETURNING doc_id""", (entity_id,))
+        doc_id = cur.fetchone()["doc_id"]
+    conn.commit()
+
+    drop = tmp_path / "cap"
+    drop.mkdir()
+    shutil.copy(gold, drop / "documentdownload (3).pdf")
+
+    stats = file_captured_documents(conn, drop)
+    assert stats["attached"] == 1 and stats["standalone"] == 0
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status, sha256 FROM documents WHERE doc_id = %s",
+                    (doc_id,))
+        row = cur.fetchone()
+    assert row["parse_status"] == "unparsed" and row["sha256"]
+
+
+def test_content_matching_refuses_when_two_detections_could_fit(conn, tmp_path):
+    """A company lodging two 3Ys on one day is ordinary. Attaching the PDF to
+    the likelier-looking one would be a guess presented as provenance."""
+    import shutil
+
+    from asx.ingest.possession import file_captured_documents
+
+    from pathlib import Path as _Path
+
+    gold = (_Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
+            / "6A1339259.pdf")
+    if not gold.exists():
+        import pytest
+        pytest.skip("gold document not present")
+
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO entities (abn, entity_kind) VALUES "
+                    "('54118912495', 'company') RETURNING entity_id")
+        entity_id = cur.fetchone()["entity_id"]
+        for key in ("k-dup-1", "k-dup-2"):
+            cur.execute(
+                """INSERT INTO documents (source, entity_id, ticker_as_lodged,
+                       title, doc_class, detection_source, detected_at,
+                       detection_key, parse_status)
+                   VALUES ('market_index_alert', %s, 'CYL', 'Appendix 3Y',
+                       'app_3y', 'market_index_alert', now(), %s, 'detected')""",
+                (entity_id, key))
+    conn.commit()
+
+    drop = tmp_path / "cap"
+    drop.mkdir()
+    shutil.copy(gold, drop / "documentdownload.pdf")
+    stats = file_captured_documents(conn, drop)
+    assert stats["attached"] == 0 and stats["standalone"] == 1

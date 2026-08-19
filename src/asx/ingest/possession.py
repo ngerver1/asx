@@ -17,6 +17,7 @@ append-only raw zone and moves the document from 'detected' to 'unparsed'
 
 from __future__ import annotations
 
+import io
 import json
 import re
 from datetime import datetime, timezone
@@ -246,7 +247,8 @@ def file_captured_documents(
         meta_path = path.with_name(path.name + ".meta.json")
         meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
         content = path.read_bytes()
-        doc_id = _match_detection(conn, meta, path.name)
+        doc_id = (_match_detection(conn, meta, path.name)
+                  or _match_by_content(conn, content))
 
         if doc_id is not None:
             attached = attach_document(conn, doc_id, content, "manual_capture")
@@ -270,6 +272,9 @@ def file_captured_documents(
 # document as "2A1690214.pdf" is what a person naturally does when the number
 # is in the URL they opened, and it is the strongest match available.
 _ANNOUNCEMENT_IN_NAME = re.compile(r"\b(\d[A-Z0-9]{6,})\b")
+
+# An ABN as printed on a lodged form: 11 digits, usually spaced 2-3-3-3.
+_ABN_RE = re.compile(r"\b(\d{2}[\s]?\d{3}[\s]?\d{3}[\s]?\d{3})\b")
 
 
 def _match_detection(conn: psycopg.Connection, meta: dict, filename: str) -> int | None:
@@ -332,6 +337,61 @@ def _match_detection(conn: psycopg.Connection, meta: dict, filename: str) -> int
             if row:
                 return row["doc_id"]
     return None
+
+
+def _match_by_content(conn: psycopg.Connection, content: bytes) -> int | None:
+    """Match a captured PDF to a detection by reading the document itself.
+
+    The last resort, and the one that makes bulk capture practical. A file
+    downloaded from a browser is often named whatever the site felt like —
+    "documentdownload.pdf", "announcement (3).pdf" — carrying neither the
+    ticker nor the announcement number. Matching on the filename then fails
+    and the document lands as a standalone row: possession without a link to
+    the detection that predicted it, which quietly defeats the capture-gap
+    alarm because the detection stays open forever.
+
+    The document itself is not ambiguous about who it belongs to. An Appendix
+    3Y names the entity and prints its ABN, and the ABN is an exact key.
+    Matching on that is reading the evidence rather than guessing from a
+    label.
+
+    Returns a doc_id only when exactly ONE open detection fits. Several
+    candidates means the answer is genuinely unclear — a company that lodged
+    two 3Ys the same day is common — so it stays unmatched rather than being
+    attached to the likelier-looking one.
+    """
+    try:
+        import pypdf
+
+        reader = pypdf.PdfReader(io.BytesIO(content))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages[:4])
+    except Exception:
+        return None            # scanned or unreadable: not a failure, just silent
+    if not text.strip():
+        return None
+
+    abns = {re.sub(r"\s+", "", m) for m in _ABN_RE.findall(text)}
+    if not abns:
+        return None
+
+    # Form type from the document, so a 3Y is never attached to a 3Z detection.
+    doc_class = None
+    if re.search(r"appendix\s*3z|final\s+director", text, re.I):
+        doc_class = "app_3z"
+    elif re.search(r"appendix\s*3y|change\s+of\s+director", text, re.I):
+        doc_class = "app_3y"
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT d.doc_id FROM documents d
+               JOIN entities e USING (entity_id)
+               WHERE d.parse_status = 'detected'
+                 AND replace(e.abn, ' ', '') = ANY(%s)
+                 AND (%s::text IS NULL OR d.doc_class = %s)""",
+            (sorted(abns), doc_class, doc_class),
+        )
+        rows = cur.fetchall()
+    return rows[0]["doc_id"] if len(rows) == 1 else None
 
 
 def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,

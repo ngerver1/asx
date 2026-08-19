@@ -308,10 +308,22 @@ def _resolve_or_create_entity(
                 return rows[0]["entity_id"], False, False
 
         kind = "foreign" if match.is_foreign else ("company" if acn else "other")
+        # The ABN comes free with the ASIC match and is the identifier every
+        # lodged form actually prints — "Name of entity / ABN 54 118 912 495".
+        # Without it a captured document cannot be tied back to its entity by
+        # reading the document, which is the only way to file a PDF that a
+        # browser named "documentdownload (3).pdf".
+        abn = None
+        if number:
+            cur.execute(
+                "SELECT abn FROM asic_registry WHERE acn = %s AND abn IS NOT NULL "
+                "LIMIT 1", (number,))
+            row = cur.fetchone()
+            abn = row["abn"].strip() if row and row["abn"] else None
         cur.execute(
-            "INSERT INTO entities (acn, arbn, entity_kind) VALUES (%s, %s, %s) "
-            "RETURNING entity_id",
-            (acn, arbn, kind),
+            "INSERT INTO entities (acn, arbn, abn, entity_kind) "
+            "VALUES (%s, %s, %s, %s) RETURNING entity_id",
+            (acn, arbn, abn, kind),
         )
         entity_id = cur.fetchone()["entity_id"]
 
