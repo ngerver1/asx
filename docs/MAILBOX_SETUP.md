@@ -73,17 +73,61 @@ Three consequences, beyond dodging the billing prompt:
 
 1. [script.google.com](https://script.google.com) → **New project** → paste
    `tools/apps-script/ForwardAlertsToRepo.gs`.
-2. **Project Settings → Script Properties**:
+2. **Project Settings → Script Properties → Add script property**, four times.
+   Two of these are fixed for this repository and can be copied verbatim:
 
-   | Property | Value |
+   | Property | Value | Where it comes from |
+   |---|---|---|
+   | `GITHUB_REPO` | `ngerver1/asx` | fixed — the repo's `owner/name` |
+   | `GITHUB_BRANCH` | `claude/go-is75md` | fixed — the only branch that exists |
+   | `GITHUB_TOKEN` | `github_pat_…` | created on GitHub, see below |
+   | `GMAIL_QUERY` | *(optional)* | defaults to `from:marketindex.com.au newer_than:7d` |
+
+   **Creating the token** — [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new):
+
+   | Field | Set it to |
    |---|---|
-   | `GITHUB_TOKEN` | a **fine-grained** PAT, *Contents: read and write*, scoped to this one repository |
-   | `GITHUB_REPO` | `ngerver1/asx` |
-   | `GITHUB_BRANCH` | `claude/go-is75md` |
-   | `GMAIL_QUERY` | optional; defaults to `from:marketindex.com.au newer_than:7d` |
+   | Token name | `asx alert forwarder` |
+   | Resource owner | `ngerver1` |
+   | Expiration | your choice — see the warning below |
+   | Repository access | **Only select repositories** → `ngerver1/asx` |
+   | Permissions → Repository → **Contents** | **Read and write** |
+   | Every other permission | leave at *No access* |
 
-3. Run `forwardAlerts()` once by hand and approve the permission prompt.
-4. **Triggers → Add Trigger →** `forwardAlerts`, time-driven, hourly.
+   Generate, then copy the `github_pat_…` value. GitHub shows it once. Paste
+   it straight into `GITHUB_TOKEN` with no quotes and no trailing spaces.
+
+   Contents is the only permission needed: the script writes files and does
+   nothing else. Scoping it to the single repository means a leak costs you
+   this repository and nothing else in your account.
+
+3. **Run `checkSetup()`** from the editor's function dropdown and approve the
+   permission prompt. It commits nothing and proves each thing that would
+   otherwise fail silently on a trigger nobody is watching:
+
+   ```
+   OK  repo=ngerver1/asx branch=claude/go-is75md
+   OK  token can read and write
+   Gmail query: from:marketindex.com.au newer_than:7d
+     matches 12 thread(s), of which 12 not yet ingested
+   ```
+
+   It distinguishes the failures that look alike from the outside — a wrong
+   repo name and a token without access both return 404, and a read-only
+   token looks perfect until the first commit fails hours later. If the Gmail
+   query matches nothing, check the *From* address on a real alert and set
+   `GMAIL_QUERY` accordingly.
+
+4. Run `forwardAlerts()` once by hand, then **Triggers → Add Trigger →**
+   `forwardAlerts`, time-driven, hourly.
+
+> **Two things will silently stop this feed.**
+> **Token expiry** — a fine-grained PAT must have one. When it lapses the
+> script throws, and Apps Script emails you about a failed trigger, so put
+> the renewal date in a calendar rather than relying on noticing.
+> **Branch deletion** — `claude/go-is75md` is where alerts are committed. If
+> it is ever merged and deleted, `checkSetup()` will say so; update
+> `GITHUB_BRANCH` before that happens.
 
 Then, in any session:
 

@@ -32,12 +32,108 @@
  *        GITHUB_REPO    e.g. ngerver1/asx
  *        GITHUB_BRANCH  e.g. claude/go-is75md   (optional, defaults to main)
  *        GMAIL_QUERY    optional, defaults to the query below
- *   3. Run forwardAlerts() once by hand and approve the permission prompt.
- *   4. Triggers -> Add Trigger -> forwardAlerts, time-driven, hourly.
+ *   3. Run checkSetup() first. It proves the properties are right and
+ *      commits nothing. Approve the permission prompt when asked.
+ *   4. Run forwardAlerts() once by hand.
+ *   5. Triggers -> Add Trigger -> forwardAlerts, time-driven, hourly.
  */
 
 var PROCESSED_LABEL = 'asx-ingested';
 var DEFAULT_QUERY = 'from:marketindex.com.au newer_than:7d';
+
+/**
+ * Validate the setup WITHOUT committing anything.
+ *
+ * Every failure below is one that would otherwise show up as an empty
+ * alerts/ directory an unknown number of days later, which is
+ * indistinguishable from a quiet market.
+ */
+function checkSetup() {
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty('GITHUB_TOKEN');
+  var repo = props.getProperty('GITHUB_REPO');
+  var branch = props.getProperty('GITHUB_BRANCH') || 'main';
+  var query = props.getProperty('GMAIL_QUERY') || DEFAULT_QUERY;
+  var problems = [];
+
+  if (!token) problems.push('GITHUB_TOKEN is not set.');
+  if (!repo) problems.push('GITHUB_REPO is not set (expected owner/repo).');
+  else if (repo.indexOf('/') < 0)
+    problems.push('GITHUB_REPO should look like owner/repo, got: ' + repo);
+  if (token && token.indexOf(' ') >= 0)
+    problems.push('GITHUB_TOKEN contains a space — it was probably pasted ' +
+                  'with surrounding text.');
+  if (problems.length) throw new Error(problems.join('\n'));
+
+  var headers = {
+    Authorization: 'Bearer ' + token,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+
+  // 1. Does the token reach the repository at all?
+  var r = UrlFetchApp.fetch('https://api.github.com/repos/' + repo,
+                            {headers: headers, muteHttpExceptions: true});
+  if (r.getResponseCode() === 401)
+    throw new Error('GitHub rejected the token (401). It is wrong, revoked, ' +
+                    'or expired.');
+  if (r.getResponseCode() === 404)
+    throw new Error('Cannot see ' + repo + ' (404). Either GITHUB_REPO is ' +
+                    'wrong, or the fine-grained token was not granted access ' +
+                    'to this repository.');
+  if (r.getResponseCode() >= 300)
+    throw new Error('GitHub returned ' + r.getResponseCode() + ': ' +
+                    r.getContentText().slice(0, 200));
+
+  // 2. Does the branch exist? A typo here silently commits nowhere.
+  var b = UrlFetchApp.fetch('https://api.github.com/repos/' + repo +
+                            '/branches/' + encodeURIComponent(branch),
+                            {headers: headers, muteHttpExceptions: true});
+  if (b.getResponseCode() === 404)
+    throw new Error('Branch "' + branch + '" does not exist in ' + repo +
+                    '. Set GITHUB_BRANCH to an existing branch.');
+
+  // 3. Can it WRITE? Read access looks identical until the first commit
+  //    fails, hours later, on a trigger nobody is watching.
+  var probePath = '.github-write-probe-' + Date.now();
+  var put = UrlFetchApp.fetch(
+    'https://api.github.com/repos/' + repo + '/contents/' + probePath,
+    {method: 'put', headers: headers, contentType: 'application/json',
+     muteHttpExceptions: true,
+     payload: JSON.stringify({
+       message: 'write probe from Apps Script (deleted immediately)',
+       content: Utilities.base64Encode('probe'), branch: branch})});
+  if (put.getResponseCode() === 403)
+    throw new Error('The token can read ' + repo + ' but not write to it. ' +
+                    'Give it Repository permissions -> Contents: ' +
+                    'Read and write.');
+  if (put.getResponseCode() >= 300)
+    throw new Error('Write probe failed ' + put.getResponseCode() + ': ' +
+                    put.getContentText().slice(0, 200));
+  var sha = JSON.parse(put.getContentText()).content.sha;
+  UrlFetchApp.fetch(
+    'https://api.github.com/repos/' + repo + '/contents/' + probePath,
+    {method: 'delete', headers: headers, contentType: 'application/json',
+     muteHttpExceptions: true,
+     payload: JSON.stringify({message: 'remove write probe', sha: sha,
+                              branch: branch})});
+
+  // 4. Does the Gmail query actually match anything?
+  var threads = GmailApp.search(query, 0, 20);
+  var waiting = GmailApp.search(query + ' -label:"' + PROCESSED_LABEL + '"', 0, 20);
+
+  console.log('OK  repo=' + repo + ' branch=' + branch);
+  console.log('OK  token can read and write');
+  console.log('Gmail query: ' + query);
+  console.log('  matches ' + threads.length + ' thread(s), of which ' +
+              waiting.length + ' not yet ingested');
+  if (threads.length === 0) {
+    console.warn('The query matched NOTHING. Check the sender address on a ' +
+                 'real alert — if it is not marketindex.com.au, set ' +
+                 'GMAIL_QUERY to something that matches.');
+  }
+  return 'setup ok';
+}
 
 function forwardAlerts() {
   var props = PropertiesService.getScriptProperties();
@@ -54,7 +150,7 @@ function forwardAlerts() {
 
   // Exclude what we have already committed. Deliberately NOT "is:unread":
   // reading an alert must not hide it from the platform.
-  var threads = GmailApp.search(query + ' -label:' + PROCESSED_LABEL, 0, 100);
+  var threads = GmailApp.search(query + ' -label:"' + PROCESSED_LABEL + '"', 0, 100);
   var committed = 0, skipped = 0, failed = 0;
 
   for (var t = 0; t < threads.length; t++) {
