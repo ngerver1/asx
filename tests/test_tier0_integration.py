@@ -476,3 +476,42 @@ def test_content_matching_refuses_when_two_detections_could_fit(conn, tmp_path):
     shutil.copy(gold, drop / "documentdownload.pdf")
     stats = file_captured_documents(conn, drop)
     assert stats["attached"] == 0 and stats["standalone"] == 1
+
+
+def test_an_acn_mislabelled_as_an_abn_is_read_by_its_shape(conn):
+    """Augustus Minerals prints "ABN 651 349 638" on its Appendix 3Y — nine
+    digits, so it is an ACN wearing an ABN's label. An ABN has eleven digits
+    and an ACN nine, so the number identifies itself; trusting the issuer's
+    label instead leaves the document unidentifiable."""
+    from asx.ingest.possession import _ABN_LABELLED_RE, _MISLABELLED_ACN_RE
+
+    text = "Name of entity AUGUSTUS MINERALS LIMITED ABN 651 349 638 We"
+    assert not _ABN_LABELLED_RE.findall(text)
+    assert _MISLABELLED_ACN_RE.findall(text) == ["651 349 638"]
+    # A real 11-digit ABN must NOT be mistaken for an ACN.
+    assert not _MISLABELLED_ACN_RE.findall("ABN 51 121 033 396")
+
+
+def test_a_current_name_outranks_another_companys_former_name_when_filing(conn):
+    """The Kingston/Nexus trap, reached from the capture side: a name that is
+    one company's current legal name and another's former name must not make
+    an unambiguous document look ambiguous."""
+    from asx.ingest.possession import DocumentFacts, _entity_for_document
+
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
+                    "RETURNING entity_id")
+        current = cur.fetchone()["entity_id"]
+        cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
+                    "RETURNING entity_id")
+        other = cur.fetchone()["entity_id"]
+        cur.execute(
+            """INSERT INTO entity_names (entity_id, name, name_norm, name_kind,
+                                         valid_from, valid_to)
+               VALUES (%s, 'Augustus Minerals Limited', 'AUGUSTUS MINERALS',
+                       'legal', '2020-01-01', NULL),
+                      (%s, 'Augustus Minerals Limited', 'AUGUSTUS MINERALS',
+                       'former', '2005-01-01', '2019-12-31')""",
+            (current, other))
+    facts = DocumentFacts([], [], "app_3y", "Augustus Minerals Limited", "")
+    assert _entity_for_document(conn, facts) == current

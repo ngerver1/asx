@@ -306,6 +306,12 @@ _ANNOUNCEMENT_IN_NAME = re.compile(r"\b(\d[A-Z0-9]{6,})\b")
 # \s* rather than a single space throughout: several issuers' PDFs extract
 # with tabs between every word.
 _ABN_LABELLED_RE = re.compile(r"\bABN\s*:?\s*(\d{2}\s*\d{3}\s*\d{3}\s*\d{3})\b", re.I)
+# Issuers mislabel their own identifiers. Augustus Minerals prints
+# "ABN 651 349 638" on its Appendix 3Y — nine digits, which is an ACN wearing
+# an ABN's label. Read what the number IS rather than what it is called: an
+# ABN has eleven digits and an ACN nine, so the length settles it without
+# guessing. Trusting the label instead leaves the document unidentifiable.
+_MISLABELLED_ACN_RE = re.compile(r"\bABN\s*:?\s*(\d{3}\s*\d{3}\s*\d{3})(?!\s*\d)", re.I)
 _ACN_LABELLED_RE = re.compile(r"\bACN\s*:?\s*(\d{3}\s*\d{3}\s*\d{3})\b", re.I)
 # Unlabelled fallback for an ABN printed without its label.
 _ABN_RE = re.compile(r"\b(\d{2}[\s]?\d{3}[\s]?\d{3}[\s]?\d{3})\b")
@@ -418,6 +424,8 @@ def read_document_facts(content: bytes) -> DocumentFacts:
     if not abns:
         abns = [re.sub(r"\s+", "", a) for a in _ABN_RE.findall(text)]
     acns = [re.sub(r"\s+", "", a) for a in _ACN_LABELLED_RE.findall(text)]
+    acns += [re.sub(r"\s+", "", a) for a in _MISLABELLED_ACN_RE.findall(text)]
+    acns = list(dict.fromkeys(acns))
 
     return DocumentFacts(abns=abns, acns=acns, doc_class=doc_class,
                          entity_name=name, text=text)
@@ -445,13 +453,29 @@ def _entity_for_document(conn: psycopg.Connection,
     if facts.entity_name:
         from asx.ids.normalize import name_norm
 
+        norm = name_norm(facts.entity_name)
+        # CURRENT names first, exactly as the listing resolver does. Augustus
+        # Minerals is the same trap as Kingston/Nexus from the other
+        # direction: the name is one company's current legal name AND another
+        # company's former name, so treating both as equal candidates makes
+        # an unambiguous document look ambiguous and strands it. A document
+        # lodged today names the company as it is called today.
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT DISTINCT entity_id FROM entity_names WHERE name_norm = %s",
-                (name_norm(facts.entity_name),))
+                """SELECT DISTINCT entity_id FROM entity_names
+                   WHERE name_norm = %s AND valid_to IS NULL""", (norm,))
             rows = cur.fetchall()
-        if len(rows) == 1:
-            return rows[0]["entity_id"]
+            if len(rows) == 1:
+                return rows[0]["entity_id"]
+            if not rows:
+                # No current holder: a former name is then the only reading,
+                # and is used only when exactly one company ever held it.
+                cur.execute(
+                    "SELECT DISTINCT entity_id FROM entity_names WHERE name_norm = %s",
+                    (norm,))
+                rows = cur.fetchall()
+                if len(rows) == 1:
+                    return rows[0]["entity_id"]
     return None
 
 
