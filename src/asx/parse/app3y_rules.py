@@ -147,9 +147,51 @@ def _clean_value(raw: str) -> str:
     return re.sub(r"\s+", " ", raw).strip(" :.-––")
 
 
-def extract(text: str) -> RulesExtraction:
-    """Read an Appendix 3Y/3Z by locating its printed labels."""
+def split_forms(text: str) -> list[str]:
+    """Split a lodgement into one segment per Appendix 3Y/3Z form.
+
+    **A single PDF frequently contains several complete forms.** Measured
+    across 58 real lodgements, 6 of them (10%) hold more than one — up to
+    four directors in one document, each with their own Part 1, their own
+    quantities and their own consideration.
+
+    Reading only the first would drop 15 of the 21 director notices in those
+    six files. That is worse than a coverage gap: the cluster-buy signal
+    exists to find SEVERAL directors transacting in the same company at the
+    same time, and a board that files its notices in one PDF is exactly the
+    coordinated event the signal is looking for. Taking only the first
+    director would turn the strongest possible signal into the weakest.
+
+    Segments run from one "Name of entity" to the next. A covering letter
+    before the first form is discarded with it, which is also what the
+    letterhead-ABN problem needs.
+    """
     flat = _normalise(text)
+    starts = [m.start() for m in re.finditer(
+        r"\bName\s*of\s*entity\b", flat, re.I)]
+    if not starts:
+        return [flat]
+    return [flat[a:b] for a, b in zip(starts, starts[1:] + [len(flat)])]
+
+
+def extract_all(text: str) -> list["RulesExtraction"]:
+    """Every form in the lodgement, in document order."""
+    return [_extract_segment(seg) for seg in split_forms(text)]
+
+
+def extract(text: str) -> RulesExtraction:
+    """Read the FIRST form in a lodgement.
+
+    Kept for callers that want one result. Anything writing canonical rows
+    must use extract_all(): a tenth of real lodgements carry more than one
+    form, and this returns only the first of them.
+    """
+    forms = extract_all(text)
+    return forms[0] if forms else RulesExtraction()
+
+
+def _extract_segment(flat: str) -> RulesExtraction:
+    """Read one already-isolated form by locating its printed labels."""
     out = RulesExtraction()
     out.form = ("app_3z" if re.search(r"Appendix\s*3Z|Final Director'?s Interest", flat, re.I)
                 else "app_3y" if re.search(r"Appendix\s*3Y|Change of Director'?s Interest", flat, re.I)

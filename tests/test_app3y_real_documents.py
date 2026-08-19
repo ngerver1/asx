@@ -94,3 +94,45 @@ def test_every_gold_transaction_classifies_as_labelled():
             assert got == expected, f"{case['ticker']} {txn['seq']}: {text!r} -> {got}"
             checked += 1
     assert checked >= 6
+
+
+# --- one PDF, several directors ------------------------------------------
+
+def _text(name):
+    import pypdf
+    path = (Path(__file__).parent.parent / "fixtures" / "app3y" / "documents" / name)
+    if not path.exists():
+        pytest.skip(f"{name} not present")
+    return "\n".join((p.extract_text() or "") for p in pypdf.PdfReader(str(path)).pages)
+
+
+def test_a_lodgement_with_several_directors_yields_several_forms():
+    """Ten percent of real lodgements carry more than one complete Appendix
+    3Y — up to four directors in one PDF. Reading only the first drops the
+    rest, and a board filing together is precisely the coordinated event the
+    cluster-buy signal exists to find: taking one director would turn the
+    strongest available signal into the weakest."""
+    from asx.parse.app3y_rules import extract_all
+
+    forms = extract_all(_text("327725.pdf"))
+    assert len(forms) == 4
+    directors = [f.get("director_name") for f in forms]
+    assert directors == ["Patrick Burke", "Oliver Kiddie", "Justin Werner",
+                         "Cameron Peacock"]
+    assert all(f.get("entity_name") and "FMR" in f.get("entity_name")
+               for f in forms)
+
+
+def test_two_director_lodgement_splits_cleanly():
+    from asx.parse.app3y_rules import extract_all
+
+    forms = extract_all(_text("328630.pdf"))
+    assert [f.get("director_name") for f in forms] == ["Alex Rovira", "Andrew Rich"]
+
+
+def test_a_single_form_still_yields_exactly_one():
+    from asx.parse.app3y_rules import extract_all
+
+    forms = extract_all(_text("6A1339259.pdf"))
+    assert len(forms) == 1
+    assert forms[0].get("director_name") == "James Champion de Crespigny"
