@@ -239,7 +239,8 @@ def file_captured_documents(
     the platform, and it moves bytes that a human already opened. No automated
     request is made here.
     """
-    stats = {"filed": 0, "attached": 0, "standalone": 0, "duplicate": 0}
+    stats = {"filed": 0, "attached": 0, "standalone": 0, "duplicate": 0,
+             "detail": []}
     capture_dir = Path(capture_dir)
     for path in sorted(capture_dir.glob("**/*")):
         if not path.is_file() or path.name.endswith(".meta.json"):
@@ -253,9 +254,31 @@ def file_captured_documents(
         if doc_id is not None:
             attached = attach_document(conn, doc_id, content, "manual_capture")
             stats["attached" if attached else "duplicate"] += 1
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT ticker_as_lodged, doc_class, title FROM documents "
+                    "WHERE doc_id = %s", (doc_id,))
+                row = cur.fetchone() or {}
+            stats["detail"].append({
+                "file": path.name,
+                "outcome": "attached" if attached else "duplicate",
+                "doc_id": doc_id,
+                "ticker": row.get("ticker_as_lodged"),
+                "doc_class": row.get("doc_class"),
+                "title": (row.get("title") or "")[:60],
+            })
         else:
             _create_standalone(conn, content, meta, path.name)
             stats["standalone"] += 1
+            # Named, not just counted. A silent standalone is possession that
+            # leaves its detection open forever, so the one thing the owner
+            # must be told is WHICH file failed to find its announcement.
+            stats["detail"].append({
+                "file": path.name,
+                "outcome": "standalone",
+                "why": "no open detection matched by filename, sidecar, or the "
+                       "ABN printed in the document",
+            })
         stats["filed"] += 1
 
         if archive_dir:
