@@ -129,6 +129,65 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
     return stats
 
 
+def fetch_asx_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
+    """Retrieve announcement documents from a restricted host.
+
+    Permitted by the access decision as amended 20 Aug 2026: a specific
+    announcement, already known to exist because we detected it from an alert,
+    retrieved from a URL recorded against that detection. Nothing is
+    discovered here — this function cannot search, cannot browse, cannot
+    follow a link, and cannot invent a URL. It reads
+    `documents.asx_document_url` and retrieves exactly that.
+
+    A document whose URL was never recorded stays on the manual worklist.
+    That is the correct outcome, not a gap to be closed by guessing an
+    address the ASX never gave us.
+    """
+    from asx.ingest.fetch_guard import reset_restricted_budget
+
+    reset_restricted_budget()
+    stats = {"eligible": 0, "retrieved": 0, "no_url": 0, "not_a_document": 0,
+             "robots_blocked": 0, "refused": 0, "failed": 0}
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT doc_id, asx_document_url FROM documents
+               WHERE parse_status = 'detected' AND asx_document_url IS NOT NULL
+               ORDER BY lodged_at NULLS LAST LIMIT %s""",
+            (limit,),
+        )
+        targets = cur.fetchall()
+        cur.execute(
+            """SELECT count(*) AS n FROM documents
+               WHERE parse_status = 'detected' AND asx_document_url IS NULL"""
+        )
+        stats["no_url"] = cur.fetchone()["n"]
+
+    for row in targets:
+        stats["eligible"] += 1
+        url = row["asx_document_url"]
+        try:
+            # targeted_document is asserted HERE and nowhere else: this is the
+            # only caller that has read the URL off a detection it holds.
+            result = fetch(url, targeted_document=True)
+        except ProhibitedSourceError:
+            stats["refused"] += 1
+            continue
+        except RobotsDisallowedError:
+            stats["robots_blocked"] += 1
+            continue
+        except Exception:
+            stats["failed"] += 1
+            continue
+        if not _looks_like_pdf(result):
+            stats["not_a_document"] += 1
+            continue
+        if attach_document(conn, row["doc_id"], result.content, "asx_targeted"):
+            stats["retrieved"] += 1
+    conn.commit()
+    return stats
+
+
 def _looks_like_pdf(result) -> bool:
     content_type = (getattr(result, "content_type", "") or "").lower()
     return (content_type.startswith("application/pdf")

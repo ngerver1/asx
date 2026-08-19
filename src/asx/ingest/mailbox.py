@@ -235,6 +235,12 @@ def partition_urls(urls: list[str], rule: SenderRule,
         blocked_hosts.add(sender_domain.lower())
     for url in urls:
         if is_prohibited(url):
+            # Restricted host. Under the 20 Aug 2026 amendment a *document*
+            # URL here is retrievable, but not from this code path: only
+            # possession.fetch_asx_documents() may assert targeting, working
+            # from a URL recorded on a detection. So it is recorded for the
+            # owner either way, and the retrieval decision is made once, in
+            # one place, rather than at every link that happens to be a PDF.
             manual.append(url)
             continue
         # The provider's own announcement page. It is on a blocked host, so

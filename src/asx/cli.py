@@ -188,7 +188,8 @@ def cmd_detect(args) -> None:
 def cmd_capture(args) -> None:
     """File documents the owner captured personally, and optionally fetch
     those available from company IR sites."""
-    from asx.ingest.possession import fetch_ir_documents, file_captured_documents
+    from asx.ingest.possession import (fetch_asx_documents, fetch_ir_documents,
+                                    file_captured_documents)
 
     with db.connect() as conn:
         stats = file_captured_documents(
@@ -197,6 +198,8 @@ def cmd_capture(args) -> None:
         )
         if args.ir:
             stats["ir"] = fetch_ir_documents(conn)
+        if args.asx:
+            stats["asx"] = fetch_asx_documents(conn)
     print(json.dumps(stats, default=str))
 
 
@@ -368,6 +371,39 @@ def cmd_universe(args) -> None:
             print(size.note(), file=sys.stderr)
 
 
+def cmd_set_doc_url(args) -> None:
+    """Record the document URL for an announcement already detected.
+
+    This is the only way a URL becomes retrievable. It is a manual step by
+    design: the platform must be told where a document lives by a source that
+    states it, rather than deriving addresses the ASX never gave it (access
+    decision §6 amendment).
+    """
+    from asx.ingest.fetch_guard import is_discovery_url, is_document_url
+
+    if is_discovery_url(args.url):
+        raise SystemExit(f"{args.url} looks like a search or listing endpoint; "
+                         f"record the document's own URL.")
+    if not is_document_url(args.url):
+        raise SystemExit(f"{args.url} does not address a document (a PDF). "
+                         f"Targeted retrieval is for documents, not pages.")
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """UPDATE documents SET asx_document_url = %s
+               WHERE asx_announcement_id = %s AND parse_status = 'detected'
+               RETURNING doc_id, ticker_as_lodged, title""",
+            (args.url, args.announcement_id),
+        )
+        row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        raise SystemExit(f"no detection awaiting capture with announcement id "
+                         f"{args.announcement_id!r}")
+    print(f"doc {row['doc_id']} ({row['ticker_as_lodged']}): {row['title']}")
+    print(f"  -> {args.url}")
+    print("Retrieve with: asx capture --capture-dir <dir> --asx")
+
+
 def cmd_snapshot(args) -> None:
     """Export or restore the durable state (see asx.state.snapshot)."""
     from asx.state.snapshot import export_state, import_state
@@ -453,6 +489,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--archive-dir")
     p.add_argument("--ir", action="store_true",
                    help="also fetch documents linked on company IR sites")
+    p.add_argument("--asx", action="store_true",
+                   help="also retrieve ASX documents whose URL is recorded on "
+                        "a detection (targeted retrieval only — access "
+                        "decision §6 amendment, 20 Aug 2026)")
     p.set_defaults(fn=cmd_capture)
 
     p = sub.add_parser("worklist", help="announcements awaiting manual capture")
@@ -502,6 +542,13 @@ def main(argv: list[str] | None = None) -> None:
                    help="drop the N largest by market cap (e.g. 300 for the "
                         "size ceiling in the access decision)")
     p.set_defaults(fn=cmd_universe)
+
+    p = sub.add_parser("set-doc-url",
+                       help="record an announcement's document URL for "
+                            "targeted retrieval")
+    p.add_argument("--announcement-id", required=True)
+    p.add_argument("--url", required=True)
+    p.set_defaults(fn=cmd_set_doc_url)
 
     p = sub.add_parser("snapshot",
                        help="export/restore durable state for an ephemeral host")

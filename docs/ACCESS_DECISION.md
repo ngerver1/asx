@@ -1,7 +1,8 @@
 # Access decision — announcement and price data
 
-**Status: ACCEPTED — Tier 0 composite (no paid feed).** Decided by the owner,
-August 2026. This satisfies the SPEC §5.1 gate and unblocks Phase 0/1
+**Status: ACCEPTED — Tier 0 composite (no paid feed).**
+**AMENDED 20 August 2026: targeted ASX document retrieval permitted.**
+Decided by the owner, August 2026. This satisfies the SPEC §5.1 gate and unblocks Phase 0/1
 implementation. It is a deliberately labour-priced, zero-cost configuration
 with stated consequences, not a stopgap that ignores them.
 
@@ -95,15 +96,60 @@ pursued at this time**. Reopen this decision if any of the following occur:
 | ETF issuer holdings files | Weekly download of published holdings CSVs | Published by issuers for investors; per-site terms | Display/derive only; no redistribution |
 | ASIC Offer Notice Board | Manual weekly check (from Phase 2) | Public regulator notice board | No automated polling unless terms permit |
 
-### How the ASX exclusion is enforced
+### Amendment, 20 August 2026 — targeted retrieval from asx.com.au
 
-`asx/ingest/fetch_guard.py` is the single chokepoint for every automated
-fetch. It raises `ProhibitedSourceError` on any asx.com.au URL — including
-links extracted from alert emails, the path most likely to reach for one by
-accident. The mailbox parser strips ASX links from the fetchable set at
-detection time. Tests assert the block for the domain, its subdomains, and
-emailed links. The capture watcher, which moves bytes a human already
-opened, makes no network request at all.
+**Decided by the owner on legal advice: sourcing from asx.com.au is
+permitted where it is targeted retrieval of specific announcement documents,
+and not scraping.** This supersedes the original §1/§6 prohibition on
+automated access to the ASX website.
+
+The amendment turns on a distinction, so the distinction is what the code
+enforces. Retrieval is permitted; **discovery is not**. Concretely, a request
+is allowed only when every one of these holds:
+
+| Condition | Why it is the line |
+|---|---|
+| The URL is recorded on a detection we already hold (`documents.asx_document_url`) | The document's existence was learned from an alert, not by asking the ASX. This is what makes it *targeted* rather than *found*. |
+| The URL addresses a document (a PDF) | Fetching pages is how targeted retrieval becomes scraping — one page leads to the next. |
+| No search, browse, list or pagination endpoint | Refused on every host, and **no caller flag overrides it**: nothing turns a search result into a specific known document. |
+| The run is bounded (50 documents, then it stops) | A bounded run cannot become a crawl by accident. |
+| robots.txt respected, ≥5s between requests, honest user-agent, no rotation | Unchanged. Invariant 11 does not bend because the legal position did. |
+
+**What is still forbidden**, and would need a further decision: enumerating
+announcement identifiers, following links found on ASX pages, retrieving any
+listing or search result, and constructing document URLs from a guessed
+pattern. That last one matters more than it looks — building addresses the
+ASX never gave us is discovery wearing retrieval's clothes, so
+`asx_document_url` is populated from a source that states the URL, never
+derived by formula from an announcement number.
+
+**How it is enforced.** `asx/ingest/fetch_guard.py` remains the single
+chokepoint. `assert_fetchable()` refuses a restricted-host URL unless the
+caller passes `targeted_document=True`, and a test asserts that flag is
+passed from **exactly one call site** in the whole codebase —
+`possession.fetch_asx_documents()`, the only function that reads a URL off a
+detection it already holds. If the assertion ever spreads to a second caller
+it stops meaning anything, and the test fails rather than the boundary
+quietly eroding.
+
+Documents obtained this way are recorded with `possession_source =
+'asx_targeted'`, kept distinct from `manual_capture`, so "what did the
+platform itself fetch from the ASX" is answerable from the data rather than
+from memory. That is the question the amendment invites, and it should have
+an answer.
+
+**Environmental note.** The cloud environment the platform currently runs in
+cannot reach asx.com.au at all: the egress proxy returns 403 to CONNECT for
+every ASX host, an organisation network policy unrelated to this decision.
+The route is implemented and tested; it will retrieve nothing until run
+somewhere with network access to the ASX.
+
+### How the remaining exclusions are enforced
+
+The mailbox parser still routes ASX **page** links to `manual_open_urls` for
+the owner to open personally, and only a recorded **document** URL is
+retrievable. The capture watcher, which moves bytes a human already opened,
+makes no network request at all.
 
 ---
 
@@ -115,6 +161,7 @@ opened, makes no network request at all.
 | Backfill horizon | ~24 months 3Y/3Z on demand; no delisted-company documents | Aug 2026 | §2 |
 | Price vendor | None; backtesting out of scope, index proxy substituted | Aug 2026 | §3 |
 | Budget | $0 data; Anthropic API only | Aug 2026 | §4 |
+| **ASX access** | **Amended: targeted document retrieval permitted, discovery still prohibited** | **20 Aug 2026** | **Owner's legal advice; enforced per §6 amendment** |
 
 Per-site terms spot-checks for IR websites are the owner's standing
 responsibility as new companies enter the watchlist; a site whose terms
