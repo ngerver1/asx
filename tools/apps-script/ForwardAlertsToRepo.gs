@@ -46,7 +46,28 @@
  */
 
 var PROCESSED_LABEL = 'asx-ingested';
+var SKIPPED_LABEL = 'asx-skipped';
+var ATTACHMENT_LABEL = 'asx-attachment-saved';
 var DEFAULT_QUERY = 'from:marketindex.com.au newer_than:7d';
+
+/**
+ * Which announcements are worth committing.
+ *
+ * Set SUBJECT_FILTER in Script Properties to widen it. The default is the
+ * director-interest forms, which is what Phase 1 parses.
+ *
+ * Nothing is DELETED by filtering. A skipped thread is labelled
+ * 'asx-skipped' and stays in Gmail, so widening the filter later and running
+ * rescanSkipped() recovers every message the old filter passed over. A filter
+ * that silently discarded mail would make the platform's own completeness
+ * checks meaningless — it could never tell "no such announcement existed"
+ * from "we threw it away in July".
+ */
+var DEFAULT_SUBJECT_FILTER =
+  "(director'?s?|officer'?s?)\\s+interest|appendix\\s*3[yz]\\b";
+
+/** Emails that CARRY the document, rather than linking to it. */
+var DEFAULT_ATTACHMENT_QUERY = 'has:attachment filename:pdf newer_than:7d';
 
 /**
  * Validate the setup WITHOUT committing anything.
@@ -168,10 +189,25 @@ function diagnoseMailbox() {
   }
 
   var done = countMessages(sender + ' label:"' + PROCESSED_LABEL + '"');
-  var todo = countMessages(sender + ' -label:"' + PROCESSED_LABEL + '"');
+  var skip = countMessages(sender + ' label:"' + SKIPPED_LABEL + '"');
+  var todo = countMessages(sender + ' -label:"' + PROCESSED_LABEL +
+                           '" -label:"' + SKIPPED_LABEL + '"');
   console.log('');
-  console.log('Already committed : ' + done.messages);
-  console.log('Not yet committed : ' + todo.messages + '   <- backfillAlerts() takes these');
+  console.log('Already committed  : ' + done.messages);
+  console.log('Filtered out       : ' + skip.messages +
+              '   (kept in Gmail; rescanSkipped() reconsiders them)');
+  console.log('Not yet considered : ' + todo.messages +
+              '   <- backfillAlerts() takes these');
+
+  var atts = countMessages(props.getProperty('ATTACHMENT_QUERY') ||
+                           DEFAULT_ATTACHMENT_QUERY);
+  console.log('');
+  console.log('Emails carrying a PDF attachment: ' + atts.messages +
+              '   <- forwardAttachments() commits these to captures/');
+  if (!atts.messages) {
+    console.log('  None. Market Index alerts carry no attachment, by design.');
+    console.log('  Subscribe to company IR mailing lists for the ones that do.');
+  }
 
   var all = GmailApp.search(sender, 0, 500);
   if (all.length) {
@@ -212,6 +248,24 @@ function rpad(s, n) { while (s.length < n) s += ' '; return s; }
  * running it repeatedly until it reports 0 remaining walks the whole mailbox
  * without tracking any cursor.
  */
+/**
+ * Un-skip everything the subject filter passed over, so a widened
+ * SUBJECT_FILTER can reconsider it. Nothing was deleted, so nothing is lost:
+ * this is what makes filtering a safe thing to do at all.
+ */
+function rescanSkipped() {
+  var label = GmailApp.getUserLabelByName(SKIPPED_LABEL);
+  if (!label) return 'nothing has been skipped';
+  var n = 0;
+  while (true) {
+    var threads = label.getThreads(0, 100);
+    if (!threads.length) break;
+    for (var i = 0; i < threads.length; i++) { threads[i].removeLabel(label); n++; }
+  }
+  console.log('un-skipped ' + n + ' thread(s); run backfillAlerts() to reconsider them');
+  return 'un-skipped ' + n + ' thread(s)';
+}
+
 function backfillAlerts() {
   return runForwarder('from:marketindex.com.au', 5 * 60 * 1000);
 }
@@ -243,9 +297,14 @@ function runForwarder(query, deadlineMs) {
 
   var label = GmailApp.getUserLabelByName(PROCESSED_LABEL) ||
               GmailApp.createLabel(PROCESSED_LABEL);
-  var pending = query + ' -label:"' + PROCESSED_LABEL + '"';
+  var skipLabel = GmailApp.getUserLabelByName(SKIPPED_LABEL) ||
+                  GmailApp.createLabel(SKIPPED_LABEL);
+  var filter = new RegExp(
+    props.getProperty('SUBJECT_FILTER') || DEFAULT_SUBJECT_FILTER, 'i');
+  var pending = query + ' -label:"' + PROCESSED_LABEL +
+                '" -label:"' + SKIPPED_LABEL + '"';
 
-  var committed = 0, skipped = 0, failed = 0, timedOut = false;
+  var committed = 0, skipped = 0, failed = 0, filtered = 0, timedOut = false;
 
   // Always start at 0: labelling a thread removes it from this search, so
   // the next page walks up to meet us. Paging with an offset instead would
@@ -257,9 +316,21 @@ function runForwarder(query, deadlineMs) {
     for (var t = 0; t < threads.length; t++) {
       if (Date.now() - started > deadlineMs) { timedOut = true; break; }
       var messages = threads[t].getMessages();
+      // A thread is only skippable if NONE of its messages are wanted, so a
+      // wanted announcement can never be buried by an unwanted reply.
+      var wanted = [];
+      for (var w = 0; w < messages.length; w++) {
+        if (filter.test(messages[w].getSubject() || '')) wanted.push(messages[w]);
+      }
+      if (!wanted.length) {
+        filtered += messages.length;
+        threads[t].addLabel(skipLabel);   // kept in Gmail, never committed
+        continue;
+      }
+
       var threadOk = true;
-      for (var m = 0; m < messages.length; m++) {
-        var msg = messages[m];
+      for (var m = 0; m < wanted.length; m++) {
+        var msg = wanted[m];
         var path = repoPath(msg);
         try {
           if (commitMessage(token, repo, branch, path, msg)) committed++;
@@ -278,7 +349,14 @@ function runForwarder(query, deadlineMs) {
 
   var remaining = GmailApp.search(pending, 0, 500).length;
   console.log('committed=' + committed + ' already_present=' + skipped +
-              ' failed=' + failed + ' threads_remaining=' + remaining);
+              ' filtered_out=' + filtered + ' failed=' + failed +
+              ' threads_remaining=' + remaining);
+  console.log('Filter: /' + filter.source + '/i   (SUBJECT_FILTER property)');
+  if (filtered) {
+    console.log('Filtered messages are labelled "' + SKIPPED_LABEL + '" and ' +
+                'still in Gmail. Widen SUBJECT_FILTER and run ' +
+                'rescanSkipped() to reconsider them.');
+  }
   if (timedOut) {
     console.warn('Stopped at the ' + (deadlineMs / 60000) + '-minute mark with ' +
                  remaining + ' thread(s) left. Run again to continue — nothing ' +
@@ -286,6 +364,88 @@ function runForwarder(query, deadlineMs) {
   }
   if (failed) throw new Error(failed + ' message(s) failed; see the log.');
   return 'committed ' + committed + ', ' + remaining + ' thread(s) remaining';
+}
+
+/**
+ * Commit PDF ATTACHMENTS — the only automated route to the documents.
+ *
+ * There is no compliant way to fetch these. asx.com.au is off limits to any
+ * automated device by the access decision itself, and Market Index's terms
+ * cannot be verified from the platform's network, so scraping their pages is
+ * out under CLAUDE.md's rule about acting beyond a source's terms.
+ *
+ * What is left is a source that SENDS the document. Company investor-relations
+ * mailing lists attach the PDF to the announcement email, so receiving it
+ * involves no request to anyone: it is possession route 1 of the access
+ * decision, with the fetching removed. Subscribe on the investor pages of the
+ * companies you follow and the documents arrive on their own.
+ *
+ * Files land in captures/YYYY/MM/ and are ingested with:
+ *     asx capture --capture-dir captures
+ *
+ * The announcement number is not in an attachment, so `asx capture` falls
+ * back to matching on ticker and lodgement date. Naming the file with the
+ * announcement number where you know it gives an exact match instead.
+ */
+function forwardAttachments() {
+  var started = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty('GITHUB_TOKEN');
+  var repo = props.getProperty('GITHUB_REPO');
+  if (!token || !repo) throw new Error('Run checkSetup() first.');
+  var branch = props.getProperty('GITHUB_BRANCH') || 'main';
+  var query = props.getProperty('ATTACHMENT_QUERY') || DEFAULT_ATTACHMENT_QUERY;
+
+  var doneLabel = GmailApp.getUserLabelByName(ATTACHMENT_LABEL) ||
+                  GmailApp.createLabel(ATTACHMENT_LABEL);
+  var pending = query + ' -label:"' + ATTACHMENT_LABEL + '"';
+
+  var committed = 0, skipped = 0, failed = 0;
+  var threads = GmailApp.search(pending, 0, 25);
+
+  for (var t = 0; t < threads.length; t++) {
+    if (Date.now() - started > 5 * 60 * 1000) {
+      console.warn('Stopped at five minutes; run again to continue.');
+      break;
+    }
+    var messages = threads[t].getMessages();
+    var threadOk = true;
+    for (var m = 0; m < messages.length; m++) {
+      var msg = messages[m];
+      var atts = msg.getAttachments();
+      for (var a = 0; a < atts.length; a++) {
+        var att = atts[a];
+        if (att.getContentType() !== 'application/pdf' &&
+            !/\.pdf$/i.test(att.getName())) continue;
+        var path = attachmentPath(msg, att);
+        try {
+          if (putFile(token, repo, branch, path, att.getBytes(),
+                      'capture: ' + att.getName().slice(0, 80))) committed++;
+          else skipped++;
+        } catch (err) {
+          failed++; threadOk = false;
+          console.error('failed ' + path + ': ' + err);
+        }
+      }
+    }
+    if (threadOk) threads[t].addLabel(doneLabel);
+  }
+  console.log('attachments committed=' + committed + ' already_present=' +
+              skipped + ' failed=' + failed);
+  if (failed) throw new Error(failed + ' attachment(s) failed; see the log.');
+  return 'committed ' + committed + ' attachment(s)';
+}
+
+/** captures/2026/08/20260819-AHL-2A1690463.pdf, or the sender's own name. */
+function attachmentPath(msg, att) {
+  var d = msg.getDate();
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var stamp = d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate());
+  // Prefix with the message id so two companies sending "Appendix3Y.pdf" on
+  // the same day cannot collide.
+  var safe = att.getName().replace(/[^A-Za-z0-9._-]/g, '_').slice(-60);
+  return 'captures/' + d.getUTCFullYear() + '/' + pad(d.getUTCMonth() + 1) +
+         '/' + stamp + '-' + msg.getId() + '-' + safe;
 }
 
 /** alerts/2026/08/20260819T002103Z-<message-id-hash>.eml.gz */
@@ -299,6 +459,34 @@ function repoPath(msg) {
   // alerts sent in the same second from overwriting each other.
   return 'alerts/' + d.getUTCFullYear() + '/' + pad(d.getUTCMonth() + 1) + '/' +
          stamp + '-' + msg.getId() + '.eml.gz';
+}
+
+/** Returns true if a new file was created, false if it already existed. */
+function putFile(token, repo, branch, path, bytes, message) {
+  var api = 'https://api.github.com/repos/' + repo + '/contents/' + path;
+  var headers = {
+    Authorization: 'Bearer ' + token,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  var probe = UrlFetchApp.fetch(api + '?ref=' + encodeURIComponent(branch),
+                                {headers: headers, muteHttpExceptions: true});
+  if (probe.getResponseCode() === 200) return false;
+  if (probe.getResponseCode() !== 404) {
+    throw new Error('probe ' + probe.getResponseCode() + ': ' +
+                    probe.getContentText().slice(0, 200));
+  }
+  var put = UrlFetchApp.fetch(api, {
+    method: 'put', headers: headers, contentType: 'application/json',
+    muteHttpExceptions: true,
+    payload: JSON.stringify({message: message,
+                             content: Utilities.base64Encode(bytes),
+                             branch: branch})});
+  if (put.getResponseCode() >= 300) {
+    throw new Error('put ' + put.getResponseCode() + ': ' +
+                    put.getContentText().slice(0, 200));
+  }
+  return true;
 }
 
 /** Returns true if a new file was created, false if it already existed. */

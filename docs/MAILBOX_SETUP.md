@@ -1,181 +1,54 @@
-# Connecting the alert mailbox
+### Filtering to the announcements you want
 
-Detection under the Tier 0 access decision (§1) is: *alert emails tell the
-platform an announcement exists*. The bytes arrive separately, from a company
-IR site or from the owner personally opening the announcement. This document
-is about the first half only.
+`SUBJECT_FILTER` (a regex, in Script Properties) decides what gets committed.
+It defaults to the director-interest forms, which is what Phase 1 parses:
 
-**What the ingester does with an email**
-
-1. Reads the subject and body.
-2. Extracts ticker, title and a lodgement time, leaving any field it cannot
-   read as `None` rather than guessing.
-3. Records a `detected` row in `documents`, keyed so re-reading the mailbox
-   is idempotent.
-4. Records any non-ASX links (company IR sites) for later fetching.
-5. **Discards asx.com.au links.** They are never followed, never queued, and
-   `fetch_guard` raises if any code tries. The announcement instead appears on
-   `asx worklist` for the owner to open personally.
-
-Nothing here logs into the ASX, and nothing follows a link out of an email
-automatically.
-
-## Two ways in
-
-### A. Saved emails — no credentials (start here)
-
-```bash
-asx detect --from-dir ~/asx-alerts        # reads *.eml
+```
+(director'?s?|officer'?s?)\s+interest|appendix\s*3[yz]\b
 ```
 
-Export the alerts from your mail client (in Gmail: open the message →
-⋮ → *Download message*, which saves a `.eml`) into a directory. Subdirectories
-are read too, and non-email files are ignored.
+Widen it as later phases need more — substantial holdings for Phase 2
+registers, restricted securities for escrow, and so on.
 
-This path exists for three reasons, and it is not a lesser option:
+**Filtering never deletes.** A message the filter passes over is labelled
+`asx-skipped` and stays in Gmail. Widen `SUBJECT_FILTER`, run
+`rescanSkipped()`, then `backfillAlerts()`, and everything the old filter
+declined is reconsidered. That property is what makes filtering safe to do at
+all: a filter that discarded mail would leave the platform unable to tell "no
+such announcement was ever lodged" from "we threw it away in July", which is
+precisely the distinction its completeness checks exist to make.
 
-- **Calibration.** CLAUDE.md requires the gold fixture set *before* the
-  parser. The per-sender rules in `mailbox.py` are currently unvalidated
-  guesses about Market Index's subject format; they get pinned to real emails
-  saved this way.
-- **No secret leaves your machine.** Nothing to configure, nothing to revoke.
-- **Recovery.** The IMAP path reads `UNSEEN` messages only. An alert you have
-  already opened in Gmail is no longer unseen and IMAP will never hand it
-  over — saving it to disk is how it gets ingested rather than silently lost.
-  See "The read-first hole" below.
+A thread is only skipped when *none* of its messages match, so a wanted
+announcement can never be buried under an unwanted reply.
 
-### B. Apps Script → repository (free, no Google Cloud)
+## Getting the documents themselves
 
-**Use this one.** It needs no Google Cloud project, no billing account and no
-OAuth client, and it is the only option where **no credential ever reaches the
-machine running the platform**.
+`forwardAttachments()` commits PDF attachments to `captures/YYYY/MM/`, which
+`asx capture --capture-dir captures` then files against the matching
+detection.
 
-A ~140-line script (`tools/apps-script/ForwardAlertsToRepo.gs`) runs inside
-your own Google account at [script.google.com](https://script.google.com),
-free with any consumer Gmail. Apps Script's built-in `GmailApp` service reads
-the mailbox under the account's own authority — granted once by clicking
-Allow. On an hourly trigger it commits each new alert to this repository as a
-gzipped `.eml` under `alerts/YYYY/MM/`.
+**Nothing is fetched, because nothing may be.** asx.com.au is off limits to
+any automated device under the access decision. Market Index's own pages are
+not reachable from the platform's network either — the egress proxy returns
+403, so their terms cannot even be read, and CLAUDE.md forbids acting beyond
+a source's terms rather than assuming them. Both routes are closed.
 
-Three consequences, beyond dodging the billing prompt:
+What remains is a source that *sends* the document. Company
+investor-relations mailing lists attach the PDF to the announcement email, so
+receiving it involves no request to anybody: it is possession route 1 of the
+access decision with the fetching removed, and it is stronger than fetching
+because the company chose to send it.
 
-- **The container holds nothing worth stealing.** The GitHub token lives in
-  the script's properties inside your Google account. A cloud VM that is
-  reclaimed without warning takes no secret with it.
-- **The repository becomes the raw zone for alerts.** The bytes are the
-  publisher's, unmodified, append-only, content-addressed by git — which is
-  what SPEC §3 asks of raw documents anyway. Gzip takes a Market Index alert
-  from 68 KB to 11 KB, so a year of them is tens of megabytes, not hundreds.
-- **It survives the container.** Alerts accumulate whether or not a session is
-  running, so a week away is not a week-shaped hole in the dataset.
+**Its limit is coverage.** IR lists reach only the companies you subscribe to
+individually, so this covers a watchlist, not the market. Everything outside
+it still needs the manual capture sweep — which is exactly what the
+capture-gap alarm measures, and why that alarm exists.
 
-**Setup:**
+Set `ATTACHMENT_QUERY` to scope which emails are searched (default
+`has:attachment filename:pdf newer_than:7d`), and add a second daily trigger
+on `forwardAttachments`.
 
-1. [script.google.com](https://script.google.com) → **New project** → paste
-   `tools/apps-script/ForwardAlertsToRepo.gs`.
-2. **Project Settings → Script Properties → Add script property**, four times.
-   Two of these are fixed for this repository and can be copied verbatim:
-
-   | Property | Value | Where it comes from |
-   |---|---|---|
-   | `GITHUB_REPO` | `ngerver1/asx` | fixed — the repo's `owner/name` |
-   | `GITHUB_BRANCH` | `claude/go-is75md` | fixed — the only branch that exists |
-   | `GITHUB_TOKEN` | `github_pat_…` | created on GitHub, see below |
-   | `GMAIL_QUERY` | *(optional)* | defaults to `from:marketindex.com.au newer_than:7d` |
-
-   **Creating the token** — [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new):
-
-   | Field | Set it to |
-   |---|---|
-   | Token name | `asx alert forwarder` |
-   | Resource owner | `ngerver1` |
-   | Expiration | your choice — see the warning below |
-   | Repository access | **Only select repositories** → `ngerver1/asx` |
-   | Permissions → Repository → **Contents** | **Read and write** |
-   | Every other permission | leave at *No access* |
-
-   Generate, then copy the `github_pat_…` value. GitHub shows it once. Paste
-   it straight into `GITHUB_TOKEN` with no quotes and no trailing spaces.
-
-   Contents is the only permission needed: the script writes files and does
-   nothing else. Scoping it to the single repository means a leak costs you
-   this repository and nothing else in your account.
-
-3. **Run `checkSetup()`** from the editor's function dropdown and approve the
-   permission prompt. It commits nothing and proves each thing that would
-   otherwise fail silently on a trigger nobody is watching:
-
-   ```
-   OK  repo=ngerver1/asx branch=claude/go-is75md
-   OK  token can read and write
-   Gmail query: from:marketindex.com.au newer_than:7d
-     matches 12 thread(s), of which 12 not yet ingested
-   ```
-
-   It distinguishes the failures that look alike from the outside — a wrong
-   repo name and a token without access both return 404, and a read-only
-   token looks perfect until the first commit fails hours later. If the Gmail
-   query matches nothing, check the *From* address on a real alert and set
-   `GMAIL_QUERY` accordingly.
-
-4. Run `diagnoseMailbox()`. It commits nothing and reports how much history
-   is actually in the mailbox — by age, how much is already committed, and
-   whether any alerts have been filed into Spam or Trash, which
-   `GmailApp.search()` cannot see at all:
-
-   ```
-   Messages from marketindex.com.au, by age:
-     newer_than:7d   26 message(s) in 26 thread(s)
-     newer_than:30d  118 message(s) in 118 thread(s)
-     all time        118 message(s) in 118 thread(s)
-
-   Already committed : 26
-   Not yet committed : 92   <- backfillAlerts() takes these
-   ```
-
-5. **Run `backfillAlerts()` repeatedly until it reports `0 remaining`.**
-   `forwardAlerts()` only looks back `GMAIL_QUERY`'s window — seven days by
-   default, which is right for a recurring trigger and wrong for a first run
-   against a mailbox with history. `backfillAlerts()` ignores the window
-   entirely, stops at the five-minute mark to avoid Apps Script's six-minute
-   kill, and resumes cleanly: committed threads get labelled and labelled
-   threads are excluded, so there is no cursor to lose.
-
-6. **Triggers → Add Trigger →** `forwardAlerts`, time-driven. **Daily is
-   enough**; hourly buys latency you do not need.
-
-   The 96-hour capture SLA is measured from `detected_at`, which is the
-   *alert's own send time*, not when the script picked it up — so a daily
-   run costs at most 24 hours of a 96-hour budget and leaves three days to
-   capture. The `newer_than:7d` window means a failed run is retried on the
-   next six days rather than losing anything.
-
-   Note what a trigger does and does not do: it keeps alerts accumulating in
-   git without a session running, which is the part that has to be
-   unattended. Ingesting them (`asx detect --from-dir alerts`) still needs a
-   session, and catching up on a week at once is one command — detections are
-   keyed on the ASX announcement number, so nothing double-counts.
-
-> **Two things will silently stop this feed.**
-> **Token expiry** — a fine-grained PAT must have one. When it lapses the
-> script throws, and Apps Script emails you about a failed trigger, so put
-> the renewal date in a calendar rather than relying on noticing.
-> **Branch deletion** — `claude/go-is75md` is where alerts are committed. If
-> it is ever merged and deleted, `checkSetup()` will say so; update
-> `GITHUB_BRANCH` before that happens.
-
-Then, in any session:
-
-```bash
-asx detect --from-dir alerts
-```
-
-The script labels a thread `asx-ingested` only after every message in it
-commits successfully, so a failed run retries rather than losing an alert. It
-never uses read state as the marker — reading an alert on your phone must not
-hide it from the platform.
-
-### C. Gmail API — if you would rather use Google Cloud
+### Gmail API — if you would rather use Google Cloud — if you would rather use Google Cloud
 
 Works, and is what I would have recommended if the Console were free of
 friction. The Gmail API itself costs nothing — *"All standard use of the Gmail
