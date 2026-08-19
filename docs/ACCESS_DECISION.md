@@ -183,6 +183,13 @@ convenience for documents already identified, not a route to bulk capture.
 Bulk capture remains the manual sweep, and the capture-gap alarm remains the
 measure of it.
 
+### Candidate sources assessed
+
+| Source | Verdict | Why |
+|---|---|---|
+| investorpa.com | **Prepared, not declared** — see `docs/SOURCE_INVESTORPA.md` | Re-hosts announcement PDFs at a direct URL, which would automate possession if its alerts carry the link. Terms unreadable from this network, and it is a re-host rather than the exchange. Ingestion is wired; fetching is not permitted. |
+| hotcopper.com.au | Declined for automated use | Third-party forum; terms unreadable; the described use is discovery, not retrieval. |
+
 ### Third-party sources are not covered by this amendment
 
 The amendment is about the ASX. It does not extend to any other site, and a

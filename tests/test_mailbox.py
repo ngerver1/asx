@@ -239,3 +239,19 @@ def test_the_readme_in_the_alerts_directory_is_not_mistaken_for_mail(tmp_path):
     (tmp_path / "README.md").write_text("# alerts\n")
     (tmp_path / "a.eml").write_text(RAW_ALERT)
     assert len(list(EmlDirectory(tmp_path).fetch_new())) == 1
+
+
+def test_investorpa_links_are_recorded_not_auto_fetched():
+    """investorpa.com re-hosts announcement PDFs, which is exactly what the
+    platform lacks — but its terms could not be read (the host is unreachable
+    from this network), and DECLARED_SOURCES requires the basis before the
+    fetch. So its links are kept for the owner and never queued for
+    retrieval."""
+    raw = ("From: alerts@investorpa.com\n"
+           "Subject: ASX:CYL - Change of Director's Interest Notice\n"
+           "Message-ID: <ipa-1@investorpa.com>\n"
+           "Date: Wed, 19 Aug 2026 09:35:00 +1000\n\n"
+           "https://investorpa.com/announcement-pdf/20260819/293079.pdf\n")
+    d = detection_from_email(email.message_from_string(raw))
+    assert d.detection_source == "investorpa_alert"
+    assert d.document_urls == []          # nothing auto-fetched

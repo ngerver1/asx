@@ -128,6 +128,28 @@ SENDER_RULES: list[SenderRule] = [
             r"^https://www\.marketindex\.com\.au/asx/[a-z0-9]+/announcements/[^?#]+"),
     ),
     SenderRule(
+        # investorpa.com — an ASX announcement alert service in the same role
+        # as Market Index, and interesting for one reason: it re-hosts the
+        # announcement PDF at a plain URL
+        # (investorpa.com/announcement-pdf/YYYYMMDD/{id}.pdf), where Market
+        # Index links only to its own page. If its alert emails carry that
+        # link, the document URL arrives with the detection and possession
+        # stops needing a human.
+        #
+        # NOT calibrated: no real email has been seen, so no subject_re — the
+        # conservative generic path applies until fixtures exist.
+        #
+        # NOT declared as a fetchable source either. investorpa.com is
+        # unreachable from this network, so its terms could not be read, and
+        # `fetch_guard.DECLARED_SOURCES` requires knowing the basis before
+        # fetching. `own_hosts` therefore keeps its links out of the automatic
+        # fetch set: they are recorded for the owner, not retrieved. Declaring
+        # it is a decision for someone who has read the terms.
+        detection_source="investorpa_alert",
+        from_contains="investorpa",
+        own_hosts=("investorpa.com",),
+    ),
+    SenderRule(
         detection_source="listcorp_alert",
         from_contains="listcorp",
         subject_re=re.compile(r"^(?P<ticker>[A-Z0-9]{3,6})\s*[-–:]\s*(?P<title>.+)$"),
