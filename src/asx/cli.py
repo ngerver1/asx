@@ -137,6 +137,13 @@ def cmd_detect(args) -> None:
 
     if args.from_dir:
         mailbox = EmlDirectory(Path(args.from_dir))
+    elif args.gmail_api or os.environ.get("ASX_GMAIL_REFRESH_TOKEN"):
+        # The only mailbox route that works from a sandboxed cloud container:
+        # IMAP is not reachable there, the Gmail REST API is. Scope is
+        # read-only, so this cannot mark anything seen.
+        from asx.ingest.gmail_api import GmailAPIMailbox
+
+        mailbox = GmailAPIMailbox(since_days=args.since_days)
     else:
         missing = [v for v in ("ASX_IMAP_HOST", "ASX_IMAP_USER", "ASX_IMAP_PASSWORD")
                    if not os.environ.get(v)]
@@ -361,6 +368,21 @@ def cmd_universe(args) -> None:
             print(size.note(), file=sys.stderr)
 
 
+def cmd_snapshot(args) -> None:
+    """Export or restore the durable state (see asx.state.snapshot)."""
+    from asx.state.snapshot import export_state, import_state
+
+    out = Path(args.dir)
+    with db.connect() as conn:
+        if args.restore:
+            counts = import_state(conn, out)
+            conn.commit()
+            print(json.dumps({"restored": counts}, indent=2))
+        else:
+            counts = export_state(conn, out)
+            print(json.dumps({"exported": counts}, indent=2))
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -415,6 +437,9 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--since-days", type=int, default=7,
                    help="how far back to search (default 7). Re-reading is "
                         "free: detections are idempotent on message identity")
+    p.add_argument("--gmail-api", action="store_true",
+                   help="read via the Gmail REST API (required in cloud "
+                        "containers, where IMAP is unreachable)")
     p.add_argument("--unseen-only", action="store_true",
                    help="search UNSEEN instead of by date. Only safe for a "
                         "mailbox you never open yourself")
@@ -477,6 +502,13 @@ def main(argv: list[str] | None = None) -> None:
                    help="drop the N largest by market cap (e.g. 300 for the "
                         "size ceiling in the access decision)")
     p.set_defaults(fn=cmd_universe)
+
+    p = sub.add_parser("snapshot",
+                       help="export/restore durable state for an ephemeral host")
+    p.add_argument("--dir", default="state", help="directory of CSVs")
+    p.add_argument("--restore", action="store_true",
+                   help="load a snapshot into an empty schema instead")
+    p.set_defaults(fn=cmd_snapshot)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

@@ -44,39 +44,107 @@ This path exists for three reasons, and it is not a lesser option:
   over — saving it to disk is how it gets ingested rather than silently lost.
   See "The read-first hole" below.
 
-### B. IMAP — for the daily scheduled run
+### B. Gmail API — the only automated route from a cloud container
+
+**IMAP does not work from a Claude Code cloud session, and no credential
+fixes it.** Direct TCP is unavailable; everything leaves through an HTTPS
+policy proxy. That proxy accepts a CONNECT to `imap.gmail.com:993` and then
+resets the connection during the TLS handshake, because IMAP is not HTTPS.
+Measured, with an HTTPS control through the same tunnel:
+
+```
+gmail.googleapis.com:443   CONNECT 200 -> TLS ok -> HTTP 401
+imap.gmail.com:993         CONNECT 200 -> ConnectionResetError
+```
+
+External Postgres (port 5432) is blocked by the same policy.
+
+The Gmail REST API is ordinary HTTPS, so it passes — and it is the better
+credential anyway. An app password grants full account access and bypasses
+2-Step Verification; this uses OAuth scoped to `gmail.readonly`, which
+**cannot send, delete, or mark anything read**. The read-first hole below is
+not merely avoided by convention, it is impossible. The grant is revocable on
+its own without touching the account password.
+
+**Setup, once:**
+
+1. At [console.cloud.google.com](https://console.cloud.google.com), create a
+   project and enable the **Gmail API**.
+2. Under *APIs & Services → Credentials*, create an **OAuth client ID** of
+   type *Desktop app*. Note the client ID and secret.
+3. On the *OAuth consent screen*, add the alert account as a test user. Note:
+   while the app is in **testing** mode Google expires refresh tokens after
+   seven days — publish the app (no verification is needed for a single test
+   user on a read-only scope) if you want it to keep running.
+4. On any machine with a browser, get a refresh token:
+
+   ```bash
+   python -m asx.ingest.gmail_consent --client-id ... --client-secret ...
+   # open the printed URL, approve, copy the code= from the address bar
+   python -m asx.ingest.gmail_consent --client-id ... --client-secret ... --code ...
+   ```
+
+5. Set the three values as **environment variables on the cloud environment**
+   (claude.ai → environment settings → environment variables), not in the
+   repo and not in a chat message:
+
+   ```
+   ASX_GMAIL_CLIENT_ID
+   ASX_GMAIL_CLIENT_SECRET
+   ASX_GMAIL_REFRESH_TOKEN
+   ASX_GMAIL_LABEL          # optional, to scope the search to one label
+   ```
+
+Then `asx detect` uses the API automatically:
+
+```bash
+asx detect                      # Gmail API when ASX_GMAIL_REFRESH_TOKEN is set
+asx detect --since-days 3       # narrow the search window
+```
+
+### C. IMAP — from a machine of your own
+
+Unchanged and still supported where raw TCP is available:
 
 ```bash
 export ASX_IMAP_HOST=imap.gmail.com
 export ASX_IMAP_USER=your-alert-account@gmail.com
 export ASX_IMAP_PASSWORD=<16-character app password>
-export ASX_IMAP_FOLDER=INBOX          # or a Gmail label name
 asx detect
 ```
 
-**Gmail specifics, verified August 2026.** Google stopped accepting a plain
-account password for IMAP on 14 March 2025; third-party clients must use
-OAuth, *with app passwords retained as the exception*. So:
-
-- 2-Step Verification must be on — app passwords cannot be created without it.
-- Create one at `myaccount.google.com/apppasswords` in a browser (the mobile
-  app cannot). Google shows the 16 characters once.
-- IMAP must be enabled: Gmail → Settings → *Forwarding and POP/IMAP*.
-- Advanced Protection disables app passwords entirely. If the account is
-  enrolled, use option A or implement OAuth.
+Google stopped accepting a plain account password for IMAP on 14 March 2025;
+third-party clients must use OAuth, *with app passwords retained as the
+exception*. 2-Step Verification must be on to create one, at
+`myaccount.google.com/apppasswords` in a browser. Advanced Protection
+disables app passwords entirely.
 
 Sources: [transition from less secure apps to OAuth](https://support.google.com/a/answer/14114704),
 [sign in with app passwords](https://support.google.com/mail/answer/185833).
 
-**A Gmail app password is not read-only.** It grants full mailbox access to
-that account, and it bypasses 2-Step Verification by design. Two consequences:
+## Nothing here survives the container
 
-- Use a **dedicated account that receives nothing but alerts**. If it leaks,
-  the loss is a stream of public announcement notifications.
-- Set it in the environment where the job actually runs. Never paste it into
-  a chat transcript, a commit, or a remote container you do not control — a
-  remote agent session is exactly such a container, and it is discarded
-  without warning.
+A cloud session's VM is reclaimed after inactivity and takes Postgres with
+it. The ASIC company register (4.4M rows, 1.1 GB) is *regenerable* and is
+meant to be rebuilt with `asx load-reference`. The entity master and the
+detection log are not: a detection records that an announcement existed at a
+moment now past, and no amount of reloading brings it back.
+
+That durable set is ~12,000 rows and about 700 KB, so it lives in git:
+
+```bash
+asx snapshot --dir state              # export, then commit it
+asx snapshot --dir state --restore    # rebuild a fresh container
+```
+
+Verified: a new database, migrated and restored from the snapshot with **zero
+ASIC rows**, resolves every ticker and reports identical coverage — ticker
+resolution goes through `listings`, not the register. Re-running `asx detect`
+after a restore records nothing new, because detections are keyed on the ASX
+announcement number.
+
+**Snapshot at the end of any session that ingested detections**, or they are
+lost when the VM goes.
 
 ## The read-first hole
 

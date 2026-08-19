@@ -67,7 +67,9 @@ asx load-reference --source asx_listed_companies --file ASX.csv --as-of 2026-08-
 asx coverage       # Phase 0 acceptance evidence for the entity master
 asx universe --as-of 2026-08-18 --out universe.csv    # tracked codes on a date
 asx universe --exclude-top 300 --out smallcaps.csv    # the access-decision size cut
-asx detect         # read the alert mailbox (Tier 0 detection)
+asx detect         # read the alert mailbox (Gmail API, IMAP, or saved .eml)
+asx snapshot --dir state           # durable state — the VM is ephemeral
+asx snapshot --dir state --restore # rebuild a fresh container
 asx worklist       # announcements awaiting your personal capture
 asx capture --capture-dir ~/asx-capture
 make test          # unit + integration tests incl. gold-set regression
