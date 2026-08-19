@@ -117,46 +117,50 @@ exists. So it is checked by hand, weekly:
 
 | Week | Sample size | Misses | Notes |
 |---|---|---|---|
-| 19 Aug 2026 | 17 known 3Y/3Z lodged that day | **6** | Found accidentally, not by the spot-check: six Appendix 3Y documents were downloaded from another source and none had a detection. See below. |
+| _(no valid comparison yet — see below)_ | | | |
 
-### The 19 Aug 2026 miss — detection is watchlist-scoped
+### Why there is no entry yet, and a retracted one
 
-Six Appendix 3Y forms lodged on 19 August — ASM, CNQ, FSI, T92, MBG, LLM —
-reached the platform as documents and had **no detection at all**. Not late,
-not misclassified: no alert for those companies has *ever* arrived.
+On 20 Aug 2026 six Appendix 3Y documents were captured that had no detection,
+and this log briefly recorded them as six completeness misses implying a
+detection rate of ≤65%. **That was wrong and has been withdrawn.**
 
-| | 3Y/3Z on 19 Aug 2026 |
-|---|---|
-| Detected via alerts | 11 |
-| Held but never detected | 6 |
-| **Detection rate** | **≤65%**, and that is an upper bound — it counts only the misses that happened to be found |
+The alert feed had been collecting for about twenty-six hours — 18 Aug 17:39
+to 19 Aug 19:19 Sydney. One of the six (Loyal Metals) carries a date of
+change of **20 August**, so it cannot have been lodged before the window
+closed; the others are equally consistent with being lodged after 19:19 on
+19 August or on 20 August. "No detection" is fully explained by the documents
+falling outside the collection window. Nothing about the feed's coverage
+follows from it.
 
-The cause is structural, not a bug: **Market Index alerts follow a watchlist**
-(up to 200 codes). The platform therefore detects announcements for companies
-the owner already follows, and is blind to the rest of the market by design.
-Nothing in the pipeline could have reported this, because detection is what
-makes a gap visible and there was no detection.
+The error is worth keeping on the page rather than deleting, because it is
+the exact mistake this log exists to prevent: a gap was observed, a structural
+cause was inferred, and the inference outran the evidence by an order of
+magnitude. A wrong entry here is worse than an empty one — three misses in a
+fortnight is an access-decision review trigger (§5), so a fabricated rate can
+set off a review of a decision that is working.
 
-This matters beyond completeness. The cluster-buy signal looks for several
-directors buying the same company — and a company you do not already follow
-can never produce that signal, no matter how strong it is. A watchlist-scoped
-feed can confirm a thesis about a company already on the list; it cannot
-surface one.
+**What a valid comparison requires**, whenever the standing spot-check (0.8)
+first runs:
 
-Three ways to close it, for the owner's decision:
+1. A full trading day where the alert feed ran from before the market opened
+   until after the evening lodgement batch — the platform's own alerts show
+   3Y/3Z arriving as late as 19:17, so a window ending earlier proves nothing.
+2. The ASX's own list of announcements lodged that day for the sampled
+   entities, so "was it lodged" and "did we hear about it" are independent
+   facts rather than the same one.
+3. Misses counted only where the lodgement time falls **inside** the window.
 
-1. **Widen the watchlist** to the coverage universe. If Market Index caps at
-   200 codes and the small-cap universe is ~1,475, this does not close it.
-2. **Add a market-wide alert source** whose alerts are not watchlist-scoped.
-   This is the strongest argument yet for evaluating investorpa.com or a
-   paid feed — not for the PDFs, but for *unfiltered detection*.
-3. **Accept the scope** and state it: the platform covers a followed list,
-   not the market, and the acceptance criteria should say so rather than
-   implying market-wide coverage.
+Until then, the honest statement is that detection coverage is **unmeasured**,
+not that it is complete and not that it is partial.
 
-Until one is chosen, criterion 0.4's "zero parseable detections older than
-the capture SLA" measures the manual sweep keeping up with *what was
-detected*, which is a weaker claim than it appears.
+**One question does remain open**, and it is a property of the source rather
+than of the data volume: Market Index alerts are driven by a watchlist of up
+to 200 codes. Whether that bounds coverage below the ~1,475-code universe is
+answerable by reading the account settings, not by counting documents — and
+it should be checked, because a watchlist-scoped feed can confirm a thesis
+about a company already on the list but can never surface one, which is the
+opposite of what the cluster-buy screen is for.
 
 ## Phase 1 — Director transactions (SPEC §7)
 
