@@ -269,15 +269,17 @@ def file_captured_documents(
                 "title": (row.get("title") or "")[:60],
             })
         else:
-            _create_standalone(conn, content, meta, path.name)
-            stats["standalone"] += 1
+            _doc_id, already_held = _create_standalone(conn, content, meta, path.name)
+            stats["standalone" if not already_held else "duplicate"] += 1
             # Named, not just counted. A silent standalone is possession that
             # leaves its detection open forever, so the one thing the owner
             # must be told is WHICH file failed to find its announcement.
             stats["detail"].append({
                 "file": path.name,
-                "outcome": "standalone",
-                "why": "no open detection matched by filename, sidecar, or the "
+                "outcome": "duplicate" if already_held else "standalone",
+                "why": ("already held — identical content is stored once "
+                        "(raw zone is keyed on SHA-256)") if already_held else
+                       "no open detection matched by filename, sidecar, or the "
                        "ABN printed in the document",
             })
         stats["filed"] += 1
@@ -358,6 +360,29 @@ def _match_detection(conn: psycopg.Connection, meta: dict, filename: str) -> int
         if not ticker:
             m = _TICKER_IN_NAME.search(filename.upper())
             ticker = m.group(1) if m else None
+
+        # Ticker alone, when it is unambiguous. The owner works in tickers —
+        # that is how the worklist reads and how a file gets named — but the
+        # document itself almost never states one: measured across 23 real
+        # Appendix 3Y/3Z forms, 17% name a ticker and 95% print an ABN or ACN,
+        # because a form lodged WITH the exchange identifies the company by
+        # registered identifier. So the ticker is the handle for input, and
+        # the identifiers are what the document is matched on.
+        #
+        # Requires exactly one open detection for that code: where a company
+        # lodged several the same day, naming the file by ticker cannot say
+        # which, and guessing would be provenance by coin-toss.
+        if ticker and not meta.get("lodged_at"):
+            cur.execute(
+                """SELECT doc_id FROM documents
+                   WHERE parse_status = 'detected'
+                     AND upper(ticker_as_lodged) = %s""",
+                (ticker.upper(),),
+            )
+            rows = cur.fetchall()
+            if len(rows) == 1:
+                return rows[0]["doc_id"]
+
         lodged = meta.get("lodged_at")
         if ticker and lodged:
             stamp = datetime.fromisoformat(lodged)
@@ -519,7 +544,15 @@ def _match_by_content(conn: psycopg.Connection, content: bytes) -> int | None:
 
 
 def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
-                       filename: str) -> int:
+                       filename: str) -> tuple[int, bool]:
+    """Returns (doc_id, already_held).
+
+    already_held distinguishes "we captured something new" from "this is the
+    same bytes we already have". The raw zone is keyed on SHA-256 so a
+    re-upload is harmless, but reporting it as a fresh standalone capture
+    tells the owner they collected sixteen documents when ten were already
+    on the shelf.
+    """
     from asx.raw.store import ingest_document
 
     lodged_at = None
@@ -561,7 +594,7 @@ def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
             (doc_class, entity_id, doc_class in parseable_doc_classes(),
              stored.doc_id),
         )
-        if entity_id is None:
+        if entity_id is None and not stored.already_existed:
             # An un-entitied document is a hole, not a filing. Say so.
             cur.execute(
                 """INSERT INTO review_items (kind, doc_id, payload, reason)
@@ -578,4 +611,4 @@ def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
                  f"entity_id, so this document is held but unusable until "
                  f"someone says whose it is."),
             )
-    return stored.doc_id
+    return stored.doc_id, stored.already_existed

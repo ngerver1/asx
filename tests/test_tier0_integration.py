@@ -515,3 +515,77 @@ def test_a_current_name_outranks_another_companys_former_name_when_filing(conn):
             (current, other))
     facts = DocumentFacts([], [], "app_3y", "Augustus Minerals Limited", "")
     assert _entity_for_document(conn, facts) == current
+
+
+def test_a_file_named_by_ticker_alone_finds_its_detection(conn):
+    """The owner works in tickers, so "SGQ.pdf" must be enough when only one
+    announcement for that code is outstanding."""
+    from pathlib import Path as _P
+
+    from asx.ingest.possession import file_captured_documents
+
+    gold = (_P(__file__).parent.parent / "fixtures" / "app3y" / "documents"
+            / "6A1339259.pdf")
+    if not gold.exists():
+        import pytest
+        pytest.skip("gold document not present")
+
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
+                    "RETURNING entity_id")
+        eid = cur.fetchone()["entity_id"]
+        cur.execute(
+            """INSERT INTO documents (source, entity_id, ticker_as_lodged, title,
+                   doc_class, detection_source, detected_at, detection_key,
+                   parse_status)
+               VALUES ('market_index_alert', %s, 'SGQ', 'Appendix 3Y', 'app_3y',
+                   'market_index_alert', now(), 'k-ticker-only', 'detected')
+               RETURNING doc_id""", (eid,))
+        doc_id = cur.fetchone()["doc_id"]
+    conn.commit()
+
+    import shutil
+    drop = _P(str(conn.info.host)) if False else None
+    import tempfile
+    tmp = _P(tempfile.mkdtemp())
+    shutil.copy(gold, tmp / "SGQ.pdf")
+    stats = file_captured_documents(conn, tmp)
+    assert stats["attached"] == 1
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status FROM documents WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["parse_status"] == "unparsed"
+
+
+def test_ticker_alone_refuses_when_the_company_lodged_several(conn):
+    """Black Canyon lodged four identically-titled notices in a day. "BCA.pdf"
+    cannot say which, and guessing would be provenance by coin-toss."""
+    from pathlib import Path as _P
+
+    from asx.ingest.possession import file_captured_documents
+
+    gold = (_P(__file__).parent.parent / "fixtures" / "app3y" / "documents"
+            / "6A1339259.pdf")
+    if not gold.exists():
+        import pytest
+        pytest.skip("gold document not present")
+
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
+                    "RETURNING entity_id")
+        eid = cur.fetchone()["entity_id"]
+        for k in ("k-bca-1", "k-bca-2"):
+            cur.execute(
+                """INSERT INTO documents (source, entity_id, ticker_as_lodged,
+                       title, doc_class, detection_source, detected_at,
+                       detection_key, parse_status)
+                   VALUES ('market_index_alert', %s, 'BCA', 'Appendix 3Y',
+                       'app_3y', 'market_index_alert', now(), %s, 'detected')""",
+                (eid, k))
+    conn.commit()
+
+    import shutil
+    import tempfile
+    tmp = _P(tempfile.mkdtemp())
+    shutil.copy(gold, tmp / "BCA.pdf")
+    stats = file_captured_documents(conn, tmp)
+    assert stats["attached"] == 0
