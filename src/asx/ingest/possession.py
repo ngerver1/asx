@@ -104,7 +104,13 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
                 continue
             stats["attempted"] += 1
             try:
-                result = fetch(url)
+                # Company IR sites are not in DECLARED_SOURCES: they are
+                # spot-checked individually by the owner as companies enter
+                # the watchlist (access decision §6). The caller states that
+                # standing basis; it is not a blanket permission for any host.
+                result = fetch(url, terms_basis="access decision §6: owner "
+                                                "spot-checks IR site terms per "
+                                                "company on the watchlist")
             except ProhibitedSourceError:
                 stats["skipped_asx"] += 1
                 continue

@@ -144,6 +144,39 @@ every ASX host, an organisation network policy unrelated to this decision.
 The route is implemented and tested; it will retrieve nothing until run
 somewhere with network access to the ASX.
 
+### Third-party sources are not covered by this amendment
+
+The amendment is about the ASX. It does not extend to any other site, and a
+source being convenient is not a basis for using it.
+
+HotCopper was proposed (20 Aug 2026) as an alternative route to announcement
+PDFs, since its per-company pages thread each announcement with a link.
+Declined for automated use, on three grounds:
+
+1. **The legal advice was about asx.com.au.** HotCopper is a third-party
+   commercial forum with its own terms of use, which that advice does not
+   speak to and which cannot be read from the platform's network — the egress
+   proxy returns 403 there too.
+2. **What was described is discovery, not retrieval.** Opening a company page
+   to enumerate its announcements and extract their links is precisely the
+   crawl this amendment excludes. The permission is to retrieve a document
+   already known to exist, not to find out which documents exist.
+3. **It routes through someone else's copy**, raising a redistribution
+   question that fetching from the issuer or the exchange does not.
+
+Reading HotCopper **by hand** is, of course, ordinary use of a public
+website. Where it usefully shows a document's URL, record that with
+`asx set-doc-url` and the targeted path will retrieve it. The line is who
+does the browsing, not which site is browsed.
+
+**This exposed a real gap and closed it.** Before this, any host outside
+`RESTRICTED_HOSTS` was fetchable by the generic path — listing pages
+included — with nobody having read its terms. Invariant 11's per-source terms
+requirement existed only on paper. `fetch_guard.DECLARED_SOURCES` now records
+the basis for each permitted host, callers with a standing per-site sign-off
+pass `terms_basis=...` explicitly, and an undeclared host is refused with a
+message saying so. Adding a source is now a deliberate act that records why.
+
 ### How the remaining exclusions are enforced
 
 The mailbox parser still routes ASX **page** links to `manual_open_urls` for

@@ -377,7 +377,7 @@ def test_ir_fetch_refuses_to_store_a_non_pdf_response(conn, monkeypatch):
         _email.message_from_string(raw)))
     conn.commit()
 
-    monkeypatch.setattr(possession, "fetch", lambda url: SimpleNamespace(
+    monkeypatch.setattr(possession, "fetch", lambda url, **kw: SimpleNamespace(
         content=b"<html><body>Please sign in</body></html>",
         content_type="text/html", url=url))
     stats = possession.fetch_ir_documents(conn)

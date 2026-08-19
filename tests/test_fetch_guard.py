@@ -35,7 +35,10 @@ def test_asx_urls_are_prohibited(url):
 ])
 def test_non_asx_urls_are_not_prohibited(url):
     assert not is_prohibited(url)
-    assert_fetchable(url)  # does not raise
+    # Not restricted, but still not free: Invariant 11 wants a recorded terms
+    # basis for every source, which the caller supplies for IR sites the owner
+    # has spot-checked.
+    assert_fetchable(url, terms_basis="owner spot-checked this site")
 
 
 def test_lookalike_domains_are_not_over_blocked():

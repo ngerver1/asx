@@ -71,6 +71,32 @@ _DOCUMENT_RE = re.compile(r"\.pdf($|[?#])", re.I)
 MAX_RESTRICTED_FETCHES_PER_RUN = 50
 _restricted_fetches = 0
 
+
+@dataclass(frozen=True)
+class SourceTerms:
+    """The recorded basis on which a host may be fetched at all."""
+    basis: str
+    targeted_only: bool = False
+
+
+# Invariant 11 and access decision §6 require a per-source terms basis before
+# anything is fetched. That requirement existed only on paper until a
+# suggestion to "just use hotcopper.com.au" made the gap obvious: any host not
+# named in RESTRICTED_HOSTS was fetchable by the generic path, listing pages
+# included, with nobody having read its terms.
+#
+# A host must now be declared here, or the caller must pass an explicit
+# terms_basis, or the fetch is refused. Adding a line to this table is a
+# deliberate act that records WHY a source is permitted — which is what
+# Invariant 11 asks for and what a later reader will need.
+DECLARED_SOURCES: dict[str, SourceTerms] = {
+    "asx.com.au": SourceTerms(
+        basis="access decision §6 amendment, 20 Aug 2026: targeted retrieval "
+              "of specific announcement documents, on the owner's legal advice",
+        targeted_only=True,
+    ),
+}
+
 # Honest identification. Never randomised, never disguised as a browser.
 USER_AGENT = (
     "asx-structural-alpha/0.1 (personal research tool; contact: "
@@ -128,7 +154,15 @@ def is_document_url(url: str) -> bool:
     return bool(_DOCUMENT_RE.search(url))
 
 
-def assert_fetchable(url: str, *, targeted_document: bool = False) -> None:
+def _declared_for(host: str) -> "SourceTerms | None":
+    for domain, terms in DECLARED_SOURCES.items():
+        if host == domain or host.endswith("." + domain):
+            return terms
+    return None
+
+
+def assert_fetchable(url: str, *, targeted_document: bool = False,
+                     terms_basis: str | None = None) -> None:
     """Raise unless automated code is permitted to fetch this URL.
 
     Call this anywhere a URL might be followed, even if no fetch immediately
@@ -138,6 +172,11 @@ def assert_fetchable(url: str, *, targeted_document: bool = False) -> None:
     from an announcement already known to exist, recorded against a detection.
     It is not a way to unlock the ASX generally: the URL must still address a
     document and must not be a discovery endpoint.
+
+    `terms_basis` is for hosts not in DECLARED_SOURCES — company IR sites,
+    which the owner spot-checks individually as they enter the watchlist. The
+    caller states the basis; passing one is a claim that somebody read the
+    terms, so it belongs at a path where that is true.
     """
     if is_discovery_url(url):
         raise ProhibitedSourceError(
@@ -145,6 +184,17 @@ def assert_fetchable(url: str, *, targeted_document: bool = False) -> None:
             f"browse endpoint. The access decision permits retrieving a "
             f"specific known announcement, never discovering announcements. "
             f"No caller flag overrides this."
+        )
+    host = _host(url)
+    declared = _declared_for(host)
+    if declared is None and not terms_basis:
+        raise ProhibitedSourceError(
+            f"Refusing to fetch {url}: no terms basis is recorded for "
+            f"{host!r}. Invariant 11 and access decision §6 require knowing "
+            f"why a source may be fetched BEFORE fetching it. Add it to "
+            f"DECLARED_SOURCES with the basis, or pass terms_basis=... if the "
+            f"caller carries a standing per-site sign-off. A source being "
+            f"useful is not a basis."
         )
     if not is_restricted(url):
         return
@@ -210,12 +260,14 @@ def _throttle(host: str) -> None:
         _last_request[host] = time.monotonic()
 
 
-def fetch(url: str, *, opener=None, targeted_document: bool = False) -> FetchResult:
+def fetch(url: str, *, opener=None, targeted_document: bool = False,
+          terms_basis: str | None = None) -> FetchResult:
     """Politely fetch a URL. The only sanctioned automated-fetch path.
 
     `opener` is injectable so tests exercise the guard without network access.
     """
-    assert_fetchable(url, targeted_document=targeted_document)
+    assert_fetchable(url, targeted_document=targeted_document,
+                     terms_basis=terms_basis)
     if not _robots_allows(url):
         raise RobotsDisallowedError(
             f"robots.txt disallows {url} for this user-agent; not fetching"

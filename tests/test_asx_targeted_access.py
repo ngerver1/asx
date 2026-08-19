@@ -68,8 +68,15 @@ def test_a_run_cannot_become_a_crawl():
     assert_fetchable(PDF, targeted_document=True)
 
 
-def test_unrestricted_hosts_are_unaffected():
-    assert_fetchable("https://example.com.au/investors/3y.pdf")
+def test_an_unrestricted_host_still_needs_a_basis_but_not_targeting():
+    """"Not the ASX" was never the same as "fetch freely". An ordinary host
+    needs a recorded terms basis, and then needs nothing further — no
+    targeted_document assertion, because the targeted gate exists for the
+    restricted host specifically."""
+    with pytest.raises(ProhibitedSourceError):
+        assert_fetchable("https://example.com.au/investors/3y.pdf")
+    assert_fetchable("https://example.com.au/investors/3y.pdf",
+                     terms_basis="owner spot-checked this IR site")
 
 
 def test_only_the_possession_path_asserts_targeting():
@@ -95,3 +102,34 @@ def test_only_the_possession_path_asserts_targeting():
             hits.append(f"{path.relative_to(src)}:{text[:match.start()].count(chr(10)) + 1}")
     assert len(hits) == 1, f"targeted_document=True is asserted in {hits}"
     assert hits[0].startswith("ingest/possession.py:"), hits
+
+
+# --- a source must have a recorded terms basis before it is fetched -------
+
+def test_an_undeclared_source_is_refused_however_useful_it_looks():
+    """Prompted by a suggestion to source PDFs from hotcopper.com.au. It is a
+    third-party forum with its own terms, which the ASX legal advice does not
+    cover and which cannot be read from this network. Invariant 11 wants the
+    basis known BEFORE the fetch, not inferred from the source being handy."""
+    with pytest.raises(ProhibitedSourceError, match="no terms basis is recorded"):
+        assert_fetchable("https://hotcopper.com.au/documents/2a1690214.pdf")
+    with pytest.raises(ProhibitedSourceError, match="no terms basis is recorded"):
+        assert_fetchable("https://example.org/investors/3y.pdf")
+
+
+def test_a_caller_may_state_a_standing_basis():
+    """Company IR sites are spot-checked per company, so the IR path carries
+    the basis rather than every site being pre-declared."""
+    assert_fetchable("https://xyzlimited.com.au/investors/3y-aug26.pdf",
+                     terms_basis="access decision §6: owner spot-checks IR terms")
+
+
+def test_a_terms_basis_does_not_unlock_discovery_or_the_asx():
+    """The basis says 'we may fetch this host'. It never says 'and therefore
+    anything on it'."""
+    with pytest.raises(ProhibitedSourceError, match="search, listing or browse"):
+        assert_fetchable("https://hotcopper.com.au/asx/bca/?page=2",
+                         terms_basis="stated")
+    with pytest.raises(ProhibitedSourceError, match="targeted-retrieval only"):
+        assert_fetchable("https://announcements.asx.com.au/x.pdf",
+                         terms_basis="stated")
