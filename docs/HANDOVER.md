@@ -52,13 +52,41 @@ source and should not be registered as one.
 | unverified readings | 578 in `uncorroborated_director_trades` (a view, not canonical) |
 | cluster-buy signals | 9 |
 | conviction signals | 19 |
-| open review items | 679 |
+| open review items | 682 |
 
 The published screen lives at
 **https://claude.ai/code/artifact/228b70bf-0797-4c15-9f73-b473ebd818ba**
 
 To change it, republish **passing that URL** as `url`. Publishing without it
 creates a second artifact and the owner keeps the stale one.
+
+**That artifact is now one column behind the CSV.** Both screens gained
+`counter_evidence` on 20 August; the published page does not show it, and the
+two rows it changes are the two rows a reader would otherwise most easily
+misread. Republishing is a small job and has not been done.
+
+## Reading the screens: counter_evidence
+
+Both screens now carry what the insiders of the same company were doing in
+the 90 days before the signal — `onmkt_sell` and `unclassified` counts with
+consideration, pipe-delimited, empty when there is nothing. It is windowed
+under Invariant 2, so it holds only what was knowable when the signal was; a
+sell lodged afterwards is absent and is not claimed to be absent.
+
+Two of 28 rows carry it, and both change how the row reads:
+
+- **ALQ** `onmkt_sell:1:1285097|unclassified:1:unstated` — the +28.9% is a
+  director going from 8,490 shares to 10,944 ($57,178), fourteen days after
+  Malcolm Deane sold $1,285,097 on-market (doc 1066, "On market trades made
+  on 29 July 2026", the day after a vesting). Read the row as insider selling
+  with a rounding error attached, not as a buy signal.
+- **AGC** `unclassified:2:979637` — the screened parcel is $15,237 while
+  $979,637 of the same director's July activity is unclassified (docs 865,
+  903, both multi-vehicle notices). The screen is showing the small parcel,
+  not the story.
+
+Neither was dropped. Both are on the screen with the reason visible, which is
+the point — a silent exclusion would not let the owner disagree.
 
 ## Decisions left with the owner
 
@@ -78,6 +106,28 @@ creates a second artifact and the owner keeps the stale one.
 - **Classification coverage.** 127 of 311 trades are `unknown`. SPEC §7 says
   "classification is the product"; this is the largest single lever on signal
   count and does not require weakening any rule.
+
+- **BSA doc 1288 — the one review item worth doing by hand.** BSA carries the
+  largest single-director accumulation on the corpus: David Geraghty, five
+  notices between 3 and 22 July, $1,199,913 of on-market buying through
+  Roologic Pty Ltd, paying up from $0.30 to $0.32 for the biggest parcel.
+  Only four of the five are canonical. Doc 1288 ($206,718.90 for 689,063
+  shares) is held on *arithmetic unverifiable: held before/after missing* —
+  correctly, because the notice discloses three vehicles at once (Geraghty
+  personally 150,000; Roologic 403,336; Mandarin Rock holding unlisted options
+  at $0.50/$0.75/$1.00 expiring 1/05/2029) and states its date as a range,
+  "6-10 July 2026".
+
+  Resolving it is worth a human's time for a second reason: the disclosed
+  chain does not reconcile. Doc 838 leaves Roologic at 403,336 on 3 July; doc
+  885 opens at 1,732,509 on 14 July; 1288's 689,063 closes only part of that,
+  leaving ~490k–640k shares unexplained depending on which vehicles the later
+  figure aggregates. Either a notice is missing or the later notice changed
+  its aggregation basis, and the screen understates BSA until it is known
+  which. Do not resolve it by picking the reading that closes the gap.
+
+  The gap is in the direction of more buying, not less — but "probably fine"
+  is not a reconciliation, and BSA is the name where it matters most.
 
 ## Things that will bite
 
