@@ -12,16 +12,30 @@ import re
 from typing import Callable
 
 TAXONOMY = [
-    "app_3y", "app_3z", "app_3b", "app_2a", "lr_3_10a_notice",
+    "app_3y", "app_3z", "app_3x", "app_3b", "app_2a", "lr_3_10a_notice",
     "substantial_603", "substantial_604", "substantial_605",
     "annual_report", "half_year", "quarterly_4c_5b", "capital_reorg",
     "notice_of_meeting", "prospectus", "cleansing_notice", "other",
 ]
 
-# Order matters: more specific patterns first (3Z before 3Y — "final
-# director's interest" must not fall through to the 3Y pattern).
+# Order matters: more specific patterns first (3Z and 3X before 3Y — "final"
+# and "initial" director's interest must not fall through to the 3Y pattern,
+# whose last alternative matches the bare phrase "director's interest notice").
 _TITLE_RULES: list[tuple[str, re.Pattern]] = [
     ("app_3z", re.compile(r"appendix\s*3z|final\s+director'?s?\s+interest", re.I)),
+    # An Appendix 3X states a holding at APPOINTMENT. It is not a trade, and
+    # no parser handles it, so it lands 'not_applicable' — recorded and
+    # visible, never parsed. It is classified separately rather than left to
+    # fall through because the 3Y pattern below matches "Director's Interest
+    # Notice" bare: an Initial notice was being filed as a 3Y, and a 3Y parse
+    # of it reads the appointment holding as a purchase. docs/HANDOVER.md
+    # names that consequence exactly — "forcing it into director_trades would
+    # fabricate a purchase and corrupt the cluster signal".
+    #
+    # This is not the 3X scope extension HANDOVER leaves with the owner; that
+    # is a parser and a table, and neither is added here. Declining to call a
+    # 3X a 3Y is just refusing to mislabel it.
+    ("app_3x", re.compile(r"appendix\s*3x|initial\s+director'?s?\s+interest", re.I)),
     # "change of" and "change in" are both in live use; requiring one wording
     # silently drops the other class of lodgement.
     ("app_3y", re.compile(

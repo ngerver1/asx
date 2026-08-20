@@ -95,6 +95,7 @@ pursued at this time**. Reopen this decision if any of the following occur:
 | ASX website (asx.com.au) | **Nothing automated.** Owner views and downloads personally | Personal, private decision-making use under ASX terms | No spider, scraper, or automated monitoring, ever; no auto-following emailed ASX links |
 | ETF issuer holdings files | Weekly download of published holdings CSVs | Published by issuers for investors; per-site terms | Display/derive only; no redistribution |
 | ASIC Offer Notice Board | Manual weekly check (from Phase 2) | Public regulator notice board | No automated polling unless terms permit |
+| investorpa.com | Search for Appendix 3Y/3Z across the exchange via the vendor's MCP API; retrieve the announcement PDFs those results state | The vendor's published `/features/` offer of a Remote MCP Server for "MCP-compatible AI harnesses", naming Claude Code. No terms page exists; robots.txt absent (404), unrestricted per RFC 9309 | No enumeration of announcement identifiers; no URL constructed rather than stated; never their stock master as an entity resolver |
 
 ### Amendment, 20 August 2026 — targeted retrieval from asx.com.au
 
@@ -187,8 +188,26 @@ measure of it.
 
 | Source | Verdict | Why |
 |---|---|---|
-| investorpa.com | **Prepared, not declared** — see `docs/SOURCE_INVESTORPA.md` | Re-hosts announcement PDFs at a direct URL, which would automate possession if its alerts carry the link. Terms unreadable from this network, and it is a re-host rather than the exchange. Ingestion is wired; fetching is not permitted. |
+| investorpa.com | **Declared and adopted, 20 Aug 2026** — see `docs/SOURCE_INVESTORPA.md` | Re-assessed the same day against its MCP API rather than its alert emails. The blocking question was "terms unreadable from this network"; the host is now reachable, there is no terms page at all, and what exists instead is a published product offer of a Remote MCP Server for AI harnesses. Adopted as a SECOND detection feed alongside Market Index, not a replacement: two feeds are what make coverage measurable. |
 | hotcopper.com.au | Declined for automated use | Third-party forum; terms unreadable; the described use is discovery, not retrieval. |
+
+### Searching a source whose product is a search API
+
+The amendment permits retrieval and forbids discovery. investorpa.com is
+searched, and that is not an exception smuggled past the rule. The
+prohibition is specific to the exchange, whose terms offer no search
+endpoint and whose announcement pages lead to one another. A vendor whose
+published product *is* a search API is offering exactly that use, and
+declining to use it as intended would not make the platform more careful.
+
+The limit that keeps this honest is volume and shape, not intention:
+Appendix 3Y/3Z only, by title, through the vendor's own endpoint — tens of
+documents a day against the ~400 the exchange publishes. Enumerating their
+sequential identifiers remains forbidden and is asserted by a test.
+
+`fetch_guard` cannot enforce this distinction itself, because a JSON-RPC
+method name is in the request body and the guard reads URLs. That gap is
+recorded in `fetch()`'s docstring rather than left for someone to find.
 
 ### Third-party sources are not covered by this amendment
 
@@ -241,6 +260,7 @@ makes no network request at all.
 | Price vendor | None; backtesting out of scope, index proxy substituted | Aug 2026 | §3 |
 | Budget | $0 data; Anthropic API only | Aug 2026 | §4 |
 | **ASX access** | **Amended: targeted document retrieval permitted, discovery still prohibited** | **20 Aug 2026** | **Owner's legal advice; enforced per §6 amendment** |
+| **investorpa.com** | **Declared: search for 3Y/3Z and retrieve stated document URLs** | **20 Aug 2026** | **Vendor's published `/features/` MCP offer; §6 table and `docs/SOURCE_INVESTORPA.md`** |
 
 Per-site terms spot-checks for IR websites are the owner's standing
 responsibility as new companies enter the watchlist; a site whose terms

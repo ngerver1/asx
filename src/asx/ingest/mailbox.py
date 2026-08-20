@@ -129,23 +129,21 @@ SENDER_RULES: list[SenderRule] = [
     ),
     SenderRule(
         # investorpa.com — an ASX announcement alert service in the same role
-        # as Market Index, and interesting for one reason: it re-hosts the
-        # announcement PDF at a plain URL
-        # (investorpa.com/announcement-pdf/YYYYMMDD/{id}.pdf), where Market
-        # Index links only to its own page. If its alert emails carry that
-        # link, the document URL arrives with the detection and possession
-        # stops needing a human.
+        # as Market Index. Its emails are now the SECONDARY route to it: the
+        # primary one is its MCP API (asx/ingest/investorpa.py), which returns
+        # the announcement and its PDF URL directly and is not watchlist-bound.
         #
-        # NOT calibrated: no real email has been seen, so no subject_re — the
-        # conservative generic path applies until fixtures exist.
+        # NOT calibrated: no real email has ever been seen, so no subject_re —
+        # the conservative generic path applies until fixtures exist. An alert
+        # that does arrive is deduped against the API by announcement identity,
+        # so reading it twice costs nothing.
         #
-        # NOT declared as a fetchable source either. investorpa.com is
-        # unreachable from this network, so its terms could not be read, and
-        # `fetch_guard.DECLARED_SOURCES` requires knowing the basis before
-        # fetching. `own_hosts` therefore keeps its links out of the automatic
-        # fetch set: they are recorded for the owner, not retrieved. Declaring
-        # it is a decision for someone who has read the terms.
-        detection_source="investorpa_alert",
+        # own_hosts still keeps the alert's links out of the automatic fetch
+        # set. That is not a terms judgement any more (investorpa.com is
+        # declared in fetch_guard since 20 Aug 2026) but a calibration one:
+        # nobody has seen which links these emails carry, and the API supplies
+        # a document URL that is known-good.
+        detection_source="investorpa",
         from_contains="investorpa",
         own_hosts=("investorpa.com",),
     ),

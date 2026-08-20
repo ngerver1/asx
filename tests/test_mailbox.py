@@ -242,16 +242,18 @@ def test_the_readme_in_the_alerts_directory_is_not_mistaken_for_mail(tmp_path):
 
 
 def test_investorpa_links_are_recorded_not_auto_fetched():
-    """investorpa.com re-hosts announcement PDFs, which is exactly what the
-    platform lacks — but its terms could not be read (the host is unreachable
-    from this network), and DECLARED_SOURCES requires the basis before the
-    fetch. So its links are kept for the owner and never queued for
-    retrieval."""
+    """investorpa.com is a declared source since 20 Aug 2026, but its ALERT
+    emails remain uncalibrated — nobody has seen one, so nobody knows which of
+    their links is the document and which is a tracking redirect. The API
+    (asx/ingest/investorpa.py) supplies a known-good document URL, so the
+    email path stays conservative: links recorded for the owner, none queued
+    for retrieval. Declaring a host answers 'may we fetch it', not 'do we know
+    what this link is'."""
     raw = ("From: alerts@investorpa.com\n"
            "Subject: ASX:CYL - Change of Director's Interest Notice\n"
            "Message-ID: <ipa-1@investorpa.com>\n"
            "Date: Wed, 19 Aug 2026 09:35:00 +1000\n\n"
            "https://investorpa.com/announcement-pdf/20260819/293079.pdf\n")
     d = detection_from_email(email.message_from_string(raw))
-    assert d.detection_source == "investorpa_alert"
+    assert d.detection_source == "investorpa"
     assert d.document_urls == []          # nothing auto-fetched

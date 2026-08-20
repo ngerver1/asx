@@ -1,93 +1,180 @@
-# investorpa.com — assessment
+# investorpa.com — assessment and adoption
 
-Investigated 20 Aug 2026 as a possible route to announcement documents.
-**Not adopted. Two questions must be answered by a human first**, both of
-which are stated at the end.
+Assessed 20 Aug 2026 and **declined**. Re-assessed the same day against the
+vendor's MCP API and **adopted**, as a second detection feed running alongside
+Market Index. This document records what changed and what it does not change.
 
 ## What it is
 
-An ASX announcement alert service, the same role Market Index plays today:
-a watchlist of up to 200 codes, email alerts when a followed company lodges,
-AI summaries of price-sensitive announcements ("Fast Feed"), and a daily
-roundup. It ran from 2011 to 2017 with over 4,000 users — reportedly more
-than 20,000 emails a day in reporting season — and has since relaunched.
-([features](https://investorpa.com/), [about](https://investorpa.com/about/))
+An ASX announcement alert service, the same role Market Index plays: a
+watchlist of up to 200 codes, email alerts, AI summaries of price-sensitive
+announcements ("Fast Feed"), a daily roundup. It ran from 2011 to 2017 with
+over 4,000 users and has since relaunched. Currently in beta.
+([features](https://investorpa.com/features/), [about](https://investorpa.com/about/))
 
-## Why it is interesting — it hosts the PDF
+## Why the first assessment declined it, and what changed
 
-This is the whole reason to look at it. Market Index alerts carry **no
-document link at all**: their emails link to a Market Index page, and the
-exchange's own document URL is nowhere in them. That is the bottleneck the
-platform keeps hitting — possession needs a human because nothing automated
-knows where the document lives.
+The original gate was two questions. Both are now answered, one of them
+because the premise was wrong.
 
-investorpa.com re-hosts the announcement PDF at a plain, direct URL:
+**1. "The terms could not be read."** This was true of the network, not the
+site. investorpa.com now returns 200 from the platform's egress; the earlier
+403 is gone. Reading it produced a more interesting answer than expected:
 
-```
-https://investorpa.com/announcement-pdf/{YYYYMMDD}/{id}.pdf
-```
+- **There is no terms-of-use page at all.** `/terms/`, `/terms-of-use/`,
+  `/terms-and-conditions/`, `/tos/`, `/legal/`, `/privacy/`, `/disclaimer/` all
+  return 404 (checked 20 Aug 2026). The footer carries a bare
+  "© 2024 investorpa. All rights reserved."
+- **`robots.txt` is absent** (404), which under RFC 9309 §2.3.1.3 means no
+  restrictions rather than an unanswered question.
+- **What exists instead is an affirmative published offer.**
+  `https://investorpa.com/features/` advertises, as a product feature:
 
-Observed examples, and what they show about the identifier:
+  > **Remote MCP Server — Ask your AI about the ASX.**
+  > "InvestorPA's MCP Server connects ASX announcements directly to any
+  > MCP-compatible AI harnesses. Works with Claude Desktop & Mobile, ChatGPT
+  > Desktop & Mobile, Claude Code, Codex, LM Studio and more. No local package
+  > installs necessary. Just connect and ask away."
 
-| Date | id | ids/day since previous |
-|---|---|---|
-| 2025-02-18 | 102576 | — |
-| 2025-05-16 | 138658 | 415 |
-| 2025-08-14 | 172561 | 377 |
-| 2025-11-12 | 218997 | 516 |
-| 2026-02-20 | 258878 | 399 |
-| 2026-05-14 | 293079 | 414 |
+That is the recorded basis, quoted in `fetch_guard.DECLARED_SOURCES`. **The
+honest limit of it, recorded because it is a judgement and not a quotation:**
+the grant is written for AI harnesses asking questions. Reading it to cover a
+scheduled ingest is this platform's inference. The proportionality rules below
+exist to keep the use recognisably the thing that was offered.
 
-Monotonic with date at roughly 400 a day: it is their own publication
-sequence, not a function of the ASX announcement number, so a URL still
-cannot be **derived** from anything the platform holds. It has to arrive.
+**2. "Do their alert emails contain the PDF link?"** Moot. The API returns the
+announcement and its document URL directly, which is strictly better than a
+link in an email, and is not watchlist-bounded the way the emails are.
 
-**If their alert emails contain that link, the possession layer automates
-end to end**: email → detection *and* document URL → retrieval → parse. That
-is the difference between a manual sweep and a pipeline.
+## What was verified, not assumed
 
-## Why it is not adopted yet
+| Probe | Result |
+|---|---|
+| `search_announcements` by title keyword | Cross-market, **no watchlist**. ~15–20 director-interest notices a day |
+| Coverage floor | **2024-06-15**, stated by the API and confirmed at the boundary |
+| Delisted entities — CSR, MRM, APM, ALU | **Fully retained**, including each `Removal from Official List` and CSR's Final Director's Interest Notices |
+| `get_announcement_detail` | Full transcribed text, page by page, plus PDF `metadata.creation_date` |
+| `search_stocks("ALU")` | **Returns Alurion Resources, not Altium** — see the trap below |
+| ASX announcement number | **Not exposed anywhere** — not in the API, not on the detail page |
 
-**1. The terms could not be read.** investorpa.com is unreachable from the
-platform's network — the egress proxy blocks it, as it blocks the ASX and
-HotCopper. `fetch_guard.DECLARED_SOURCES` requires a recorded basis *before*
-a host is fetched, and "the site is useful" is not a basis. Nothing has been
-declared.
+Two of those are load-bearing and are worth stating as consequences rather
+than observations.
 
-**2. It is a re-host, not the exchange.** The same category question as
-HotCopper: the owner's legal advice concerned asx.com.au, and taking
-documents in bulk from someone else's copy is a different question from
-taking them from the exchange. It is not the *same* as HotCopper — a paying
-data vendor is a different thing from a forum, and the service is reported to
-pay the ASX five figures a year for the feed — but a vendor's licence governs
-what **they** may redistribute to **their** users, and does not by itself
-extend to a third party fetching from them in volume.
+### Delisted coverage is complete, which reopens something
 
-**3. The identifiers are sequential, which is a trap worth naming.** About
-400 a day, monotonic. Enumerating them would be trivial, would collect every
-announcement on the exchange, and would be precisely the bulk crawl the
-access decision forbids. It must never be built, and the ease of building it
-is the reason to say so in writing.
+`ACCESS_DECISION` §2 put delisted-company documents out of scope and named
+that as half of why backtesting was ruled out — historical coverage would be
+survivorship-affected. For announcements from 2024-06-15 onward, it no longer
+is. Backtesting remains out of scope on §3 (no survivorship-complete price
+vendor), but on one limitation now rather than two compounding.
 
-## Prepared, and gated
+### Their stock master is a ticker trap
 
-The platform recognises `investorpa_alert` as a detection source, so its
-emails are ingested the moment any arrive. Its links are recorded on the
-detection for the owner and are **excluded from the automatic fetch set** by
-`own_hosts`, so nothing is retrieved on a source nobody has cleared.
+`search_stocks` resolves `ALU` to Alurion Resources Limited. Every ALU
+announcement before August 2024 is Altium's. Their stock endpoint is
+current-state; the announcement records themselves carry the right historical
+association. **Nothing resolves an entity through it**, here or anywhere:
+tickers from this source are inputs to `entity_for_ticker`, which is
+effective-dated through `listings` (Invariant 1). A test asserts no source
+file names `search_stocks` as a callable tool.
 
-The sender rule is **uncalibrated** — no real email has been seen, so no
-subject pattern is asserted and the conservative generic path applies. One
-forwarded alert would fix that, exactly as five did for Market Index.
+### Their announcement id is not the exchange's
 
-## The two questions for a human
+They expose their own publication counter (`330559`), not the ASX announcement
+number (`2A1690462`). It is therefore **not** written to
+`documents.asx_announcement_id`: that column means the exchange's identifier,
+and a vendor's counter in it would make rows from two feeds collide or diverge
+at random. The consequence is that the cross-feed dedupe built on that column
+does not apply here — two feeds reporting one lodgement produce two rows, and
+reconciling them is done on `(entity_id, lodged_at)` instead. See "Running
+both feeds" below.
 
-1. **Do their terms of use permit automated retrieval of the PDFs by a
-   subscriber?** If yes, declare the host in `DECLARED_SOURCES` with that
-   basis quoted, and the retrieval path works immediately.
-2. **Do their alert emails contain the `announcement-pdf` link?** If yes,
-   possession automates for every followed company. If they link only to a
-   page, the service is a Market Index equivalent and changes nothing.
+## How it is used, and the limits that keep it defensible
 
-Both are answered by subscribing, reading the terms page, and forwarding one
-alert.
+- **Appendix 3Y/3Z only.** The exchange publishes ~400 announcements a day;
+  this asks for the tens the platform parses, by title keyword.
+- **Their search, never our enumeration.** Identifiers are sequential at
+  ~400/day, so `announcement-pdf/{YYYYMMDD}/{id}.pdf` can always be *built* —
+  which is why nothing builds one. This was named in the first assessment as a
+  crawl that "must never be built"; it still must not be, and the vendor's own
+  search endpoint removes any reason to. A test asserts no source file
+  constructs such a URL.
+- **Through the guard, not around it.** Every request goes through
+  `fetch_guard.fetch`, which throttles to one per five seconds per host and
+  identifies the platform honestly.
+- **The PDF, not their transcription.** The API returns transcribed text, and
+  the platform deliberately does not use it as the document. The gold set
+  calibrates `App3YParser` against pypdf output; taking the bytes keeps
+  `documents.sha256` the hash of the original artifact (migration 0020 is
+  emphatic on this) and keeps the extractor the parser was tuned against.
+  Their text remains available as an independent second reading — see
+  "Opportunity" below.
+- **A re-host, not the exchange.** `possession_source='investorpa'` and
+  `lodged_at_source='investorpa'`, never `'asx'`. That value stays reserved
+  for the exchange's own feed.
+
+### On the discovery prohibition
+
+The access decision forbids discovery and permits only targeted retrieval.
+Searching this source is not an exception smuggled past that rule: the
+prohibition is specific to the exchange, whose terms offer no search API. A
+vendor whose published product *is* a search endpoint is offering exactly that
+use. `fetch_guard` cannot enforce the distinction itself — a JSON-RPC method
+name lives in the request body, not the URL — so it is recorded here and in
+the guard's own docstring rather than left implicit.
+
+## Setup
+
+The MCP endpoint is OAuth-protected (`mcp:read`, a read-only scope the server
+defines and enforces). It is a public client supporting Dynamic Client
+Registration and PKCE, so consent is a one-off browser step:
+
+    python -m asx.ingest.investorpa_consent          # registers, prints a URL
+    python -m asx.ingest.investorpa_consent --code ... --client-id ... --verifier ...
+
+That prints a refresh token once. Put it in the environment where the platform
+runs — never in the repo, never in a chat:
+
+    ASX_INVESTORPA_CLIENT_ID=...
+    ASX_INVESTORPA_REFRESH_TOKEN=...
+
+Then:
+
+    asx detect --source investorpa --since-days 3   # detection, whole exchange
+    asx capture --capture-dir captures --investorpa # possession, stated URLs only
+
+## Running both feeds
+
+Market Index keeps running. `ACCEPTANCE.md` records that detection coverage is
+currently **unmeasured**, with acceptance criterion 0.5 unticked; two
+independent feeds are what make it measurable. The reconciliation joins on
+`(entity_id, date_trunc('minute', lodged_at))` — both feeds report the same
+ASX release timestamp, Market Index to the minute and InvestorPA to the second
+— and buckets each lodgement as *both / InvestorPA only / Market Index only*.
+A non-empty "Market Index only" bucket is the interesting one: it would mean
+InvestorPA is not a superset, which is the whole reason to keep both.
+
+Built as the `detection_feed_coverage` view (migration 0027), which also
+names the consequence of the two feeds keying differently: one lodgement seen
+by both produces two `documents` rows, and its `duplicate_rows` column says
+so. That matters because parsing both would enter the same director purchase
+into `director_trades` twice and inflate the cluster signal. The view makes it
+visible before it happens; it does not prevent it, because deciding which row
+wins is a design question for the owner rather than something to settle
+silently in a migration.
+
+What is still an expectation rather than a measurement: the coverage numbers
+themselves. The view is empty of investorpa rows until the feed has run with
+credentials, and the "Market Index only" bucket is the one to read first.
+
+## Opportunity, not yet taken
+
+`framework.py` implements a dual-pass design where two independent readings
+must agree, and `rules_extractor` refuses to implement the second pass —
+correctly, since "a second call would return the same payload and be scored as
+two readings agreeing, which is exactly the false confidence the dual-pass
+design exists to prevent." InvestorPA's transcription is a genuinely
+independent reading of the same PDF, produced by someone else's extractor. It
+could supply the corroboration that 578 readings currently stranded in
+`uncorroborated_director_trades` are missing. That is a design question worth
+putting to the owner, not a change to slip in.

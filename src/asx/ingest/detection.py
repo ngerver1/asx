@@ -50,6 +50,11 @@ class Detection:
     company_name: str | None = None
     # The ASX announcement number, where the alert exposes it.
     announcement_id: str | None = None
+    # Where lodged_at came from, naming the party that OBSERVED the
+    # publication. Left None when lodged_at is None. When lodged_at is set and
+    # this is not, record_detection falls back to detection_source, which is
+    # correct for an alert -- the service that told us also timed it.
+    lodged_at_source: str | None = None
 
     def key(self) -> str:
         """Stable identity for idempotent mailbox re-reads.
@@ -69,6 +74,17 @@ class Detection:
         else:
             basis = f"{self.detection_source}|{self.source_ref or self.raw_sha256 or ''}"
         return hashlib.sha256(basis.encode()).hexdigest()
+
+
+# lodged_at_source values naming a third party that observed the publication.
+# These overlap with detection_source deliberately (migration 0024): for an
+# alert the two are one fact seen once, because the service that told us also
+# timed it. The columns stay separate because a document can be detected by one
+# route and dated by another -- a captured PDF dated from its own metadata is
+# the common case, and lands 'pdf_creation' rather than anything here.
+OBSERVED_LODGEMENT_SOURCES = frozenset({
+    "market_index_alert", "listcorp_alert", "investorpa", "ir_email", "manual",
+})
 
 
 def entity_for_ticker(conn: psycopg.Connection, ticker: str, on_date) -> int | None:
@@ -114,6 +130,24 @@ def record_detection(
     # event (Invariant 2). Tickers move between entities rarely enough that a
     # same-or-next-day lookup is safe, and a wrong resolution is caught by the
     # unresolved-ticker review below rather than assumed away.
+    # Provenance for the timestamp. Until migration 0024 the only alert value
+    # the constraint accepted was 'market_index_alert', so this was hardcoded
+    # to it and every Listcorp/IR/InvestorPA timestamp claimed to have come
+    # from a Market Index alert -- a falsehood on the one column 0019 exists to
+    # keep honest, on the field every analytic joins through (Invariant 2).
+    lodged_at_source = detection.lodged_at_source or detection.detection_source
+    if detection.lodged_at is None:
+        lodged_at_source = None
+    elif lodged_at_source not in OBSERVED_LODGEMENT_SOURCES:
+        raise ValueError(
+            f"detection from {detection.detection_source!r} carries a "
+            f"lodgement timestamp but nothing valid to attribute it to. A "
+            f"knowable_at whose origin cannot be named is not a fact this "
+            f"platform can carry (SPEC Invariant 2); set "
+            f"Detection.lodged_at_source explicitly, and add the value to "
+            f"documents_lodged_at_source_check if it is genuinely new."
+        )
+
     entity_id = None
     if detection.ticker:
         entity_id = entity_for_ticker(
@@ -135,9 +169,7 @@ def record_detection(
             (detection.detection_source, detection.source_ref, entity_id,
              detection.ticker, detection.title,
              detection.asx_doc_types or None, detection.price_sensitive,
-             detection.lodged_at,
-             # The alert observed the publication; that is the source.
-             "market_index_alert" if detection.lodged_at else None,
+             detection.lodged_at, lodged_at_source,
              doc_class, detection.detection_source,
              detected_at, detection.key(), status,
              detection.manual_open_urls or None,

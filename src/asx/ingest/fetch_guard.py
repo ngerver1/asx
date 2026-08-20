@@ -36,6 +36,7 @@ so rather than working around it.
 
 from __future__ import annotations
 
+import json
 import re
 import threading
 import time
@@ -121,6 +122,36 @@ DECLARED_SOURCES: dict[str, SourceTerms] = {
         basis="access decision §6 amendment, 20 Aug 2026: targeted retrieval "
               "of specific announcement documents, on the owner's legal advice",
         targeted_only=True,
+    ),
+    # Announcement detection and documents — see asx/ingest/investorpa.py.
+    #
+    # Basis read at declaration time rather than remembered, per Invariant 11
+    # and the working-style rule about verifying against the primary source:
+    #   * There is no terms-of-use page. /terms/, /terms-of-use/, /legal/,
+    #     /tos/ and /privacy/ all 404 (checked 20 Aug 2026), and the footer
+    #     carries a bare "© 2024 investorpa. All rights reserved."
+    #   * What exists instead is an affirmative published offer.
+    #     investorpa.com/features/ advertises, as a product feature:
+    #       "Remote MCP Server — Ask your AI about the ASX. InvestorPA's MCP
+    #        Server connects ASX announcements directly to any MCP-compatible
+    #        AI harnesses. Works with Claude Desktop & Mobile, ChatGPT Desktop
+    #        & Mobile, Claude Code, Codex, LM Studio and more. No local
+    #        package installs necessary. Just connect and ask away."
+    #   * robots.txt 404s, i.e. no restrictions (RFC 9309 §2.3.1.3).
+    #
+    # The honest limit of that basis, recorded because it is a judgement and
+    # not a quotation: the grant is written for AI harnesses asking questions.
+    # Reading it to cover a scheduled ingest is this platform's inference. The
+    # proportionality rules in asx/ingest/investorpa.py exist to keep the use
+    # recognisably the thing that was offered — Appendix 3Y/3Z only, via the
+    # vendor's own search, never by enumerating identifiers.
+    "investorpa.com": SourceTerms(
+        basis="owner sign-off 20 Aug 2026. No terms page exists; the basis is "
+              "the vendor's published /features/ offer of a Remote MCP Server "
+              "for MCP-compatible AI harnesses, naming Claude Code. robots.txt "
+              "absent (404), so unrestricted per RFC 9309. Re-host, not the "
+              "exchange: documents carry possession_source='investorpa' and "
+              "lodged_at_source='investorpa', never 'asx'",
     ),
 }
 
@@ -302,10 +333,27 @@ def _throttle(host: str) -> None:
 
 
 def fetch(url: str, *, opener=None, targeted_document: bool = False,
-          terms_basis: str | None = None) -> FetchResult:
+          terms_basis: str | None = None,
+          post_json: dict | None = None,
+          bearer_token: str | None = None) -> FetchResult:
     """Politely fetch a URL. The only sanctioned automated-fetch path.
 
     `opener` is injectable so tests exercise the guard without network access.
+
+    `post_json` sends a JSON body instead of a plain GET. It exists for one
+    source: an MCP endpoint speaks JSON-RPC over POST, and routing it through
+    here rather than around here is the point — the chokepoint is only a
+    chokepoint if every outbound request passes it, including the ones whose
+    shape is inconvenient. All the same gates apply.
+
+    A limit worth stating where someone will read it: this guard reads URLs,
+    and a JSON-RPC method name lives in the body. So `is_discovery_url` cannot
+    see that an MCP call is a search. That is tolerable only because the
+    discovery prohibition was never a blanket rule — it is specific to the
+    exchange, whose terms do not offer a search API. A vendor whose published
+    product IS a search endpoint is offering exactly that use, and calling it
+    is the sanctioned thing rather than the evasion. Where that reasoning does
+    not hold, the host does not belong in DECLARED_SOURCES.
     """
     assert_fetchable(url, targeted_document=targeted_document,
                      terms_basis=terms_basis)
@@ -315,7 +363,16 @@ def fetch(url: str, *, opener=None, targeted_document: bool = False,
         )
     _throttle(_host(url))
 
-    request = Request(url, headers={"User-Agent": USER_AGENT})
+    headers = {"User-Agent": USER_AGENT}
+    if bearer_token:
+        headers["Authorization"] = f"Bearer {bearer_token}"
+    body = None
+    if post_json is not None:
+        body = json.dumps(post_json).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+        # Streamable-HTTP MCP servers may answer either way.
+        headers["Accept"] = "application/json, text/event-stream"
+    request = Request(url, data=body, headers=headers)
     do_open = opener or urlopen
     with do_open(request, timeout=TIMEOUT_SECONDS) as response:
         content = response.read()

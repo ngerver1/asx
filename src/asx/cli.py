@@ -150,11 +150,35 @@ def cmd_review(args) -> None:
 
 
 def cmd_detect(args) -> None:
-    """Read the alert mailbox and record detections (Tier 0 §1)."""
+    """Record detections: from the alert mailbox, or from the investorpa API.
+
+    Two feeds run in parallel by decision (20 Aug 2026). The mailbox is
+    watchlist-bounded at ~200 codes; investorpa searches the whole exchange.
+    Keeping both is what makes detection coverage measurable rather than
+    asserted — docs/ACCEPTANCE.md records that it is currently unmeasured.
+    """
     import os
 
     from asx.ingest.detection import record_detection
     from asx.ingest.mailbox import EmlDirectory, IMAPMailbox, detection_from_email
+
+    if args.source == "investorpa":
+        from asx.ingest.investorpa import InvestorPAAuthError
+        from asx.ingest.investorpa import ingest as investorpa_ingest
+
+        try:
+            with db.connect() as conn:
+                stats = investorpa_ingest(conn, since_days=args.since_days)
+        except InvestorPAAuthError as exc:
+            # A missing grant is a setup step, not a stack trace.
+            raise SystemExit(str(exc)) from None
+        print(json.dumps(stats))
+        # An unreadable result line means the provider changed their output
+        # format, in which case every line since is being read wrongly. That
+        # is an alarm, not a statistic.
+        if stats["unreadable"]:
+            raise SystemExit(1)
+        return
 
     if args.from_dir:
         mailbox = EmlDirectory(Path(args.from_dir))
@@ -209,7 +233,9 @@ def cmd_detect(args) -> None:
 def cmd_capture(args) -> None:
     """File documents the owner captured personally, and optionally fetch
     those available from company IR sites."""
-    from asx.ingest.possession import (fetch_asx_documents, fetch_ir_documents,
+    from asx.ingest.possession import (fetch_asx_documents,
+                                    fetch_investorpa_documents,
+                                    fetch_ir_documents,
                                     file_captured_documents)
 
     with db.connect() as conn:
@@ -221,6 +247,8 @@ def cmd_capture(args) -> None:
             stats["ir"] = fetch_ir_documents(conn)
         if args.asx:
             stats["asx"] = fetch_asx_documents(conn)
+        if args.investorpa:
+            stats["investorpa"] = fetch_investorpa_documents(conn)
     print(json.dumps(stats, default=str))
 
 
@@ -524,7 +552,12 @@ def main(argv: list[str] | None = None) -> None:
     pr.add_argument("--note")
     p.set_defaults(fn=cmd_review)
 
-    p = sub.add_parser("detect", help="read the alert mailbox for new announcements")
+    p = sub.add_parser("detect", help="record newly announced documents")
+    p.add_argument("--source", choices=("mailbox", "investorpa"), default="mailbox",
+                   help="where to detect from. 'mailbox' reads the alert "
+                        "mailbox (watchlist-bounded); 'investorpa' searches "
+                        "the whole exchange via the vendor's MCP API and "
+                        "needs ASX_INVESTORPA_REFRESH_TOKEN")
     p.add_argument("--peek", action="store_true",
                    help="deprecated: reads never mark messages seen")
     p.add_argument("--since-days", type=int, default=7,
@@ -550,6 +583,9 @@ def main(argv: list[str] | None = None) -> None:
                    help="also retrieve ASX documents whose URL is recorded on "
                         "a detection (targeted retrieval only — access "
                         "decision §6 amendment, 20 Aug 2026)")
+    p.add_argument("--investorpa", action="store_true",
+                   help="also retrieve announcement PDFs from URLs an "
+                        "investorpa search result stated (never constructed)")
     p.set_defaults(fn=cmd_capture)
 
     p = sub.add_parser("worklist", help="announcements awaiting manual capture")

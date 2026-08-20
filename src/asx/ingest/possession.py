@@ -105,6 +105,11 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
             if is_prohibited(url):
                 stats["skipped_asx"] += 1
                 continue
+            if _is_investorpa(url):
+                # Fetchable, but not on this route: it would be stored
+                # possession_source='ir_website', which would be a lie about
+                # where the bytes came from. fetch_investorpa_documents owns it.
+                continue
             stats["attempted"] += 1
             try:
                 # Company IR sites are not in DECLARED_SOURCES: they are
@@ -134,6 +139,62 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
             if attach_document(conn, doc["doc_id"], result.content, "ir_website"):
                 stats["captured"] += 1
                 break     # only a successful attach ends this document's turn
+    conn.commit()
+    return stats
+
+
+def _is_investorpa(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return host == "investorpa.com" or host.endswith(".investorpa.com")
+
+
+def fetch_investorpa_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
+    """Retrieve announcement PDFs from URLs an investorpa search result stated.
+
+    The URL is never constructed. Their identifiers are sequential at roughly
+    400 a day, so a URL can always be *built* — which is exactly why nothing
+    here builds one. docs/SOURCE_INVESTORPA.md named enumeration as a crawl
+    that "must never be built", and a test asserts no source file does.
+
+    Why the PDF at all, when the API already returns transcribed text: the
+    text is THEIR reading of the document, and the gold set calibrates
+    App3YParser against pypdf's. Taking the bytes keeps documents.sha256 the
+    hash of the original artifact (migration 0020 is emphatic that it must
+    be), keeps the extractor the one the parser was tuned against, and leaves
+    their transcription available as an independent second reading rather
+    than as an unaudited substitute for our own.
+    """
+    from asx.ingest.detection import open_detections
+
+    stats = {"attempted": 0, "captured": 0, "robots_blocked": 0,
+             "failed": 0, "not_a_document": 0, "no_candidates": 0}
+    for doc in open_detections(conn, limit=limit):
+        urls = [u for u in _document_urls_for(conn, doc["doc_id"])
+                if _is_investorpa(u)]
+        if not urls:
+            stats["no_candidates"] += 1
+            continue
+        for url in urls:
+            stats["attempted"] += 1
+            try:
+                # No terms_basis: investorpa.com is in DECLARED_SOURCES, so
+                # the basis is recorded centrally rather than asserted here.
+                result = fetch(url)
+            except RobotsDisallowedError:
+                stats["robots_blocked"] += 1
+                continue
+            except Exception:
+                stats["failed"] += 1
+                continue
+            if not _looks_like_pdf(result):
+                # A login wall or error page returns 200 with HTML. Storing it
+                # would flip the row out of 'detected' and destroy the signal
+                # that says the document is still missing.
+                stats["not_a_document"] += 1
+                continue
+            if attach_document(conn, doc["doc_id"], result.content, "investorpa"):
+                stats["captured"] += 1
+                break
     conn.commit()
     return stats
 
