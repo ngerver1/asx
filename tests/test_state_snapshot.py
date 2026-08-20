@@ -10,6 +10,7 @@ days later as a foreign-key error with no obvious cause.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -87,3 +88,36 @@ def test_the_asic_register_is_not_snapshotted(populated, tmp_path):
         cur.execute("TRUNCATE asic_registry CASCADE")
     from asx.ingest.detection import entity_for_ticker
     assert entity_for_ticker(populated, "XYZ", date(2026, 8, 18)) is not None
+
+
+def test_the_committed_snapshot_restores_into_the_current_schema(conn):
+    """state/ is the only durable copy of the entity master and the detection
+    log, and `asx snapshot --restore` is the documented way to rebuild a
+    container. So it has to load into the schema at the *current* migration,
+    not the one it happened to be exported from.
+
+    The tests above export and re-import within one process, so their snapshot
+    matches the schema by construction and schema drift cannot show up. It
+    showed up in the tree instead: migration 0019 added lodged_at_source with
+    a CHECK tying it to lodged_at, and every committed row already had a
+    timestamp and no source, so restoring the snapshot died on a constraint
+    violation. The recovery path was broken for two migrations while the suite
+    stayed green.
+    """
+    snapshot = Path(__file__).resolve().parents[1] / "state"
+    counts = import_state(conn, snapshot)
+    conn.commit()
+
+    assert counts["entities"] > 0, "the entity master came back empty"
+    assert counts["documents"] > 0, "the detection log came back empty"
+
+    with conn.cursor() as cur:
+        for table, expected in counts.items():
+            cur.execute(f"SELECT count(*) AS n FROM {table}")
+            assert cur.fetchone()["n"] == expected, f"{table} lost rows on restore"
+
+        # The invariant migration 0019 exists to enforce: a timestamp always
+        # says where it came from, and a source always describes one.
+        cur.execute("""SELECT count(*) AS n FROM documents
+                       WHERE (lodged_at IS NULL) <> (lodged_at_source IS NULL)""")
+        assert cur.fetchone()["n"] == 0
