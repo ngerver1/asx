@@ -422,11 +422,16 @@ def read_document_facts(content: bytes) -> DocumentFacts:
     that is how a file called "329721.pdf" becomes a Change of Director's
     Interest Notice for Clean Teq Water rather than an untitled blob.
     """
-    try:
-        import pypdf
+    from asx.parse.text import UnreadableDocument, pdf_pages
 
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages[:4])
+    try:
+        text = "\n".join((page.extract_text() or "") for page in pdf_pages(content)[:4])
+    except UnreadableDocument:
+        # Deliberately NOT swallowed. Returning empty facts here files a real
+        # lodgement as an unclassified, unattributed blob with no error
+        # anywhere — the pipeline reports a capture, monitoring sees no gap,
+        # and the dataset is silently empty. Invariant 7: silence is an alarm.
+        raise
     except Exception:
         return DocumentFacts([], [], None, None, "")
 

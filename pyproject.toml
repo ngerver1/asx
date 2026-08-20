@@ -8,7 +8,12 @@ dependencies = [
     "psycopg[binary]>=3.1",
     "anthropic>=0.40",
     "rapidfuzz>=3.0",
-    "pypdf>=4.0",
+    # [crypto] is not optional in practice: 55 of the 60 real ASX
+    # announcement PDFs captured so far are AES-encrypted (with an empty
+    # user password, which pypdf opens silently WHEN a crypto backend is
+    # installed). Without it the platform reads 5 documents in 60 and
+    # reports nothing wrong.
+    "pypdf[crypto]>=4.0",
 ]
 
 [project.optional-dependencies]

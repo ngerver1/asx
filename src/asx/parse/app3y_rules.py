@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 def _phrase(text: str) -> str:
-    """A regex for `text` that tolerates whitespace inserted anywhere in it.
+    r"""A regex for `text` that tolerates whitespace inserted anywhere in it.
 
     These are real extractions of justified PDF text, and the extractor drops
     spaces inside words at will: this corpus contains "c onsideration",

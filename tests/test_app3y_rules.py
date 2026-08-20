@@ -339,3 +339,58 @@ def test_field_accuracy_against_dual_read_ground_truth():
     accuracy = right / total
     assert accuracy >= 0.98, (
         f"{right}/{total} = {accuracy:.1%}\n" + "\n".join(wrong))
+
+
+# --- the environment must be able to read the corpus -----------------------
+
+def test_the_encrypted_fixtures_are_actually_readable():
+    """55 of the 60 real ASX announcement PDFs are AES-encrypted, with an
+    empty user password. pypdf opens those silently when a crypto backend is
+    installed and raises DependencyError when one is not — so an install
+    missing `pypdf[crypto]` reads 5 documents in 60.
+
+    This test exists because that is exactly what happened: the dependency
+    was present locally by accident and absent in CI, and the whole
+    real-document suite failed there while passing here.
+    """
+    import pypdf
+    from asx.parse.text import document_text
+
+    encrypted = [f for f in sorted(DOCS.glob("*.pdf"))
+                 if pypdf.PdfReader(str(f)).is_encrypted]
+    if not encrypted:
+        pytest.skip("no encrypted fixtures present")
+    assert len(encrypted) > 20, "the corpus should be mostly encrypted"
+    assert "Appendix" in document_text(encrypted[0].read_bytes())
+
+
+def test_a_missing_crypto_backend_is_never_read_as_an_empty_document(monkeypatch):
+    """A scanned page and a missing library both yield no text, and they
+    demand opposite responses. A scanned page is a document problem: route it
+    to review and carry on. A missing backend affects EVERY encrypted
+    document at once, and carrying on builds a complete-looking dataset out
+    of almost nothing (Invariant 7)."""
+    import pypdf
+    from pypdf.errors import DependencyError
+
+    from asx.ingest.possession import read_document_facts
+    from asx.parse.text import UnreadableDocument, pdf_to_text
+
+    def refuse(*_args, **_kwargs):
+        raise DependencyError("cryptography>=3.1 is required for AES algorithm")
+
+    monkeypatch.setattr(pypdf, "PdfReader", refuse)
+
+    with pytest.raises(UnreadableDocument):
+        pdf_to_text(b"%PDF-1.7 encrypted")
+    with pytest.raises(UnreadableDocument):
+        read_document_facts(b"%PDF-1.7 encrypted")
+
+
+def test_a_genuinely_unreadable_pdf_still_degrades_quietly():
+    """The loud path is only for the environment. A malformed file is a
+    document problem and still yields empty facts for review."""
+    from asx.ingest.possession import read_document_facts
+
+    facts = read_document_facts(b"%PDF-1.7 this is not a pdf")
+    assert facts.doc_class is None and facts.text == ""
