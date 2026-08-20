@@ -258,7 +258,13 @@ def build_conviction_buys(conn: psycopg.Connection) -> int:
 
 
 def conviction_buys_csv(conn: psycopg.Connection) -> str:
-    """The conviction-sizing screen as CSV, biggest stake increase first."""
+    """The conviction-sizing screen as CSV, biggest stake increase first.
+
+    price_paid_aud is the canonical per-unit price from the trade, not a
+    recomputation: director_trades derives it only where it is safely
+    computable, and rederiving here would quietly disagree with canonical on
+    the rows where it refused.
+    """
     import csv
     import io
 
@@ -267,8 +273,9 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
             """SELECT l.ticker, n.name AS entity, s.person_name_raw,
                       s.event_date, s.knowable_at, s.consideration_aud,
                       s.qty_acquired, s.held_before, s.stake_increase,
-                      s.coverage_flags, s.signal_version
+                      t.price_per_unit, s.coverage_flags, s.signal_version
                  FROM signal_conviction_buys s
+                 JOIN director_trades t ON t.trade_id = s.trade_id
                  LEFT JOIN listings l
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
@@ -279,12 +286,17 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(["ticker", "entity", "director", "event_date", "actionable_from",
-                "consideration_aud", "qty_acquired", "held_before",
-                "stake_increase_pct", "coverage_flags", "signal_version"])
+                "consideration_aud", "price_paid_aud", "qty_acquired",
+                "held_before", "stake_increase_pct", "coverage_flags",
+                "signal_version"])
     for r in rows:
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["person_name_raw"],
             r["event_date"], r["knowable_at"].date(), r["consideration_aud"],
+            # 4dp: enough for a sub-cent explorer, and the raw quotient is a
+            # 28-digit repeating decimal that reads as false precision.
+            round(float(r["price_per_unit"]), 4)
+            if r["price_per_unit"] is not None else "",
             r["qty_acquired"], r["held_before"],
             round(float(r["stake_increase"]) * 100, 1),
             "|".join(r["coverage_flags"] or []), r["signal_version"],
