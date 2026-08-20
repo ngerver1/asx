@@ -147,7 +147,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                       s.n_directors, s.total_consideration_aud,
                       s.knowable_at, s.coverage_flags, s.signal_version,
                       p.shares, p.priced_consideration,
-                      p.n_trades, p.n_priced,
+                      p.n_trades, p.n_priced, p.lodged_sources,
                       (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
                          FROM director_trades t
                         WHERE t.trade_id = ANY(s.trade_ids)) AS directors
@@ -157,6 +157,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                           count(*) FILTER (WHERE t.qty_acquired IS NOT NULL
                                              AND t.consideration_aud IS NOT NULL)
                             AS n_priced,
+                          array_agg(DISTINCT dd.lodged_at_source) AS lodged_sources,
                           sum(t.qty_acquired) FILTER (
                             WHERE t.qty_acquired IS NOT NULL
                               AND t.consideration_aud IS NOT NULL) AS shares,
@@ -165,6 +166,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                               AND t.consideration_aud IS NOT NULL)
                             AS priced_consideration
                      FROM director_trades t
+                     JOIN documents dd ON dd.doc_id = t.doc_id
                     WHERE t.trade_id = ANY(s.trade_ids)
                  ) AS p
                  LEFT JOIN listings l
@@ -186,6 +188,11 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
         flags = list(r["coverage_flags"] or [])
         if r["n_priced"] < r["n_trades"]:
             flags.append("partial_price_coverage")
+        # The cluster is knowable only once its LAST notice is public, so any
+        # soft timestamp among its members can push the whole row early.
+        if any(src in SOFT_LODGEMENT_SOURCES
+               for src in (r["lodged_sources"] or [])):
+            flags.append(ACTIONABLE_EARLY_FLAG)
         # Windowed on the cluster's FIRST buy: the question is what insiders
         # were doing in the run-up to the cluster forming, and dating it from
         # the last member would let a long cluster shorten its own lookback.
@@ -278,6 +285,37 @@ def counter_evidence(conn: psycopg.Connection, entity_id: int, event_date,
     return "|".join(parts)
 
 
+# --- soft actionable dates ----------------------------------------------
+#
+# actionable_from is knowable_at's date, and knowable_at is documents.lodged_at.
+# For 971 of the 1,109 dated documents held (88%) that timestamp came from the
+# PDF's creation time, because the alert that detected the announcement did not
+# carry a lodgement time. Creation is when the company MADE the notice, not
+# when ASX released it, and the two differ by the overnight gap:
+#
+#   SPZ doc 557/558   created 19 Aug 2026 20:20 AEST
+#                     released by ASX 20 Aug 2026 08:00 AEST   (11h40m later)
+#
+# So the screen said those rows were actionable on the 19th when nobody could
+# have acted before the 20th. Checked against five BSA notices the same skew
+# runs from 2 minutes to nearly 3 days, always in the same direction, and lands
+# on the wrong calendar day whenever the notice was prepared after the close or
+# over a weekend — which is most of them.
+#
+# That is look-ahead bias in the column whose entire job is to prevent it, and
+# it currently applies to every signal row on both screens. It cannot be fixed
+# here: the true release time is not in the data, and the source that has it is
+# not a declared source (Invariant 11, docs/SOURCE_INVESTORPA.md). What CAN be
+# done is stop the screen asserting a date it cannot support, so the flag says
+# the date may be early rather than the column quietly pretending otherwise.
+#
+# Fixing it properly means capturing a release timestamp at detection. Until
+# then, read a flagged actionable_from as "this date, or the next trading
+# morning".
+ACTIONABLE_EARLY_FLAG = "actionable_from_may_be_early"
+SOFT_LODGEMENT_SOURCES = ("pdf_creation",)
+
+
 # Conviction sizing (SPEC §7). The bar is the top quartile of the stake
 # increases actually observed on the corpus — 19 of 73 on-market buys clear
 # 25% — rather than a number chosen for looking round. Revisit it against the
@@ -366,9 +404,11 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
             """SELECT l.ticker, n.name AS entity, s.entity_id, s.person_name_raw,
                       s.event_date, s.knowable_at, s.consideration_aud,
                       s.qty_acquired, s.held_before, s.stake_increase,
-                      t.price_per_unit, s.coverage_flags, s.signal_version
+                      t.price_per_unit, s.coverage_flags, s.signal_version,
+                      d.lodged_at_source
                  FROM signal_conviction_buys s
                  JOIN director_trades t ON t.trade_id = s.trade_id
+                 JOIN documents d ON d.doc_id = t.doc_id
                  LEFT JOIN listings l
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
@@ -384,6 +424,8 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
                 "coverage_flags", "signal_version"])
     for r in rows:
         flags = list(r["coverage_flags"] or [])
+        if r["lodged_at_source"] in SOFT_LODGEMENT_SOURCES:
+            flags.append(ACTIONABLE_EARLY_FLAG)
         against = counter_evidence(conn, r["entity_id"], r["event_date"],
                                    r["knowable_at"])
         if against:

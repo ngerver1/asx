@@ -26,8 +26,10 @@ from asx.parse.llm import ExtractionPass
 from asx.parse.reprocess import reprocess
 from asx.raw.store import ingest_document, read_document
 from asx.signals.director_signals import (
+    ACTIONABLE_EARLY_FLAG,
     build_cluster_buys,
     build_conviction_buys,
+    cluster_buys_csv,
     conviction_buys_csv,
     counter_evidence,
 )
@@ -706,3 +708,51 @@ def test_conviction_screen_carries_counter_evidence_column(conn):
     assert rows[0]["counter_evidence"] == "onmkt_sell:1:1285097"
     # Also in the flags, so a reader filtering on flags alone cannot miss it.
     assert "counter_evidence" in rows[0]["coverage_flags"]
+
+
+def test_actionable_date_is_flagged_when_it_came_from_pdf_creation(conn):
+    """actionable_from is only as good as lodged_at. Where lodged_at is the
+    PDF's creation time it precedes the ASX release — proven at 11h40m on the
+    SPZ notices, enough to land on the wrong calendar day — so the screen says
+    the date may be early instead of asserting it."""
+    entity = _mk_entity(conn, "Soft Date Limited")
+
+    def buy(doc_id, name, lodged):
+        apply_trades(conn, doc_id, [TradeRow(
+            entity_id=entity, person_name_raw=name, doc_id=doc_id,
+            event_date=date(2026, 3, 2), knowable_at=lodged,
+            security_class="ORD", qty_acquired=D(10000),
+            consideration_text="On-market purchase $5,000",
+            consideration_aud=D(5000), held_before=D(1000), held_after=D(11000))])
+
+    lodged = datetime(2026, 3, 5, 10, 0, tzinfo=UTC)
+    hard = _mk_doc(conn, b"3y hard", doc_class="app_3y", entity_id=entity,
+                   lodged=lodged)
+    soft = _mk_doc(conn, b"3y soft", doc_class="app_3y", entity_id=entity,
+                   lodged=lodged)
+    with conn.cursor() as cur:
+        cur.execute("UPDATE documents SET lodged_at_source='market_index_alert'"
+                    " WHERE doc_id=%s", (hard,))
+        cur.execute("UPDATE documents SET lodged_at_source='pdf_creation'"
+                    " WHERE doc_id=%s", (soft,))
+    buy(hard, "Jane Citizen", lodged)
+    conn.commit()
+
+    def conviction_flags():
+        build_conviction_buys(conn)
+        rows = list(csv.DictReader(io.StringIO(conviction_buys_csv(conn))))
+        return {r["ticker"] or r["entity"]: r["coverage_flags"] for r in rows}
+
+    # A hard lodgement timestamp asserts its date without qualification.
+    assert ACTIONABLE_EARLY_FLAG not in conviction_flags()["Soft Date Limited"]
+
+    # A second director, dated from PDF creation, makes the cluster's
+    # actionable_from soft — the cluster is knowable only once its LAST notice
+    # is public, so one soft member is enough to qualify the whole row.
+    buy(soft, "John Smith", lodged)
+    conn.commit()
+    assert ACTIONABLE_EARLY_FLAG in conviction_flags()["Soft Date Limited"]
+
+    assert build_cluster_buys(conn) == 1
+    cluster = list(csv.DictReader(io.StringIO(cluster_buys_csv(conn))))[0]
+    assert ACTIONABLE_EARLY_FLAG in cluster["coverage_flags"]
