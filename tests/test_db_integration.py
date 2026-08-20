@@ -76,15 +76,12 @@ class FakeExtractor:
         return ExtractionPass(self.vision_payload, "fake-model", "vision")
 
 
-def _payload_3y(**kw):
-    p = {
-        "company_name": "Xyz Mining Limited",
-        "ticker": "XYZ",
+def _notice_3y(**kw):
+    n = {
         "director_name": "Jane Citizen",
         "date_of_change": "2026-03-06",
         "interest_nature": "direct",
         "indirect_detail": None,
-        "is_amendment": False,
         "securities": [{
             "security_class": "Ordinary shares",
             "qty_acquired": 100000,
@@ -94,10 +91,27 @@ def _payload_3y(**kw):
             "held_before": 400000,
             "held_after": 500000,
         }],
+    }
+    n.update(kw)
+    return n
+
+
+def _payload_3y(**kw):
+    """A lodgement holds NOTICES, plural — a tenth of real ones carry more
+    than one director (parser v2). Tests reach in via _securities()."""
+    p = {
+        "company_name": "Xyz Mining Limited",
+        "ticker": "XYZ",
+        "is_amendment": False,
+        "notices": [_notice_3y()],
         "extraction_notes": None,
     }
     p.update(kw)
     return p
+
+
+def _securities(payload):
+    return payload["notices"][0]["securities"]
 
 
 # --- raw zone -----------------------------------------------------------
@@ -268,7 +282,7 @@ def test_framework_auto_accepts_clean_extraction(conn):
 def test_framework_routes_pass_disagreement_to_review(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     disagreeing = _payload_3y()
-    disagreeing["securities"] = [dict(disagreeing["securities"][0], held_after=999999)]
+    disagreeing["notices"][0]["securities"] = [dict(_securities(disagreeing)[0], held_after=999999)]
     outcome = run_parser_on_doc(
         conn, App3YParser(), doc_id, FakeExtractor(_payload_3y(), disagreeing)
     )
@@ -284,7 +298,7 @@ def test_framework_routes_pass_disagreement_to_review(conn):
 def test_review_resolution_goes_through_validation_gate(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     bad = _payload_3y()
-    bad["securities"] = [dict(bad["securities"][0], held_after=1)]  # arithmetic breaks
+    bad["notices"][0]["securities"] = [dict(_securities(bad)[0], held_after=1)]  # arithmetic breaks
     outcome = run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
     assert outcome.status == "review"
 
@@ -294,7 +308,7 @@ def test_review_resolution_goes_through_validation_gate(conn):
 
     # A correction that still fails validation is refused.
     still_bad = _payload_3y()
-    still_bad["securities"] = [dict(still_bad["securities"][0], held_after=2)]
+    still_bad["notices"][0]["securities"] = [dict(_securities(still_bad)[0], held_after=2)]
     refused = resolve_review_item(conn, App3YParser(), item_id, "corrected",
                                   corrected_payload=still_bad)
     assert refused is not None and not refused.ok
@@ -434,7 +448,7 @@ def test_reprocess_dry_run_of_unparsed_doc_leaves_it_unparsed(conn):
 def test_reprocess_apply_skips_human_resolved_docs(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     bad = _payload_3y()
-    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    bad["notices"][0]["securities"] = [dict(_securities(bad)[0], held_after=1)]
     run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
     with conn.cursor() as cur:
         cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
@@ -458,7 +472,7 @@ def test_reprocess_apply_skips_human_resolved_docs(conn):
 def test_reprocess_excludes_rejected_docs(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     bad = _payload_3y()
-    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    bad["notices"][0]["securities"] = [dict(_securities(bad)[0], held_after=1)]
     run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
     with conn.cursor() as cur:
         cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
@@ -499,7 +513,7 @@ def test_rejected_resolution_retracts_canonical_rows(conn):
 def test_human_correction_is_persisted_on_the_item(conn):
     _entity, doc_id = _setup_3y_doc(conn)
     bad = _payload_3y()
-    bad["securities"] = [dict(bad["securities"][0], held_after=1)]
+    bad["notices"][0]["securities"] = [dict(_securities(bad)[0], held_after=1)]
     run_parser_on_doc(conn, App3YParser(), doc_id, FakeExtractor(bad))
     with conn.cursor() as cur:
         cur.execute("SELECT item_id FROM review_items WHERE doc_id = %s", (doc_id,))
@@ -512,4 +526,4 @@ def test_human_correction_is_persisted_on_the_item(conn):
     # The applied payload is on the item, so the correction is reconstructable
     # even after later reprocessing (Invariant 3: hand-edits must not be
     # destroyable by the next pipeline run).
-    assert payload["applied_payload"]["securities"][0]["held_after"] == 500000
+    assert payload["applied_payload"]["notices"][0]["securities"][0]["held_after"] == 500000
