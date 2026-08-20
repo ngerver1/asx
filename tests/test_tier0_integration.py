@@ -233,9 +233,9 @@ def test_cluster_buy_excludes_index_members_and_flags_coverage(conn):
 
     eid = _entity(conn, "Xyz Mining Limited", "XYZ")
     doc1 = ingest_document(conn, b"3y one", source="t", title="3Y",
-                           lodged_at=datetime(2026, 3, 5, tzinfo=UTC)).doc_id
+                           lodged_at=datetime(2026, 3, 5, tzinfo=UTC), lodged_at_source="manual").doc_id
     doc2 = ingest_document(conn, b"3y two", source="t", title="3Y",
-                           lodged_at=datetime(2026, 3, 24, tzinfo=UTC)).doc_id
+                           lodged_at=datetime(2026, 3, 24, tzinfo=UTC), lodged_at_source="manual").doc_id
 
     def row(doc_id, name, day, lodged):
         return TradeRow(
@@ -285,7 +285,7 @@ def test_reconciliation_runs_against_manually_recorded_figures(conn):
 
     eid = _entity(conn, "Xyz Mining Limited", "XYZ")
     doc = ingest_document(conn, b"anchor", source="t", title="2A",
-                          lodged_at=datetime(2026, 1, 1, tzinfo=UTC)).doc_id
+                          lodged_at=datetime(2026, 1, 1, tzinfo=UTC), lodged_at_source="manual").doc_id
     record_anchor(conn, eid, "ORD", date(2026, 1, 1), D(50_000_000),
                   datetime(2026, 1, 1, tzinfo=UTC), doc)
     conn.commit()

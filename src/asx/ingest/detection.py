@@ -125,17 +125,20 @@ def record_detection(
         cur.execute(
             """INSERT INTO documents
                  (source, source_ref, entity_id, ticker_as_lodged, title,
-                  asx_doc_types, price_sensitive, lodged_at, doc_class,
+                  asx_doc_types, price_sensitive, lodged_at, lodged_at_source, doc_class,
                   detection_source, detected_at, detection_key, parse_status,
                   manual_open_urls, fetch_candidate_urls, asx_announcement_id)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                ON CONFLICT (detection_key) WHERE detection_key IS NOT NULL
                  DO NOTHING
                RETURNING doc_id""",
             (detection.detection_source, detection.source_ref, entity_id,
              detection.ticker, detection.title,
              detection.asx_doc_types or None, detection.price_sensitive,
-             detection.lodged_at, doc_class, detection.detection_source,
+             detection.lodged_at,
+             # The alert observed the publication; that is the source.
+             "market_index_alert" if detection.lodged_at else None,
+             doc_class, detection.detection_source,
              detected_at, detection.key(), status,
              detection.manual_open_urls or None,
              detection.document_urls or None,

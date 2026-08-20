@@ -53,6 +53,10 @@ def ingest_document(
     asx_doc_types: list[str] | None = None,
     price_sensitive: bool | None = None,
     lodged_at: datetime | None = None,
+    # Where lodged_at came from. Never inferred: a timestamp with no
+    # stated source is refused by documents_lodged_at_provenance, because
+    # knowable_at is what every analytic joins on (Invariant 2).
+    lodged_at_source: str | None = None,
     fetched_at: datetime | None = None,
     possession_source: str = "filedrop",
     root: Path | None = None,
@@ -66,13 +70,13 @@ def ingest_document(
         cur.execute(
             """INSERT INTO documents
                  (source, source_ref, entity_id, ticker_as_lodged, title,
-                  asx_doc_types, price_sensitive, lodged_at, fetched_at,
+                  asx_doc_types, price_sensitive, lodged_at, lodged_at_source, fetched_at,
                   sha256, storage_path, possession_source)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (sha256) DO NOTHING
                RETURNING doc_id""",
             (source, source_ref, entity_id, ticker_as_lodged, title,
-             asx_doc_types, price_sensitive, lodged_at, fetched_at,
+             asx_doc_types, price_sensitive, lodged_at, lodged_at_source, fetched_at,
              sha, str(path), possession_source),
         )
         row = cur.fetchone()
@@ -123,6 +127,7 @@ def ingest_file(
     doc_class: str,
     source_ref: str | None = None,
     lodged_at: datetime | None = None,
+    lodged_at_source: str | None = None,
     possession_source: str = "reference_download",
     root: Path | None = None,
 ) -> StoredDocument:
@@ -135,12 +140,12 @@ def ingest_file(
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO documents
-                 (source, source_ref, title, doc_class, lodged_at, fetched_at,
+                 (source, source_ref, title, doc_class, lodged_at, lodged_at_source, fetched_at,
                   sha256, storage_path, possession_source, parse_status)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'not_applicable')
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'not_applicable')
                ON CONFLICT (sha256) DO NOTHING
                RETURNING doc_id""",
-            (source, source_ref or str(src), src.name, doc_class, lodged_at,
+            (source, source_ref or str(src), src.name, doc_class, lodged_at, lodged_at_source,
              datetime.now(timezone.utc), sha, str(path), possession_source),
         )
         row = cur.fetchone()

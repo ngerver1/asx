@@ -50,6 +50,10 @@ def _mk_doc(conn, content: bytes, *, title="doc", lodged=None, doc_class=None,
     stored = ingest_document(
         conn, content, source="test", title=title,
         lodged_at=lodged or datetime(2026, 3, 10, 10, 0, tzinfo=UTC),
+        # A timestamp must always say where it came from — the schema now
+        # refuses one that does not (Invariant 2). Test fixtures included:
+        # if they could skip it, so could a real writer.
+        lodged_at_source="manual",
         ticker_as_lodged=ticker,
     )
     with conn.cursor() as cur:
