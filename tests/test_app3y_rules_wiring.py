@@ -8,6 +8,7 @@ what it cannot attribute becomes a review item instead of a number.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,10 @@ from asx.parse.rules_extractor import RulesExtractor
 DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
 
 
+@lru_cache(maxsize=None)
 def _payload(name: str) -> dict:
+    """Cached: the corpus sweeps below would otherwise re-parse 195 encrypted
+    PDFs per test. The documents are immutable, so this cannot mask a change."""
     path = DOCS / name
     if not path.exists():
         pytest.skip(f"{name} not present")
@@ -175,8 +179,7 @@ def test_the_corpus_yields_more_notices_than_documents():
     documents = sorted(DOCS.glob("*.pdf"))
     if len(documents) < 50:
         pytest.skip("corpus not present")
-    notices = sum(len(parser.read_rules(d.read_bytes())["notices"])
-                  for d in documents)
+    notices = sum(len(_payload(d.name)["notices"]) for d in documents)
     assert notices > len(documents) * 1.1, (
         f"{notices} notices from {len(documents)} documents")
 
@@ -192,7 +195,7 @@ def test_most_reconciling_notices_reconcile_exactly():
         pytest.skip("corpus not present")
     checked = passed = 0
     for path in documents:
-        for notice in parser.read_rules(path.read_bytes())["notices"]:
+        for notice in _payload(path.name)["notices"]:
             s = notice["securities"][0]
             if s["held_before"] is None or s["held_after"] is None:
                 continue

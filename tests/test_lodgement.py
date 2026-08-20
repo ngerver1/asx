@@ -9,6 +9,7 @@ happen.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ AEST = timezone(timedelta(hours=10))
 DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
 
 
+@lru_cache(maxsize=None)
 def _doc(name: str) -> bytes:
     path = DOCS / name
     if not path.exists():

@@ -95,7 +95,11 @@ def register_load(
             source=f"reference:{source}",
             doc_class=DOC_CLASSES[source],
             source_ref=source_ref,
+            # A reference extract's "lodgement" is the as-at date the
+            # publisher stamped on it, taken from the operator who ran the
+            # load — not observed by this platform, and labelled accordingly.
             lodged_at=datetime.combine(as_at, time.min, tzinfo=timezone.utc),
+            lodged_at_source="manual",
         )
         for p in paths
     ]

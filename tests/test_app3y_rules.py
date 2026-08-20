@@ -13,6 +13,7 @@ bottom, because criterion 1.1 is a number and a number needs a test.
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,10 @@ DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
 GROUND_TRUTH = json.loads((DOCS / "ground_truth.json").read_text())["documents"]
 
 
+# Several tests below sweep the whole corpus, and a corpus of 195 encrypted
+# PDFs is not cheap to parse: read once per session, not once per test. The
+# documents are immutable (Invariant 3), so caching them cannot mask a change.
+@lru_cache(maxsize=None)
 def _text(name: str) -> str:
     import pypdf
     path = DOCS / name
@@ -34,8 +39,13 @@ def _text(name: str) -> str:
     return "\n".join((p.extract_text() or "") for p in pypdf.PdfReader(str(path)).pages)
 
 
+@lru_cache(maxsize=None)
+def _forms(name: str) -> tuple:
+    return tuple(extract_all(_text(name)))
+
+
 def _first(name: str):
-    forms = extract_all(_text(name))
+    forms = _forms(name)
     assert forms, name
     return forms[0]
 
@@ -430,7 +440,7 @@ def test_an_ordinary_form_is_never_called_scrambled():
     """The guard must not fire on forms that simply leave a cell empty."""
     clean = [f for name in ("329745.pdf", "329737.pdf", "328630.pdf",
                             "6A1339259.pdf", "2A1690462.pdf")
-             for f in extract_all(_text(name))]
+             for f in _forms(name)]
     assert clean and not any(f.scrambled for f in clean)
 
 
@@ -438,7 +448,7 @@ def test_the_captured_corpus_is_overwhelmingly_readable():
     """A whole-corpus canary. If a future change starts refusing forms
     wholesale — or starts trusting scrambled ones — this moves."""
     forms = [f for path in sorted(DOCS.glob("*.pdf"))
-             for f in extract_all(_text(path.name))]
+             for f in _forms(path.name)]
     threes = [f for f in forms if f.form == "app_3y"]
     assert len(threes) >= 100, f"only {len(threes)} Appendix 3Y forms found"
     scrambled = [f for f in threes if f.scrambled]
@@ -467,5 +477,5 @@ def test_every_captured_document_has_a_form_type():
     """Corpus canary. A document whose form cannot be named goes nowhere: no
     parser claims it and no gap report counts it."""
     unnamed = [path.name for path in sorted(DOCS.glob("*.pdf"))
-               for f in extract_all(_text(path.name)) if f.form is None]
+               for f in _forms(path.name) if f.form is None]
     assert not unnamed, f"form type not recognised: {unnamed}"
