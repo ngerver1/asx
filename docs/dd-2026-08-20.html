@@ -1,0 +1,534 @@
+<title>What the 3Ys Didn't Say</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Spectral:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --ground:#E9EDF2;
+  --surface:#FBFCFD;
+  --sunk:#DFE5EC;
+  --line:#C6D0DC;
+  --line-soft:#DCE3EB;
+  --ink:#0F151C;
+  --ink-2:#39434F;
+  --muted:#65717F;
+  --accent:#1F4E8C;
+  --holds:#0C6355;
+  --holds-bg:#DDEEE9;
+  --falls:#98292B;
+  --falls-bg:#F5E2E1;
+  --flag:#7E540A;
+  --flag-bg:#F4E9D4;
+  --measure:66ch;
+  --step--1:.813rem;
+  --step-0:1.0625rem;
+  --step-1:1.32rem;
+  --step-2:1.72rem;
+  --step-3:2.3rem;
+  --step-4:3.1rem;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1116;
+    --surface:#141B23;
+    --sunk:#101820;
+    --line:#2B3641;
+    --line-soft:#1F2831;
+    --ink:#E4EAF0;
+    --ink-2:#B4C0CC;
+    --muted:#8A97A5;
+    --accent:#84AEE2;
+    --holds:#54C3AC;
+    --holds-bg:#10302C;
+    --falls:#E58C8C;
+    --falls-bg:#341C1D;
+    --flag:#D6A855;
+    --flag-bg:#332714;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1116;
+  --surface:#141B23;
+  --sunk:#101820;
+  --line:#2B3641;
+  --line-soft:#1F2831;
+  --ink:#E4EAF0;
+  --ink-2:#B4C0CC;
+  --muted:#8A97A5;
+  --accent:#84AEE2;
+  --holds:#54C3AC;
+  --holds-bg:#10302C;
+  --falls:#E58C8C;
+  --falls-bg:#341C1D;
+  --flag:#D6A855;
+  --flag-bg:#332714;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:Spectral,Georgia,"Times New Roman",serif;
+  font-size:var(--step-0);
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:78rem;margin:0 auto;padding:0 1.5rem 6rem}
+
+/* ---------- masthead ---------- */
+.mast{
+  border-bottom:2px solid var(--ink);
+  padding:3.5rem 0 1.25rem;
+  margin-bottom:2.5rem;
+}
+.kicker{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:var(--step--1);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;
+  margin-bottom:1.5rem;
+}
+h1{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:700;
+  font-size:var(--step-4);
+  line-height:1.02;
+  letter-spacing:-.028em;
+  text-wrap:balance;
+  margin:0 0 1rem;
+  max-width:20ch;
+}
+.standfirst{
+  font-size:var(--step-1);
+  line-height:1.5;
+  color:var(--ink-2);
+  max-width:58ch;
+  margin:0;
+}
+.standfirst strong{color:var(--ink);font-weight:600}
+
+/* ---------- layout ---------- */
+.col{max-width:var(--measure)}
+section{margin-top:3.75rem}
+h2{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;
+  font-size:var(--step-2);
+  letter-spacing:-.018em;
+  line-height:1.15;
+  text-wrap:balance;
+  margin:0 0 1rem;
+}
+h3{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;
+  font-size:var(--step-1);
+  letter-spacing:-.01em;
+  margin:2.25rem 0 .6rem;
+  text-wrap:balance;
+}
+p{margin:0 0 1.05rem;max-width:var(--measure)}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
+strong{font-weight:600}
+em{font-style:italic}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.88em}
+code{background:var(--sunk);padding:.1em .34em;border-radius:2px}
+
+/* ---------- verdict head ---------- */
+.verdict-head{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:.85rem 1.1rem;
+  padding-bottom:.85rem;
+  border-bottom:1px solid var(--line);
+  margin-bottom:1.5rem;
+}
+.tick{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-weight:600;
+  font-size:var(--step-3);
+  letter-spacing:.01em;
+  line-height:1;
+}
+.coname{font-size:var(--step-0);color:var(--muted);flex:1 1 auto}
+.chip{
+  font-family:Archivo,sans-serif;
+  font-size:.72rem;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;
+  padding:.34em .72em;border-radius:2px;white-space:nowrap;
+}
+.chip.h{background:var(--holds-bg);color:var(--holds)}
+.chip.f{background:var(--falls-bg);color:var(--falls)}
+.chip.w{background:var(--flag-bg);color:var(--flag)}
+
+/* ---------- summary table ---------- */
+.scroll{overflow-x:auto;margin:0 0 1.25rem;-webkit-overflow-scrolling:touch}
+table{
+  border-collapse:collapse;width:100%;min-width:32rem;
+  font-variant-numeric:tabular-nums;
+}
+th,td{
+  text-align:left;padding:.62rem .9rem .62rem 0;
+  border-bottom:1px solid var(--line-soft);
+  vertical-align:top;
+}
+th{
+  font-family:Archivo,sans-serif;font-weight:600;
+  font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+td.num,th.num{text-align:right;padding-right:1.4rem;font-family:"IBM Plex Mono",monospace;font-size:.9rem}
+tbody tr:last-child td{border-bottom:none}
+td .tk{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:.95rem}
+
+.summary{
+  background:var(--surface);
+  border:1px solid var(--line);
+  padding:1.6rem 1.6rem .5rem;
+  margin-bottom:1rem;
+}
+.summary table{min-width:38rem}
+.summary th,.summary td{padding-left:0}
+
+/* ---------- source citation ---------- */
+.cite{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:var(--step--1);
+  color:var(--muted);
+  letter-spacing:.01em;
+  display:block;
+  margin:-.5rem 0 1.15rem;
+}
+.cite::before{content:"↳ ";opacity:.6}
+
+/* ---------- pull quote from filing ---------- */
+blockquote{
+  margin:1.5rem 0;
+  padding:1.15rem 1.35rem;
+  background:var(--sunk);
+  border-left:3px solid var(--accent);
+  font-size:.97rem;
+  line-height:1.55;
+  max-width:var(--measure);
+}
+blockquote p{margin:0}
+blockquote p + p{margin-top:.7rem}
+blockquote .filing{
+  font-family:"IBM Plex Mono",monospace;
+  font-size:var(--step--1);
+  color:var(--muted);
+  display:block;margin-top:.8rem;
+}
+
+/* ---------- callout ---------- */
+.note{
+  border:1px solid var(--line);
+  background:var(--surface);
+  padding:1.25rem 1.4rem;
+  margin:1.75rem 0;
+  max-width:var(--measure);
+}
+.note .lbl{
+  font-family:Archivo,sans-serif;font-size:.72rem;font-weight:600;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+  display:block;margin-bottom:.5rem;
+}
+.note p:last-child{margin-bottom:0}
+
+/* ---------- risk list ---------- */
+ul{margin:0 0 1.05rem;padding-left:1.1rem;max-width:var(--measure)}
+li{margin-bottom:.6rem}
+li::marker{color:var(--muted)}
+
+/* ---------- delta cells ---------- */
+.up{color:var(--holds)}
+.down{color:var(--falls)}
+
+/* ---------- footer ---------- */
+footer{
+  margin-top:4.5rem;padding-top:1.5rem;
+  border-top:2px solid var(--ink);
+  font-size:var(--step--1);
+  color:var(--muted);
+  max-width:var(--measure);
+}
+footer p{max-width:none}
+
+@media (max-width:640px){
+  :root{--step-4:2.2rem;--step-3:1.75rem;--step-2:1.4rem}
+  .wrap{padding:0 1.15rem 4rem}
+  .mast{padding-top:2.25rem}
+}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="kicker">
+    <span>Due diligence</span>
+    <span>20 August 2026</span>
+    <span>ASX structural alpha</span>
+  </div>
+  <h1>What the 3Ys Didn't Say</h1>
+  <p class="standfirst">Nineteen conviction rows, nine cluster rows, ranked on disclosed trade mechanics — because that is all the screens hold. Read against the companies' own announcements, <strong>the fourth-ranked row means the opposite of what it says.</strong></p>
+</header>
+
+<section style="margin-top:0">
+  <div class="summary">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Screen rank</th>
+            <th>After diligence</th>
+            <th>What changed it</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tk">SPZ</span></td>
+            <td>Top of both</td>
+            <td><span class="chip h">Holds</span></td>
+            <td>Bought the day after FY26 results, beside a $5m buy-back and an institution moving to 14.97%</td>
+          </tr>
+          <tr>
+            <td><span class="tk">CBE</span></td>
+            <td>Cluster, $236k</td>
+            <td><span class="chip h">Holds</span></td>
+            <td>On-market status verified from source text; corporate action under way</td>
+          </tr>
+          <tr>
+            <td><span class="tk">BSA</span></td>
+            <td>Conviction #4</td>
+            <td><span class="chip f">Falls</span></td>
+            <td>Purchases funded by a company loan to the Chair; revenue down 89%</td>
+          </tr>
+          <tr>
+            <td><span class="tk">ALQ</span></td>
+            <td>Conviction #17</td>
+            <td><span class="chip w">Flagged</span></td>
+            <td>A $1,285,097 insider sale fourteen days earlier</td>
+          </tr>
+          <tr>
+            <td><span class="tk">AGC</span></td>
+            <td>Conviction #15</td>
+            <td><span class="chip w">Flagged</span></td>
+            <td>$979,637 unclassified beside the $15,237 parcel the screen showed</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="col" style="color:var(--muted);font-size:var(--step--1);font-family:'IBM Plex Mono',monospace;line-height:1.5">Two of these the screens can now say about themselves. The third needed a document class the platform does not yet read.</p>
+</section>
+
+<section>
+  <h2>Source, and what it is not</h2>
+  <p>Company announcements were read through the owner's connected InvestorPA tool, queried by ticker. The pipeline gate on that host — the fetch layer pulling PDFs in bulk from a re-host whose terms nobody has read — is untouched. Nothing read here was written to canonical or derived tables, no identifiers were enumerated, <code>DECLARED_SOURCES</code> is unchanged. Adopting it for ingestion still needs the two open questions answered by a human.</p>
+  <p>Every figure below comes from the company's own lodged document, cited beneath the claim. There is still no price vendor, so <strong>there is no current market price anywhere in this note.</strong> Multiples are computed at the price the directors themselves paid, which is a disclosed fact.</p>
+</section>
+
+<section>
+  <div class="verdict-head">
+    <span class="tick">BSA</span>
+    <span class="coname">BSA Limited</span>
+    <span class="chip f">Signal falls</span>
+  </div>
+
+  <p class="col">The screen ranked it fourth on conviction: David Geraghty, stake up 145%, <strong>$896,000 at $0.32</strong> on 21 July — part of the largest single-director accumulation on the corpus, $1,199,913 across five notices in nineteen days, paying up from $0.30 for the biggest parcel. On trade mechanics alone it is the most emphatic thing on the screen.</p>
+
+  <h3>What a 3Y cannot tell you</h3>
+  <blockquote>
+    <p>the Company has executed a loan agreement with an entity associated with the Company's Non-Executive Chair, David Geraghty … Loan Amount: up to A$2,000,000 … <strong>Purpose: The Loan Facility may be drawn only for the purpose of acquiring ordinary shares in the capital of the Company</strong> by way of an on-market acquisition and/or off-market share transfer.</p>
+    <span class="filing">BSA Limited — Grant of Loan Facility to Director, 9 June 2026 (price sensitive)</span>
+  </blockquote>
+
+  <p class="col">Unsecured, 10% per annum, three-year term, no repayment for the first twelve months. The borrower is Mandarin Rock Pty Ltd — the third vehicle named in the notice still sitting in the platform's review queue — with Geraghty and Beibei Yu guaranteeing it jointly and severally.</p>
+
+  <p class="col">It was drawn. The June-quarter cash flow statement carries the line item in plain words, as an investing outflow, disclosed again as a related-party payment:</p>
+
+  <blockquote>
+    <p>Director's loan to acquire BSA shares&nbsp;&nbsp;(2.0)</p>
+    <span class="filing">BSA Limited — Appendix 4C, quarter ended 30 June 2026</span>
+  </blockquote>
+
+  <p class="col">Drawn before the July buying began. Geraghty is on the hook personally through the guarantee, so this is not a free option and should not be described as one — but the <em>capital</em> is the company's, lent unsecured, and the screen's whole premise, a director committing his own money, does not survive it. Some earlier buying predates the facility. The $896,000 parcel does not.</p>
+
+  <h3>And the business underneath</h3>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>&nbsp;</th><th class="num">FY26</th><th class="num">FY25</th><th>&nbsp;</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Revenue</td><td class="num">$32.1m</td><td class="num">$286.8m</td><td class="down">−89%</td></tr>
+        <tr><td>Underlying EBITDA</td><td class="num">$6.4m</td><td class="num">$21.2m</td><td class="down">−70%</td></tr>
+        <tr><td>Q4 reported EBITDA</td><td class="num">−$2.1m</td><td class="num">—</td><td></td></tr>
+        <tr><td>Operating cash flow</td><td class="num">−$4,443k</td><td class="num">+$30,475k</td><td class="down">reversed</td></tr>
+        <tr><td>Cash</td><td class="num">$16,822k</td><td class="num">$23,968k</td><td class="down">−$7.1m</td></tr>
+        <tr><td>Net assets</td><td class="num">$13,851k</td><td class="num">$6,953k</td><td class="up">+$6.9m</td></tr>
+        <tr><td>Debt</td><td class="num">nil</td><td class="num">nil</td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="cite">Appendix 4C, 30 July 2026; Appendix 4E and Annual Report, 20 August 2026</span>
+
+  <p class="col">Revenue fell 89% on the expiry of the nbn contract and lost Bluecurrent and Intellihub tenders. Q4 underlying EBITDA was $0.3m — the FY26 $6.4m carries non-recurring transition-out payments. Shares on issue 75,300,000, unchanged.</p>
+
+  <p class="col">At Geraghty's $0.32 that is a <strong>$24.1m market capitalisation against $16.4m of net cash</strong> plus a $2.0m related-party receivable: roughly $5.7m for the operating rump and whatever the acquisition mandate is worth. The annual report is explicit that the mandate <em>is</em> the strategy — "ongoing engagement with our advisers to identify, evaluate, and assess potential acquisition candidates" — and a mining executive joined the board in March. An on-market buy-back was announced on 30 April.</p>
+
+  <div class="note">
+    <span class="lbl">Verdict</span>
+    <p>Not a director-conviction signal. A cash box with a shrinking services rump, hunting a reverse takeover, supporting its own stock through two company-funded channels at once — a buy-back and a loan to its Chair. That may be a legitimate special situation for someone who wants one. It is not what the screen said, and anyone reading the screen alone would have had it exactly backwards.</p>
+  </div>
+</section>
+
+<section>
+  <div class="verdict-head">
+    <span class="tick">SPZ</span>
+    <span class="coname">Smart Parking Limited</span>
+    <span class="chip h">Signal holds</span>
+  </div>
+
+  <p class="col">The only name on both screens with material dollars: <strong>$2,079,725 across two directors on 19 August</strong>, no counter-evidence, complete document coverage. Diligence strengthened it rather than weakening it, on three counts that a 3Y cannot carry.</p>
+
+  <h3>They bought the day after results</h3>
+  <p class="col">The Appendix 4E, the investor presentation and the buy-back announcement all lodged on 18 August. Both directors bought on the 19th — with the full-year numbers public and the window open, not ahead of them. They also paid different prices, $0.8121 and $0.8239, so these were two independent orders rather than one block split between them.</p>
+
+  <h3>The company was buying too</h3>
+  <p class="col">A $5.0m on-market buy-back was announced the same morning, to commence 1 September for up to twelve months — described by the CEO as a "signal of confidence in our outlook".</p>
+
+  <h3>And so was a specialist institution</h3>
+  <p class="col">Microequities Asset Management lodged a Form 604 on 20 August taking it from 13.82% to <strong>14.97%</strong>, 57,656,892 shares, with changes running to 19 August. That is corroboration of a different kind from a director notice, and the screens have no channel for it.</p>
+  <span class="cite">Form 604, 20 August 2026</span>
+
+  <h3>FY26</h3>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>&nbsp;</th><th class="num">FY26</th><th class="num">FY25</th><th>&nbsp;</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Revenue</td><td class="num">$126.0m</td><td class="num">$77.2m</td><td class="up">+63%</td></tr>
+        <tr><td>Adjusted EBITDA</td><td class="num">$30.8m</td><td class="num">$20.5m</td><td class="up">+50%</td></tr>
+        <tr><td>EBITDA (statutory)</td><td class="num">$25.9m</td><td class="num">$18.5m</td><td class="up">+40%</td></tr>
+        <tr><td>Net profit after tax</td><td class="num">$6.9m</td><td class="num">$5.4m</td><td class="up">+28%</td></tr>
+        <tr><td>UNPATA (non-IFRS)</td><td class="num">$11.4m</td><td class="num">$6.6m</td><td class="up">+73%</td></tr>
+        <tr><td>Adjusted free cash flow</td><td class="num">$20.0m</td><td class="num">$12.8m</td><td class="up">+56%</td></tr>
+        <tr><td>Cash (ex client funds)</td><td class="num">$17.4m</td><td class="num">$12.7m</td><td class="up">+$4.7m</td></tr>
+        <tr><td>ANPR sites</td><td class="num">2,083</td><td class="num">1,799</td><td class="up">+16%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="cite">Appendix 4E and FY26 Investor Presentation, 18 August 2026 — unaudited</span>
+
+  <p class="col">The adjusted-EBITDA bridge is not aggressive: $25.9m statutory plus $1.8m of acquisition professional fees, $0.4m other non-recurring and $2.7m of FX losses. Seventy-two per cent of revenue growth was organic.</p>
+
+  <p class="col">At the $0.8124 the directors paid, on 420,631,770 shares, that is a market capitalisation of <strong>$341.7m</strong> and an enterprise value near <strong>$331m</strong> after $17.4m of cash and the $7.2m drawn on 1 July for the American Parking acquisition — about <strong>10.8× EV/adjusted EBITDA</strong>, <strong>30× UNPATA</strong>, <strong>49× statutory earnings</strong>, 3.5× book. Not a cheap stock. What this diligence can answer is whether the buying is well-founded, not whether the price is.</p>
+
+  <h3>FY27, on management's own numbers</h3>
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Component</th><th class="num">FY26</th><th class="num">FY27 guided</th><th class="num">Direction</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>UK enhanced debt resolution</td><td class="num">+$7.0m</td><td class="num">+$5.0m</td><td class="num down">−$2.0m</td></tr>
+        <tr><td>Denmark EBITDA</td><td class="num">−$2.9m</td><td class="num">−$1.5m</td><td class="num up">+$1.4m</td></tr>
+        <tr><td>Switzerland EBITDA</td><td class="num">−$3.8m</td><td class="num">c.−$2.5m</td><td class="num up">+$1.3m</td></tr>
+        <tr><td>Germany</td><td class="num">−$1.0m</td><td class="num">breakeven</td><td class="num up">to +$1.0m</td></tr>
+        <tr><td>American Parking</td><td class="num">—</td><td class="num">US$1.4m</td><td class="num up">+~A$2.1m</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="cite">FY26 Investor Presentation p.19 — company forecasts, not verified facts</span>
+
+  <p class="col">Plus 450–600 net new ANPR sites targeted, and the annualisation of the 303 added in the second half. The much-quoted debt-resolution headwind is real and management-flagged — and on their own numbers it is outweighed by the loss-making territories improving.</p>
+
+  <h3>The risks that actually matter</h3>
+  <ul>
+    <li><strong>UK concentration against live regulatory risk.</strong> The UK is 67% of revenue and 68% of breach notices. A Government Code of Practice consultation opened in July 2025. <strong>Denmark is the worked example of what that does</strong>: the Danish Ministry of Transport banned ANPR-issued initial notices from 1 July 2025, and Danish revenue went $1.3m → $0.3m, notices −53%, EBITDA −$2.9m. The same event in the UK is not a haircut, it is most of group earnings. The company says current UK proposals are "more favourable" than the withdrawn 2022 code and that timing "remains uncertain" — which is honest, and is not the same as safe.</li>
+    <li><strong>UK growth was collections, not volume.</strong> UK notices rose 4%; revenue per ticket rose 54%. About 750,000 aged notices sit in the resolution process with eighteen months or more to work through. That is a stock being converted, not a flow.</li>
+    <li><strong>Effective tax rate 15.7% → 40.7%.</strong></li>
+    <li><strong>Currency.</strong> A stronger Australian dollar cost $2.9m of revenue and $1.0m of EBITDA, on top of $2.7m of FX losses. Sixty-seven per cent of revenue is sterling.</li>
+    <li><strong>Serial acquisition.</strong> Goodwill of $40.6m within $59.0m of intangibles, against $98.9m of equity, from six deals since 2021.</li>
+    <li><strong>UNPATA is non-IFRS and unaudited</strong>, and the Appendix 4E accounts are "in the process of being audited".</li>
+  </ul>
+
+  <div class="note">
+    <span class="lbl">Worth naming rather than burying</span>
+    <p>The directors bought on 19 August, about two weeks before the company's own $5.0m buy-back begins on 1 September. That is after full disclosure and unremarkable in itself — but the sequence, results then buy-back announcement then director buying then company buying, is worth seeing whole rather than as one row on a screen.</p>
+  </div>
+
+  <div class="note">
+    <span class="lbl">Verdict</span>
+    <p>The best-evidenced buying signal on the screen. Same-day independent purchases at different prices, immediately post-results, corroborated by a buy-back and by a specialist institution moving to roughly 15%. A real, growing, cash-generative business — priced as one, with a concentration risk that is genuine and already demonstrated next door in Denmark.</p>
+  </div>
+</section>
+
+<section>
+  <div class="verdict-head">
+    <span class="tick">CBE</span>
+    <span class="coname">Cobre Limited</span>
+    <span class="chip h">Signal holds</span>
+  </div>
+
+  <p class="col">Copper — Kalahari in Botswana, Sierra Atacama in Chile. A cluster row of $236,218 across Martin Holland and Michael Addison.</p>
+
+  <p class="col">Classification was checked against source text rather than trusted, because <strong>a A$90M institutional raise completed on 9 July</strong> sits right beside these dates, and placement participation misread as on-market buying would have been the obvious trap. It is not: Holland's notice reads "On market purchase", both of Addison's read "On market acquisition".</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Director</th><th>Date</th><th class="num">Shares</th><th class="num">Price</th><th class="num">Value</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Martin Holland</td><td>13 Jul</td><td class="num">+376,117</td><td class="num">$0.265</td><td class="num">$99,666</td></tr>
+        <tr><td>Michael Addison</td><td>4 Aug</td><td class="num">+377,377</td><td class="num">$0.285</td><td class="num">$107,552</td></tr>
+        <tr><td>Michael Addison</td><td>5 Aug</td><td class="num">+100,000</td><td class="num">$0.290</td><td class="num">$29,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col">Both were already large holders, and <strong>Addison paid up after the raise</strong> — the $90M was placed on 9 July and he bought on-market in August above Holland's July price. Around those dates: Sierra Atacama declared first positive cash flow (6 July), Cobre increased its ownership of it (7 July), <strong>Rothschild &amp; Co was appointed strategic adviser</strong> (10 August), MSCI Global Micro Cap Index inclusion followed (13 August), and an EGM was called (18 August).</p>
+
+  <p class="col">A strategic-adviser appointment plus an EGM is a corporate-action shape, and index inclusion brings mechanical buying. An entirely different risk profile from SPZ — resource development, where the $90M raise means the dilution has already happened.</p>
+
+  <div class="note">
+    <span class="lbl">For the corpus</span>
+    <p>A third CBE director notice — Michael McNeilly, 13 July — is not held. The cluster may be larger than two.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Two things this exposed in the platform</h2>
+
+  <h3>Every actionable date on both screens was early</h3>
+  <p class="col"><code>actionable_from</code> is the lodgement date, and for 971 of the 1,109 dated documents held — 88% — that timestamp came from the PDF's <em>creation</em> time. Creation is when the company made the notice, not when the exchange released it. Proven exactly on SPZ:</p>
+
+  <div class="scroll">
+    <table>
+      <tbody>
+        <tr><td>Our <code>lodged_at</code> (docs 557/558)</td><td class="num">19 Aug 2026, 20:20 AEST</td></tr>
+        <tr><td>Actual ASX release</td><td class="num">20 Aug 2026, 08:00 AEST</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col">Eleven hours forty minutes early, and on the wrong calendar day — the screen said those rows were actionable on the 19th when nobody could act before the 20th. Across five BSA notices the skew runs from two minutes to nearly three days, always the same direction, landing on the wrong day whenever a notice was prepared after the close or over a weekend. It applied to <strong>all 28 signal rows</strong>.</p>
+
+  <p class="col">This is look-ahead bias in the column whose entire purpose is preventing it. It cannot be fixed from the data held: the true release time is not in it, and the source that has it is not declared. Both screens now carry <code>actionable_from_may_be_early</code> so they stop asserting a date they cannot support. <strong>A flag is not a fix.</strong> The fix is capturing a release timestamp at detection, and it deserves priority — until then every forward test the platform runs is flattered by up to a trading day.</p>
+
+  <h3>BSA is the argument for reading beyond the 3Y</h3>
+  <p class="col">The loan announcement is price-sensitive, sits in the same company's announcement stream, and inverts the meaning of the trade. The screens have no channel for related-party financing of a purchase because they only read 3Ys. Worth building: flag conviction rows where the entity has lodged a price-sensitive related-party or financial-assistance notice in the preceding ninety days.</p>
+</section>
+
+<footer>
+  <p>Three of nineteen conviction rows do not mean what the ordering implies. No position is recommended here and no price is forecast — this is the evidence, and what it does and does not support. Figures are drawn from lodged company documents on the dates cited; the SPZ Appendix 4E is unaudited, and FY27 figures are company forecasts.</p>
+</footer>
+
+</div>
