@@ -17,6 +17,9 @@
 - When citing a rule number, form field, or tax parameter: verify against the primary source at implementation time and record the citation. Training-data memory of rule numbers is not sufficient.
 - Uncertainty is reportable output: prefer a smaller correct dataset with coverage flags over a complete-looking one.
 
+## Current state
+- Read docs/HANDOVER.md first: what is built, what is blocked, and the decisions still open.
+
 ## Commands
 - make test          # includes gold-set regression for every parser
 - make reprocess ... # the only path for fixing systematic parse errors
