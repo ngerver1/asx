@@ -456,6 +456,19 @@ def cmd_backfill(args) -> None:
               f"or re-capture them.")
 
 
+def cmd_signals(args) -> None:
+    """Print or write the cluster-buy screen."""
+    from asx.signals.director_signals import cluster_buys_csv
+
+    with db.connect() as conn:
+        out = cluster_buys_csv(conn)
+    if args.out:
+        Path(args.out).write_text(out)
+        print(f"wrote {args.out} ({len(out.splitlines()) - 1} clusters)")
+    else:
+        print(out, end="")
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -603,6 +616,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--from", dest="source", action="append", metavar="DIR",
                    help="also look for document bytes under DIR (repeatable)")
     p.set_defaults(fn=cmd_backfill)
+
+    p = sub.add_parser("signals", help="the cluster-buy screen, as CSV")
+    p.add_argument("--out", help="write to a file instead of stdout")
+    p.set_defaults(fn=cmd_signals)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

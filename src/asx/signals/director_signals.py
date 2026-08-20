@@ -102,3 +102,55 @@ def build_cluster_buys(conn: psycopg.Connection) -> int:
                     i += 1
     conn.commit()
     return clusters
+
+
+def cluster_buys_csv(conn: psycopg.Connection) -> str:
+    """The cluster-buy screen as CSV — the deliverable of Phase 1 (SPEC §15).
+
+    Every row carries its coverage flags, because a screen that states a
+    result without stating what it could not check is the prohibited output
+    (acceptance 1.6). Two flags matter to a reader:
+
+      size_ceiling_proxy:*  the size cut is index membership standing in for a
+                            market-cap ceiling, not a market-cap ceiling.
+      membership_unknown    no membership snapshot published by the date this
+                            became knowable, so the size cut could not be
+                            applied to this row at all. It is NOT a claim that
+                            the company is small.
+
+    Ordered by actionable date, newest first: the screen is read forwards.
+    """
+    import csv
+    import io
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT l.ticker, n.name AS entity, s.window_start, s.window_end,
+                      s.n_directors, s.total_consideration_aud,
+                      s.knowable_at, s.coverage_flags, s.signal_version,
+                      (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
+                         FROM director_trades t
+                        WHERE t.trade_id = ANY(s.trade_ids)) AS directors
+                 FROM signal_cluster_buys s
+                 LEFT JOIN listings l
+                        ON l.entity_id = s.entity_id AND l.valid_to IS NULL
+                 LEFT JOIN entity_names n
+                        ON n.entity_id = s.entity_id AND n.valid_to IS NULL
+                ORDER BY s.knowable_at DESC, s.total_consideration_aud DESC""")
+        rows = cur.fetchall()
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(["ticker", "entity", "directors", "n_directors",
+                "first_buy", "last_buy", "actionable_from",
+                "total_consideration_aud", "coverage_flags", "signal_version"])
+    for r in rows:
+        w.writerow([
+            r["ticker"] or "", r["entity"] or "", r["directors"] or "",
+            r["n_directors"], r["window_start"], r["window_end"],
+            # Not the trade date: the screen is only actionable once the
+            # lodgement made it public (Invariant 2).
+            r["knowable_at"].date(), r["total_consideration_aud"],
+            "|".join(r["coverage_flags"] or []), r["signal_version"],
+        ])
+    return buf.getvalue()

@@ -10,3 +10,4 @@ data/parsed/
 # Universe exports are regenerable: `asx universe --as-of <date>`
 asx_universe_*.csv
 asx_smallcaps_*.csv
+cluster_buys_*.csv
