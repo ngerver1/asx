@@ -19,6 +19,29 @@ def _get_parser(name: str):
     return PARSERS[name]()
 
 
+def _extractor_for(parser, *, use_model: bool = False):
+    """How a parser should read a document.
+
+    A parser that brings its own rules reader is read with it. That path is
+    deterministic, needs no API key, and is corroborated by the form's own
+    arithmetic — held after = held before + acquired - disposed — rather than
+    by a second model agreeing with the first, which is why it satisfies the
+    dual-pass intent of SPEC §6 without a second pass. A reading whose
+    arithmetic does not reconcile routes to review exactly as a disagreement
+    would (asx.parse.rules_extractor).
+
+    The model path stays available with --model, and is the only path for a
+    parser that has no rules reader.
+    """
+    from asx.parse.llm import StructuredExtractor
+
+    if use_model or not hasattr(parser, "read_rules"):
+        return StructuredExtractor()
+    from asx.parse.rules_extractor import RulesExtractor
+
+    return RulesExtractor(parser)
+
+
 def cmd_migrate(_args) -> None:
     with db.connect() as conn:
         ran = db.migrate(conn)
@@ -47,10 +70,9 @@ def cmd_ingest(args) -> None:
 
 def cmd_parse(args) -> None:
     from asx.parse.framework import run_parser_on_doc
-    from asx.parse.llm import StructuredExtractor
 
     parser = _get_parser(args.parser)
-    extractor = StructuredExtractor()
+    extractor = _extractor_for(parser, use_model=args.model)
     with db.connect() as conn:
         if args.doc_id:
             doc_ids = [args.doc_id]
@@ -69,13 +91,12 @@ def cmd_parse(args) -> None:
 
 
 def cmd_reprocess(args) -> None:
-    from asx.parse.llm import StructuredExtractor
     from asx.parse.reprocess import reprocess
 
     parser = _get_parser(args.parser)
     since = date.fromisoformat(args.since) if args.since else None
     with db.connect() as conn:
-        report = reprocess(conn, parser, StructuredExtractor(),
+        report = reprocess(conn, parser, _extractor_for(parser, use_model=args.model),
                            since=since, apply=args.apply)
     print(report.summary())
 
@@ -459,6 +480,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--parser", required=True)
     p.add_argument("--doc-id", type=int)
     p.add_argument("--limit", type=int, default=100)
+    p.add_argument("--model", action="store_true",
+                   help="read with the LLM extractor instead of the parser's rules reader")
     p.set_defaults(fn=cmd_parse)
 
     p = sub.add_parser("reprocess")
@@ -466,6 +489,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--since")
     p.add_argument("--apply", action="store_true",
                    help="apply canonical changes; without this, dry-run diff report only")
+    p.add_argument("--model", action="store_true",
+                   help="read with the LLM extractor instead of the parser's rules reader")
     p.set_defaults(fn=cmd_reprocess)
 
     sub.add_parser("monitor").set_defaults(fn=cmd_monitor)
