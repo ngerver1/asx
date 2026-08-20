@@ -118,6 +118,18 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                             applied to this row at all. It is NOT a claim that
                             the company is small.
 
+    avg_price_aud is what the directors actually paid, weighted by size:
+    total consideration over total shares, NOT the mean of the per-trade
+    prices. A director buying 2.5m shares and one buying 5,000 did not pay the
+    same average, and averaging their prices equally would say they did. It is
+    the number to compare against the current price, so it belongs on the
+    screen rather than one join away.
+
+    Where some trades in a cluster state no quantity or no consideration, the
+    average is computed from those that do and the row is flagged
+    partial_price_coverage — a price drawn from part of a cluster is usable
+    only if the reader knows that is what it is.
+
     Ordered by actionable date, newest first: the screen is read forwards.
     """
     import csv
@@ -128,10 +140,27 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
             """SELECT l.ticker, n.name AS entity, s.window_start, s.window_end,
                       s.n_directors, s.total_consideration_aud,
                       s.knowable_at, s.coverage_flags, s.signal_version,
+                      p.shares, p.priced_consideration,
+                      p.n_trades, p.n_priced,
                       (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
                          FROM director_trades t
                         WHERE t.trade_id = ANY(s.trade_ids)) AS directors
                  FROM signal_cluster_buys s
+                 CROSS JOIN LATERAL (
+                   SELECT count(*) AS n_trades,
+                          count(*) FILTER (WHERE t.qty_acquired IS NOT NULL
+                                             AND t.consideration_aud IS NOT NULL)
+                            AS n_priced,
+                          sum(t.qty_acquired) FILTER (
+                            WHERE t.qty_acquired IS NOT NULL
+                              AND t.consideration_aud IS NOT NULL) AS shares,
+                          sum(t.consideration_aud) FILTER (
+                            WHERE t.qty_acquired IS NOT NULL
+                              AND t.consideration_aud IS NOT NULL)
+                            AS priced_consideration
+                     FROM director_trades t
+                    WHERE t.trade_id = ANY(s.trade_ids)
+                 ) AS p
                  LEFT JOIN listings l
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
@@ -143,14 +172,22 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(["ticker", "entity", "directors", "n_directors",
                 "first_buy", "last_buy", "actionable_from",
-                "total_consideration_aud", "coverage_flags", "signal_version"])
+                "total_consideration_aud", "total_shares", "avg_price_aud",
+                "coverage_flags", "signal_version"])
     for r in rows:
+        shares, spend = r["shares"], r["priced_consideration"]
+        avg_price = round(spend / shares, 4) if shares else None
+        flags = list(r["coverage_flags"] or [])
+        if r["n_priced"] < r["n_trades"]:
+            flags.append("partial_price_coverage")
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["directors"] or "",
             r["n_directors"], r["window_start"], r["window_end"],
             # Not the trade date: the screen is only actionable once the
             # lodgement made it public (Invariant 2).
             r["knowable_at"].date(), r["total_consideration_aud"],
-            "|".join(r["coverage_flags"] or []), r["signal_version"],
+            shares if shares is not None else "",
+            avg_price if avg_price is not None else "",
+            "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()
