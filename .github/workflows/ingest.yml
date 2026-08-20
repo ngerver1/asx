@@ -75,10 +75,18 @@ jobs:
       - name: Possess
         run: python -m asx.cli capture --capture-dir captures --investorpa
 
-      - name: Parse and rebuild signals
-        run: |
-          python -m asx.cli parse || true
-          python -m asx.cli build-signals
+      # --parser is required. The first version of this step ran a bare
+      # `asx parse || true`, which exits non-zero on the missing argument every
+      # single run and then swallows it — the sweep would detect and possess
+      # documents, never parse one, and report success. A masked failure is
+      # worse than a red run, so nothing here is `|| true`: a step that may
+      # legitimately fail gets continue-on-error, which still shows.
+      - name: Parse
+        continue-on-error: true
+        run: python -m asx.cli parse --parser app3y
+
+      - name: Rebuild signals
+        run: python -m asx.cli build-signals
 
       # Zero lodgements in a period is a pipeline alarm until a human says
       # otherwise (CLAUDE.md). The monitor owns that judgement; this step

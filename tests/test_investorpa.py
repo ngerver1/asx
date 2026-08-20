@@ -421,3 +421,144 @@ def test_a_watchlist_gap_shows_as_investorpa_only(conn):
         row = cur.fetchone()
     assert row["coverage"] == "investorpa_only"
     assert row["duplicate_rows"] is False
+
+
+# --- possession -----------------------------------------------------------
+#
+# fetch_ir_documents, which this route is modelled on, was a silent no-op for
+# its entire life: it read URLs out of source_ref, which holds a Message-ID,
+# so it found nothing and reported an all-zero stats dict that was
+# indistinguishable from "nothing to do". fetch_candidate_urls is still empty
+# on all 1,124 rows because of it. These tests exist so the sibling route
+# cannot repeat that.
+
+def _detected_investorpa_doc(conn, *, ticker="JDO", url=None,
+                             title="Change of Director's Interest Notice"):
+    """A detection in the state possession finds it: known, held by nobody."""
+    from asx.ingest.detection import Detection, record_detection
+
+    url = url or "https://investorpa.com/announcement-pdf/20260820/330416.pdf"
+    doc_id, _ = record_detection(conn, Detection(
+        detection_source="investorpa", source_ref=url, ticker=ticker,
+        title=title,
+        lodged_at=datetime.fromisoformat("2026-08-20T15:25:18+10:00"),
+        lodged_at_source="investorpa", document_urls=[url]))
+    conn.commit()
+    return doc_id
+
+
+def test_a_stated_pdf_url_is_fetched_and_attributed_to_investorpa(conn,
+                                                                  monkeypatch,
+                                                                  tmp_path):
+    from types import SimpleNamespace
+
+    from asx.ingest import possession
+
+    doc_id = _detected_investorpa_doc(conn)
+    monkeypatch.setattr(possession, "raw_zone_root", lambda: tmp_path)
+    fetched = []
+
+    def _fetch(url, **kwargs):
+        fetched.append((url, kwargs))
+        return SimpleNamespace(content=b"%PDF-1.7\nfake",
+                               content_type="application/pdf", url=url)
+
+    monkeypatch.setattr(possession, "fetch", _fetch)
+    stats = possession.fetch_investorpa_documents(conn)
+
+    assert stats == {"attempted": 1, "captured": 1, "robots_blocked": 0,
+                     "failed": 0, "not_a_document": 0, "no_candidates": 0}
+    # No terms_basis asserted at the call site: investorpa.com is in
+    # DECLARED_SOURCES, so the basis is recorded centrally. A caller passing
+    # one here would be claiming a per-site sign-off nobody gave.
+    assert fetched[0][1].get("terms_basis") is None
+    assert fetched[0][1].get("targeted_document") is not True
+
+    with conn.cursor() as cur:
+        cur.execute("""SELECT possession_source, parse_status, sha256,
+                              storage_path, fetched_at
+                       FROM documents WHERE doc_id = %s""", (doc_id,))
+        row = cur.fetchone()
+    # Never 'ir_website': that would say a company published it on its own site.
+    assert row["possession_source"] == "investorpa"
+    assert row["parse_status"] == "unparsed"       # now parseable
+    assert row["sha256"] and row["storage_path"] and row["fetched_at"]
+
+
+def test_a_login_wall_is_refused_and_the_capture_gap_stays_open(conn,
+                                                                monkeypatch,
+                                                                tmp_path):
+    """200 with HTML is what a login wall returns. Storing it would poison the
+    raw zone AND flip the row out of 'detected', clearing the alarm that says
+    the document is still missing."""
+    from types import SimpleNamespace
+
+    from asx.ingest import possession
+
+    doc_id = _detected_investorpa_doc(conn)
+    monkeypatch.setattr(possession, "raw_zone_root", lambda: tmp_path)
+    monkeypatch.setattr(possession, "fetch", lambda url, **kw: SimpleNamespace(
+        content=b"<html><body>Please sign in</body></html>",
+        content_type="text/html", url=url))
+
+    stats = possession.fetch_investorpa_documents(conn)
+    assert stats["not_a_document"] == 1 and stats["captured"] == 0
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status, sha256, possession_source "
+                    "FROM documents WHERE doc_id = %s", (doc_id,))
+        row = cur.fetchone()
+    assert row["parse_status"] == "detected"      # still an open capture gap
+    assert row["sha256"] is None
+    assert row["possession_source"] is None
+
+
+def test_the_two_fetch_routes_do_not_take_each_other_s_documents(conn,
+                                                                 monkeypatch,
+                                                                 tmp_path):
+    """Provenance is the point. An investorpa PDF fetched by the IR route
+    would be recorded as having come from the company's own website."""
+    from types import SimpleNamespace
+
+    from asx.ingest import possession
+
+    ipa = _detected_investorpa_doc(conn)
+    monkeypatch.setattr(possession, "raw_zone_root", lambda: tmp_path)
+    monkeypatch.setattr(possession, "fetch", lambda url, **kw: SimpleNamespace(
+        content=b"%PDF-1.7\nfake", content_type="application/pdf", url=url))
+
+    # The IR route sees it and declines to touch it.
+    ir_stats = possession.fetch_ir_documents(conn)
+    assert ir_stats["attempted"] == 0 and ir_stats["captured"] == 0
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT parse_status FROM documents WHERE doc_id = %s", (ipa,))
+        assert cur.fetchone()["parse_status"] == "detected"
+
+    # And the investorpa route does.
+    assert possession.fetch_investorpa_documents(conn)["captured"] == 1
+
+
+def test_a_dead_route_cannot_report_itself_as_a_quiet_one(conn, monkeypatch):
+    """no_candidates and attempted are counted separately on purpose: a route
+    that never runs and a route that runs and finds nothing look identical in
+    an all-zero stats dict, and the first is the bug that went unnoticed on
+    the IR route for the life of the project."""
+    from asx.ingest import possession
+    from asx.ingest.detection import Detection, record_detection
+
+    # Detected, but no document URL was ever recorded against it.
+    record_detection(conn, Detection(
+        detection_source="market_index_alert", source_ref="<mi@x>",
+        ticker="JDO", title="Change of Director's Interest Notice",
+        lodged_at=datetime.fromisoformat("2026-08-20T15:25:18+10:00"),
+        announcement_id="2A1690999"))
+    conn.commit()
+
+    def _never_called(url, **kwargs):        # noqa: ARG001
+        raise AssertionError("nothing should be fetched with no candidates")
+
+    monkeypatch.setattr(possession, "fetch", _never_called)
+    stats = possession.fetch_investorpa_documents(conn)
+    assert stats["no_candidates"] == 1
+    assert stats["attempted"] == 0 and stats["captured"] == 0
