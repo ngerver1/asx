@@ -421,12 +421,12 @@ def cmd_snapshot(args) -> None:
             print(json.dumps({"exported": counts}, indent=2))
 
 
-def cmd_backfill_text(args) -> None:
-    """Store the durable text layer for documents ingested before it existed."""
-    from asx.raw.store import backfill_text
+def cmd_backfill(args) -> None:
+    """Give older documents what today's pipeline would have recorded."""
+    from asx.raw.store import backfill
 
     with db.connect() as conn:
-        counts = backfill_text(conn, [Path(d) for d in (args.source or [])])
+        counts = backfill(conn, [Path(d) for d in (args.source or [])])
         conn.commit()
     print(json.dumps(counts, indent=2))
     if counts["bytes_lost"]:
@@ -573,11 +573,11 @@ def main(argv: list[str] | None = None) -> None:
                    help="load a snapshot into an empty schema instead")
     p.set_defaults(fn=cmd_snapshot)
 
-    p = sub.add_parser("backfill-text",
-                       help="store the durable text layer for older documents")
+    p = sub.add_parser("backfill",
+                       help="give older documents their text layer and date")
     p.add_argument("--from", dest="source", action="append", metavar="DIR",
                    help="also look for document bytes under DIR (repeatable)")
-    p.set_defaults(fn=cmd_backfill_text)
+    p.set_defaults(fn=cmd_backfill)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

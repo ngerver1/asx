@@ -264,9 +264,13 @@ def _locate(sha: str, storage_path: str | None,
     return None
 
 
-def backfill_text(conn: psycopg.Connection,
-                  search_dirs: Sequence[Path] = ()) -> dict[str, int]:
-    """Give documents ingested before the text layer a durable copy of it.
+def backfill(conn: psycopg.Connection,
+             search_dirs: Sequence[Path] = ()) -> dict[str, int]:
+    """Give a document what today's pipeline would have recorded for it.
+
+    Two things are filled, because both need the same original bytes and
+    finding those bytes is the expensive part: the durable text layer, and
+    the lodgement timestamp.
 
     Migration 0020 made the extracted text the durable artifact and the file
     on disk a cache, because the disk does not survive the container. It could
@@ -282,18 +286,36 @@ def backfill_text(conn: psycopg.Connection,
     (Invariant 3), and the bytes are verified against it before anything is
     written.
 
+    Dating matters more than it looks: an undated document produces no
+    canonical rows at all, so a corpus ingested before the capture path
+    called asx.ingest.lodgement sits in the database yielding nothing. The
+    timestamp is read from the document itself and labelled 'pdf_creation',
+    never inferred — a row that states no date stays undated and is counted
+    as `undatable`.
+
     A document that is found but yields no text is counted as `no_text_layer`
     and left NULL rather than marked done. It is a scanned page, and pretending
     otherwise would hide it from the review queue (Invariant 8).
+
+    Text must be backfilled before dating is attempted on the same run: the
+    creation date lives in PDF metadata, which the text layer does not carry,
+    so once the bytes are gone a document can never be dated again.
     """
+    from asx.ingest import lodgement
+
     index = _index_by_hash(search_dirs) if search_dirs else {}
-    counts = {"backfilled": 0, "no_text_layer": 0, "bytes_lost": 0}
+    counts = {"text_backfilled": 0, "dated": 0,
+              "no_text_layer": 0, "undatable": 0, "bytes_lost": 0}
 
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT doc_id, sha256, storage_path FROM documents
-               WHERE document_text IS NULL AND sha256 IS NOT NULL
-               ORDER BY doc_id""")
+            """SELECT doc_id, sha256, storage_path,
+                      document_text IS NULL AS needs_text,
+                      lodged_at IS NULL AS needs_date
+                 FROM documents
+                WHERE sha256 IS NOT NULL
+                  AND (document_text IS NULL OR lodged_at IS NULL)
+                ORDER BY doc_id""")
         pending = cur.fetchall()
 
     for row in pending:
@@ -301,16 +323,31 @@ def backfill_text(conn: psycopg.Connection,
         if content is None:
             counts["bytes_lost"] += 1
             continue
-        text, text_sha, extractor = _extract_text(content)
-        if text is None:
-            counts["no_text_layer"] += 1
-            continue
-        with conn.cursor() as cur:
-            cur.execute(
-                """UPDATE documents
-                      SET document_text = %s, text_sha256 = %s,
-                          text_extractor = %s
-                    WHERE doc_id = %s AND document_text IS NULL""",
-                (text, text_sha, extractor, row["doc_id"]))
-        counts["backfilled"] += 1
+
+        if row["needs_text"]:
+            text, text_sha, extractor = _extract_text(content)
+            if text is None:
+                counts["no_text_layer"] += 1
+            else:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """UPDATE documents
+                              SET document_text = %s, text_sha256 = %s,
+                                  text_extractor = %s
+                            WHERE doc_id = %s AND document_text IS NULL""",
+                        (text, text_sha, extractor, row["doc_id"]))
+                counts["text_backfilled"] += 1
+
+        if row["needs_date"]:
+            dated = lodgement.resolve(pdf_content=content)
+            if not dated.known:
+                counts["undatable"] += 1
+            else:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """UPDATE documents
+                              SET lodged_at = %s, lodged_at_source = %s
+                            WHERE doc_id = %s AND lodged_at IS NULL""",
+                        (dated.at, dated.source, row["doc_id"]))
+                counts["dated"] += 1
     return counts

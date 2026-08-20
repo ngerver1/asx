@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from asx.raw.store import backfill_text, ingest_document, read_document
+from asx.raw.store import backfill, ingest_document, read_document
 
 DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
 UTC = timezone.utc
@@ -147,16 +147,16 @@ def test_backfill_gives_a_pre_text_document_its_durable_copy(conn, tmp_path):
     with pytest.raises(FileNotFoundError):
         read_document(conn, stored.doc_id)
 
-    counts = backfill_text(conn, [DOCS])
-    assert counts == {"backfilled": 1, "no_text_layer": 0, "bytes_lost": 0}
+    counts = backfill(conn, [DOCS])
+    assert counts["text_backfilled"] == 1 and counts["bytes_lost"] == 0
     assert b"Appendix 3Y" in read_document(conn, stored.doc_id)
 
 
 def test_backfill_is_idempotent(conn, tmp_path):
     stored = _ingest(conn, _pdf(), tmp_path)
     _forget_the_text(conn, stored.doc_id, stored.storage_path)
-    backfill_text(conn, [DOCS])
-    assert backfill_text(conn, [DOCS])["backfilled"] == 0
+    backfill(conn, [DOCS])
+    assert backfill(conn, [DOCS])["text_backfilled"] == 0
 
 
 def test_backfill_reports_a_document_whose_bytes_are_gone(conn, tmp_path):
@@ -165,8 +165,8 @@ def test_backfill_reports_a_document_whose_bytes_are_gone(conn, tmp_path):
     stored = _ingest(conn, _pdf(), tmp_path)
     _forget_the_text(conn, stored.doc_id, stored.storage_path)
 
-    counts = backfill_text(conn, [tmp_path / "nothing-here"])
-    assert counts["bytes_lost"] == 1 and counts["backfilled"] == 0
+    counts = backfill(conn, [tmp_path / "nothing-here"])
+    assert counts["bytes_lost"] == 1 and counts["text_backfilled"] == 0
     with conn.cursor() as cur:
         cur.execute("SELECT document_text FROM documents WHERE doc_id = %s",
                     (stored.doc_id,))
@@ -184,6 +184,49 @@ def test_backfill_trusts_the_hash_not_the_filename(conn, tmp_path):
     decoy.mkdir()
     (decoy / stored.sha256).write_bytes(b"%PDF-1.4 not the same document")
 
-    counts = backfill_text(conn, [decoy])
+    counts = backfill(conn, [decoy])
     assert counts["bytes_lost"] == 1, "a mismatched file was trusted"
     assert hashlib.sha256(content).hexdigest() == stored.sha256
+
+
+def test_backfill_dates_a_document_that_was_ingested_undated(conn, tmp_path):
+    """An undated document produces no canonical rows, so a corpus ingested
+    before the capture path called asx.ingest.lodgement yields nothing at all.
+    The date comes off the document itself and is labelled as the proxy it is.
+    """
+    from asx.ingest.lodgement import pdf_created_at
+
+    content = _pdf()
+    created = pdf_created_at(content)
+    assert created is not None, "fixture carries no creation date"
+
+    stored = _ingest(conn, content, tmp_path)
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE documents SET lodged_at = NULL,
+                       lodged_at_source = NULL WHERE doc_id = %s""",
+                    (stored.doc_id,))
+
+    assert backfill(conn, [DOCS])["dated"] == 1
+    with conn.cursor() as cur:
+        cur.execute("""SELECT lodged_at, lodged_at_source FROM documents
+                       WHERE doc_id = %s""", (stored.doc_id,))
+        row = cur.fetchone()
+    assert row["lodged_at"] == created
+    assert row["lodged_at_source"] == "pdf_creation"
+
+
+def test_backfill_leaves_a_document_that_states_no_date_undated(conn, tmp_path):
+    """Counted as undatable, never given a substitute. A trade carrying an
+    invented knowable_at is worse than a trade that is missing."""
+    stored = _ingest(conn, b"%PDF- no creation date here", tmp_path)
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE documents SET lodged_at = NULL,
+                       lodged_at_source = NULL WHERE doc_id = %s""",
+                    (stored.doc_id,))
+
+    counts = backfill(conn, [])
+    assert counts["undatable"] == 1 and counts["dated"] == 0
+    with conn.cursor() as cur:
+        cur.execute("SELECT lodged_at FROM documents WHERE doc_id = %s",
+                    (stored.doc_id,))
+        assert cur.fetchone()["lodged_at"] is None

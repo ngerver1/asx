@@ -921,7 +921,7 @@ For personal use only",ee295cc17ace8c3b704a15a4ac56d5335bf3524ee7de00b7967d185e9
 255,market_index_alert,<31137204.20260819052705.6a853ea90f5e56.47948360@mail177-5.suw61.mandrillapp.com>,3710,ACP,Application for quotation of securities - ACP,,app_2a,f,2026-08-19 05:25:00+00,,,,not_applicable,market_index_alert,2026-08-19 05:27:05+00,b11e9137e1e8123461fa084545117e0cb15f98a11f3c13f12e1388e55929cea4,,{https://www.marketindex.com.au/asx/acp/announcements/application-for-quotation-of-securities-acp-6A1339226},,6A1339226,,market_index_alert,,,
 256,market_index_alert,<31137204.20260819052904.6a853f2051b5a7.40048951@mail132-2.atl131.mandrillapp.com>,3710,ACP,Completion of Placement and Notice Under Section 708A,,other,f,2026-08-19 05:27:00+00,,,,not_applicable,market_index_alert,2026-08-19 05:29:04+00,a60a604156693dc1d866458ef9781e2c7f80ccc77a7e4c0c0b49be3db7095afa,,{https://www.marketindex.com.au/asx/acp/announcements/completion-of-placement-and-notice-under-section-708a-6A1339229},,6A1339229,,market_index_alert,,,
 257,market_index_alert,<31137204.20260819053418.6a85405ae27ee5.81960340@mail177-5.suw61.mandrillapp.com>,4487,HSN,Update - Dividend/Distribution - HSN,,other,f,2026-08-19 05:33:00+00,,,,not_applicable,market_index_alert,2026-08-19 05:34:18+00,033e269af20ab44902de848ee677abd63dbe36c63f733b94454fce14e393c750,,{https://www.marketindex.com.au/asx/hsn/announcements/update-dividenddistribution-hsn-3A699178},,3A699178,,market_index_alert,,,
-319,manual_capture,329701.pdf,3848,,Australian Strategic Materials Ltd,,app_3y,,,2026-08-19 13:45:44.110803+00,283f676aebfab9c85f8501a37ebef76012ec6cdb45c1d6bf879c1d91e045f866,/home/user/asx-data/raw/28/3f/283f676aebfab9c85f8501a37ebef76012ec6cdb45c1d6bf879c1d91e045f866,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+319,manual_capture,329701.pdf,3848,,Australian Strategic Materials Ltd,,app_3y,,2026-08-19 05:21:25+00,2026-08-19 13:45:44.110803+00,283f676aebfab9c85f8501a37ebef76012ec6cdb45c1d6bf879c1d91e045f866,/home/user/asx-data/raw/28/3f/283f676aebfab9c85f8501a37ebef76012ec6cdb45c1d6bf879c1d91e045f866,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1031,7 +1031,7 @@ This document is authorised for release to the market by:
 Annaliese Eames 
 Company Secretary 
 For personal use only",9d6fadd64231e2c62943235f27501bb957cbadf0104b3a2de31f47dd27ea9183,pypdf-6.16.1
-320,manual_capture,329721.pdf,4095,,CLEAN TEQ WATER LIMITED,,app_3y,,,2026-08-19 13:45:44.368805+00,b504d5b2cfef3fe7d8ecfbec7c59e37486d6618d72c17c0951e11cadc27dba6b,/home/user/asx-data/raw/b5/04/b504d5b2cfef3fe7d8ecfbec7c59e37486d6618d72c17c0951e11cadc27dba6b,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+320,manual_capture,329721.pdf,4095,,CLEAN TEQ WATER LIMITED,,app_3y,,2026-08-19 06:57:54+00,2026-08-19 13:45:44.368805+00,b504d5b2cfef3fe7d8ecfbec7c59e37486d6618d72c17c0951e11cadc27dba6b,/home/user/asx-data/raw/b5/04/b504d5b2cfef3fe7d8ecfbec7c59e37486d6618d72c17c0951e11cadc27dba6b,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1197,7 +1197,7 @@ N/A
  
  
 For personal use only",2d19fa69b8f2db175f13b598e815c5b96281f599e64ded1bc49bf35beb026f25,pypdf-6.16.1
-321,manual_capture,329737.pdf,4361,,FLAGSHIP INVESTMENTS LIMITED,,app_3y,,,2026-08-19 13:45:44.623397+00,75015d95b31f493fc0598eb972cd1af27d852dcb72f4a50b716a2f71878cc5ea,/home/user/asx-data/raw/75/01/75015d95b31f493fc0598eb972cd1af27d852dcb72f4a50b716a2f71878cc5ea,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+321,manual_capture,329737.pdf,4361,,FLAGSHIP INVESTMENTS LIMITED,,app_3y,,2026-08-19 06:14:09+00,2026-08-19 13:45:44.623397+00,75015d95b31f493fc0598eb972cd1af27d852dcb72f4a50b716a2f71878cc5ea,/home/user/asx-data/raw/75/01/75015d95b31f493fc0598eb972cd1af27d852dcb72f4a50b716a2f71878cc5ea,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1330,7 +1330,7 @@ this provided?
 N/A 
  
 For personal use only",c04ffd02451a8ea058c89d782b097dc0bacbd90e4ae476a4bbe6c72ec7d6fba0,pypdf-6.16.1
-322,manual_capture,329745.pdf,5264,,Terra Critical Minerals Limited,,app_3y,,,2026-08-19 13:45:44.891106+00,a498db3b66824949b3d03d7ac8ab54faaa693edcbd412ba2170e759beed4b2ac,/home/user/asx-data/raw/a4/98/a498db3b66824949b3d03d7ac8ab54faaa693edcbd412ba2170e759beed4b2ac,unparsed,,,,manual_capture,,,,,,"Appendix	3Y	Change	of	Director’s	Interest	Notice			
+322,manual_capture,329745.pdf,5264,,Terra Critical Minerals Limited,,app_3y,,2026-08-19 07:43:32+00,2026-08-19 13:45:44.891106+00,a498db3b66824949b3d03d7ac8ab54faaa693edcbd412ba2170e759beed4b2ac,/home/user/asx-data/raw/a4/98/a498db3b66824949b3d03d7ac8ab54faaa693edcbd412ba2170e759beed4b2ac,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix	3Y	Change	of	Director’s	Interest	Notice			
 	+	See	chapter	19	for	defined	terms.		01/01/2011	 Appendix	3Y		Page	1		
 Rule	3.19A.2	Appendix	3Y		Change	of	Director’s	Interest	Notice		Information	or	documents	not	available	now	must	be	given	to	ASX	as	soon	as	available.		Information	and	documents	given	to	ASX	become	ASX’s	property	and	may	be	made	public.	Introduced 30/09/01  Amended 01/01/11  Name	of	entity	Terra Critical Minerals Limited ACN		650 774 253  We	(the	entity)	give	ASX	the	following	information	under	listing	rule	3.19A.2	and	as	agent	for	the	director	for	the	purposes	of	section	205G	of	the	Corporations	Act.				Name	of	Director Niv Dagan	Date	of	last	notice	 3 March 2026	 Part	1	-	Change	of	director’s	relevant	interests	in	securities	In	the	case	of	a	trust,	this	includes	interests	in	the	trust	made	available	by	the	responsible	entity	of	the	trust		Note:	In	the	case	of	a	company,	interests	which	come	within	paragraph	(i)	of	the	definition	of	“notifiable	interest	of	a	director”	should	be	disclosed	in	this	part. 	Direct	or	indirect	interest	 Indirect	Nature	of	indirect	interest	(including	registered	holder)	Note:	Provide	details	of	the	circumstances	giving	rise	to	the	relevant	interest.		
 10 Bolivianos Pty Ltd Director 	Date	of	change	 14 August 2026 No.	of	securities	held	prior	to	change	Niv Dagan – Direct • 1,205,155 Fully Paid Ordinary Shares  10 Bolivianos Pty Ltd – Indirect • 27,765,832 Fully Paid Ordinary Shares  • 3,016,071 Unlisted Options exercisable at $0.15 expiring 1 November 2026  • 11,402,778 Unlisted Options exercisable at $0.09 expiring 31 December 2026  Class	 Ordinary Share 
@@ -1354,7 +1354,7 @@ Appendix	3Y	Change	of	Director’s	Interest	Notice
 Interest	after	change	 N/A	Part	3	–	+Closed	period	Were	 the	 interests	 in	 the	 securities	 or	 contracts	 detailed	above	traded	during	a	+closed	period	where	prior	written	clearance	was	required? No 
 If	 so,	 was	 prior	 written	 clearance	 provided	 to	 allow	 the	trade	to	proceed	during	this	period?	 N/A If	prior	written	clearance	was	provided,	on	what	date	was	this	provided? N/A  
 For personal use only",11e310538d4975e68d8ec3eb45e3268532f87bafa8d5dc323cbdef2749ef44cf,pypdf-6.16.1
-323,manual_capture,329777.pdf,4705,,MB Gold Limited,,app_3y,,,2026-08-19 13:45:45.07473+00,e93d81264a8e53d5b1d7a8741613feeaeb6f6cd066f0d58d0e57a26dfe0c7c50,/home/user/asx-data/raw/e9/3d/e93d81264a8e53d5b1d7a8741613feeaeb6f6cd066f0d58d0e57a26dfe0c7c50,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+323,manual_capture,329777.pdf,4705,,MB Gold Limited,,app_3y,,2026-08-19 08:37:26+00,2026-08-19 13:45:45.07473+00,e93d81264a8e53d5b1d7a8741613feeaeb6f6cd066f0d58d0e57a26dfe0c7c50,/home/user/asx-data/raw/e9/3d/e93d81264a8e53d5b1d7a8741613feeaeb6f6cd066f0d58d0e57a26dfe0c7c50,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1480,7 +1480,7 @@ this provided?
 N/A 
  
 For personal use only",f5af65865da8fec9870261f0690e0fd1c1c3bc6ef749f131f2116ec6d547c90b,pypdf-6.16.1
-324,manual_capture,329784.pdf,4658,,LOYAL METALS LTD,,app_3y,,,2026-08-19 13:45:45.460772+00,520903efb152d9ec6379a45d9ab8f74feb5916399bcd47348f5a71047b423722,/home/user/asx-data/raw/52/09/520903efb152d9ec6379a45d9ab8f74feb5916399bcd47348f5a71047b423722,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+324,manual_capture,329784.pdf,4658,,LOYAL METALS LTD,,app_3y,,2026-08-19 08:37:16+00,2026-08-19 13:45:45.460772+00,520903efb152d9ec6379a45d9ab8f74feb5916399bcd47348f5a71047b423722,/home/user/asx-data/raw/52/09/520903efb152d9ec6379a45d9ab8f74feb5916399bcd47348f5a71047b423722,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1843,7 +1843,7 @@ provided at law where such rights at law cannot be excluded by
 these terms. 
  
 For personal use only",08e48ea1342e4ac687e73a7c0a39e2512661cd8b23b9f2da812c537e2093e88f,pypdf-6.16.1
-325,manual_capture,328617.pdf,5130,,Scorpion Minerals Limited,,app_3y,,,2026-08-19 13:53:21.848618+00,18fc9005a87d1b42327f0a8b00621b7a29a17042e802f973a16b1242d1415bd6,/home/user/asx-data/raw/18/fc/18fc9005a87d1b42327f0a8b00621b7a29a17042e802f973a16b1242d1415bd6,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+325,manual_capture,328617.pdf,5130,,Scorpion Minerals Limited,,app_3y,,2026-08-17 07:37:35+00,2026-08-19 13:53:21.848618+00,18fc9005a87d1b42327f0a8b00621b7a29a17042e802f973a16b1242d1415bd6,/home/user/asx-data/raw/18/fc/18fc9005a87d1b42327f0a8b00621b7a29a17042e802f973a16b1242d1415bd6,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -1977,7 +1977,7 @@ this provided?
 N/A 
  
 For personal use only",c1b09f7e983c303e5f26c92fb52a66096ed7f4998a6bfaf8054b907a887f5750,pypdf-6.16.1
-326,manual_capture,328627.pdf,3687,,AURORA LABS LIMITED,,app_3y,,,2026-08-19 13:53:22.21597+00,6fccd8b983302c24b4b15795aabc7e0a913f3c6cfd060d3fcab52606468d60cb,/home/user/asx-data/raw/6f/cc/6fccd8b983302c24b4b15795aabc7e0a913f3c6cfd060d3fcab52606468d60cb,unparsed,,,,manual_capture,,,,,," 
+326,manual_capture,328627.pdf,3687,,AURORA LABS LIMITED,,app_3y,,2026-08-17 07:51:14+00,2026-08-19 13:53:22.21597+00,6fccd8b983302c24b4b15795aabc7e0a913f3c6cfd060d3fcab52606468d60cb,/home/user/asx-data/raw/6f/cc/6fccd8b983302c24b4b15795aabc7e0a913f3c6cfd060d3fcab52606468d60cb,unparsed,,,,manual_capture,,,,,pdf_creation," 
 Aurora Labs Limited (ACN: 601 164 505)   
 W: auroralabs3d.com 
 T: +61 (0)8 9434 1934    
@@ -2129,7 +2129,7 @@ N/A
  
 + See chapter 19 for defined terms. 
 For personal use only",bc904db4f691bd7c9b237002d6fba18d5be0b0892edbfc8aef4a6c1d7e2e18dc,pypdf-6.16.1
-327,manual_capture,328630.pdf,3997,,BRIGHTSTAR RESOURCES LIMITED,,app_3y,,,2026-08-19 13:53:22.572027+00,d619848f380c1fa0ac77d01733aaa3f6999e3285c156c4c5a7ac0f9dfa5fcd61,/home/user/asx-data/raw/d6/19/d619848f380c1fa0ac77d01733aaa3f6999e3285c156c4c5a7ac0f9dfa5fcd61,unparsed,,,,manual_capture,,,,,," 
+327,manual_capture,328630.pdf,3997,,BRIGHTSTAR RESOURCES LIMITED,,app_3y,,2026-08-17 07:16:09+00,2026-08-19 13:53:22.572027+00,d619848f380c1fa0ac77d01733aaa3f6999e3285c156c4c5a7ac0f9dfa5fcd61,/home/user/asx-data/raw/d6/19/d619848f380c1fa0ac77d01733aaa3f6999e3285c156c4c5a7ac0f9dfa5fcd61,unparsed,,,,manual_capture,,,,,pdf_creation," 
  
 Rule 3.19A.2 
 Appendix 3Y 
@@ -2470,7 +2470,7 @@ provided?
 N/A 
  
 For personal use only",3cfa51347199507ebce1eb4590aba6cd3a6264e3742c995c482db8bbf5e4b3d0,pypdf-6.16.1
-328,manual_capture,328653.pdf,5011,,PO VALLEY ENERGY LIMITED,,app_3y,,,2026-08-19 13:53:22.799009+00,07a711e863985e88f1b4d5ebc1fa47a705e1840e8ecd65d94b5c024ecb74427d,/home/user/asx-data/raw/07/a7/07a711e863985e88f1b4d5ebc1fa47a705e1840e8ecd65d94b5c024ecb74427d,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+328,manual_capture,328653.pdf,5011,,PO VALLEY ENERGY LIMITED,,app_3y,,2026-08-17 09:03:00+00,2026-08-19 13:53:22.799009+00,07a711e863985e88f1b4d5ebc1fa47a705e1840e8ecd65d94b5c024ecb74427d,/home/user/asx-data/raw/07/a7/07a711e863985e88f1b4d5ebc1fa47a705e1840e8ecd65d94b5c024ecb74427d,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -2621,7 +2621,7 @@ n/a
  
  
 For personal use only",38bae72d899f0da4b7c62063c98ac41c0ff915e921c3e53380450d2f01efe820,pypdf-6.16.1
-330,manual_capture,328794.pdf,3912,,Baby Bunting Group Limited,,app_3y,,,2026-08-19 13:53:23.167737+00,03c108ce2bb758433e4efb78a3dd49ada342e934c9f41b2f936e543322186245,/home/user/asx-data/raw/03/c1/03c108ce2bb758433e4efb78a3dd49ada342e934c9f41b2f936e543322186245,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+330,manual_capture,328794.pdf,3912,,Baby Bunting Group Limited,,app_3y,,2026-08-17 22:06:49+00,2026-08-19 13:53:23.167737+00,03c108ce2bb758433e4efb78a3dd49ada342e934c9f41b2f936e543322186245,/home/user/asx-data/raw/03/c1/03c108ce2bb758433e4efb78a3dd49ada342e934c9f41b2f936e543322186245,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -2741,7 +2741,7 @@ provided?
  
  
  ",c18d543557eac026277d2f0b4dba21c26dbb59811f84e7f7cacc07f6e717437e,pypdf-6.16.1
-331,manual_capture,328803.pdf,3912,,Baby Bunting Group Limited,,app_3y,,,2026-08-19 13:53:23.370737+00,6aa5a4fe37cafef3585e18f024bb88f78e4103c214d3c1cabf0f48ac62d25c88,/home/user/asx-data/raw/6a/a5/6aa5a4fe37cafef3585e18f024bb88f78e4103c214d3c1cabf0f48ac62d25c88,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+331,manual_capture,328803.pdf,3912,,Baby Bunting Group Limited,,app_3y,,2026-08-17 22:20:36+00,2026-08-19 13:53:23.370737+00,6aa5a4fe37cafef3585e18f024bb88f78e4103c214d3c1cabf0f48ac62d25c88,/home/user/asx-data/raw/6a/a5/6aa5a4fe37cafef3585e18f024bb88f78e4103c214d3c1cabf0f48ac62d25c88,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -2866,7 +2866,7 @@ provided?
  
  
 For personal use only",5ee3795d4fe2d9b2b87e72868e23880215febd6234047156dcc2be943e7708e5,pypdf-6.16.1
-332,manual_capture,328987.pdf,4078,,Charter Hall Long WALE REIT,,app_3y,,,2026-08-19 13:53:23.587783+00,f2fa46fc2c00442bd1be7c4ef2a6f2465882fb3fd4edbbe47fa739776cfbc7be,/home/user/asx-data/raw/f2/fa/f2fa46fc2c00442bd1be7c4ef2a6f2465882fb3fd4edbbe47fa739776cfbc7be,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+332,manual_capture,328987.pdf,4078,,Charter Hall Long WALE REIT,,app_3y,,2026-08-18 00:48:52+00,2026-08-19 13:53:23.587783+00,f2fa46fc2c00442bd1be7c4ef2a6f2465882fb3fd4edbbe47fa739776cfbc7be,/home/user/asx-data/raw/f2/fa/f2fa46fc2c00442bd1be7c4ef2a6f2465882fb3fd4edbbe47fa739776cfbc7be,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -2991,7 +2991,7 @@ N/A
  
  
 For personal use only",e68fdaa368d64873567604b17f2dc8b573e490e862abf4638c7b65234df921eb,pypdf-6.16.1
-333,manual_capture,329590.pdf,4698,,MACMAHON HOLDINGS LIMITED,,app_3y,,,2026-08-19 13:53:24.008147+00,0837103f0ac963773217160c7708f31bdc3710e8c86309cefc1707be56a9431f,/home/user/asx-data/raw/08/37/0837103f0ac963773217160c7708f31bdc3710e8c86309cefc1707be56a9431f,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+333,manual_capture,329590.pdf,4698,,MACMAHON HOLDINGS LIMITED,,app_3y,,2026-08-18 01:53:59+00,2026-08-19 13:53:24.008147+00,0837103f0ac963773217160c7708f31bdc3710e8c86309cefc1707be56a9431f,/home/user/asx-data/raw/08/37/0837103f0ac963773217160c7708f31bdc3710e8c86309cefc1707be56a9431f,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -3166,7 +3166,7 @@ was this provided? Not applicable
  
  
 For personal use only",0d04a808ec222b9138b79656465ecc354b429bdfcfcc31d5ac86c667bd249468,pypdf-6.16.1
-334,manual_capture,329670.pdf,3915,,Black Canyon Limited,,app_3y,,,2026-08-19 13:53:24.176462+00,564397ff00a36d1ffc3a9b7ab3b9b9ccedf7030bc5d1721f9f18a1785dd2cab4,/home/user/asx-data/raw/56/43/564397ff00a36d1ffc3a9b7ab3b9b9ccedf7030bc5d1721f9f18a1785dd2cab4,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+334,manual_capture,329670.pdf,3915,,Black Canyon Limited,,app_3y,,2026-08-19 05:36:17+00,2026-08-19 13:53:24.176462+00,564397ff00a36d1ffc3a9b7ab3b9b9ccedf7030bc5d1721f9f18a1785dd2cab4,/home/user/asx-data/raw/56/43/564397ff00a36d1ffc3a9b7ab3b9b9ccedf7030bc5d1721f9f18a1785dd2cab4,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -3281,7 +3281,7 @@ provided?
  
  
 For personal use only",a8f342811ae35aa38be984bd3f35cbba2dea7b1f3fc357af55c94444891cb4a3,pypdf-6.16.1
-335,manual_capture,329671.pdf,3915,,Black Canyon Limited,,app_3y,,,2026-08-19 13:53:24.345874+00,294fdce7fe806346c0fb3f780b190e51ab0daec319d0cc7b8aaec40e6ddedc5c,/home/user/asx-data/raw/29/4f/294fdce7fe806346c0fb3f780b190e51ab0daec319d0cc7b8aaec40e6ddedc5c,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+335,manual_capture,329671.pdf,3915,,Black Canyon Limited,,app_3y,,2026-08-19 05:37:47+00,2026-08-19 13:53:24.345874+00,294fdce7fe806346c0fb3f780b190e51ab0daec319d0cc7b8aaec40e6ddedc5c,/home/user/asx-data/raw/29/4f/294fdce7fe806346c0fb3f780b190e51ab0daec319d0cc7b8aaec40e6ddedc5c,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -3400,7 +3400,7 @@ provided?
 - 
  
 For personal use only",75ec565c12d6b8659ed1f548cc2e03eed4d95f9851031019a7dfdf9c2cf518e9,pypdf-6.16.1
-336,manual_capture,328655.pdf,3872,,AUGUSTUS MINERALS LIMITED,,app_3y,,,2026-08-19 13:56:13.648669+00,a8ff8a7201a66000301512bc2ba36dcfd49df55ad8d0738d3062ebcee4056b24,/home/user/asx-data/raw/a8/ff/a8ff8a7201a66000301512bc2ba36dcfd49df55ad8d0738d3062ebcee4056b24,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+336,manual_capture,328655.pdf,3872,,AUGUSTUS MINERALS LIMITED,,app_3y,,2026-08-17 08:14:18+00,2026-08-19 13:56:13.648669+00,a8ff8a7201a66000301512bc2ba36dcfd49df55ad8d0738d3062ebcee4056b24,/home/user/asx-data/raw/a8/ff/a8ff8a7201a66000301512bc2ba36dcfd49df55ad8d0738d3062ebcee4056b24,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -3540,7 +3540,7 @@ Change of Director’s Interest Notice
  
  
 For personal use only",203d66565d5beeb684a04cb0a0dc370eda8e36744bc03f25ec0aa157eb0d909a,pypdf-6.16.1
-337,manual_capture,327881.pdf,4098,,Coda Minerals Ltd,,app_3y,,,2026-08-19 14:04:09.238595+00,dbc2eccb5fd4efb8338a0a7ae4e4f0802b2d7ae6a8c44b6b587cc9c212fd112d,/home/user/asx-data/raw/db/c2/dbc2eccb5fd4efb8338a0a7ae4e4f0802b2d7ae6a8c44b6b587cc9c212fd112d,unparsed,,,,manual_capture,,,,,,"Appendix	3Y	Change	of	Director’s	Interest	Notice		 
+337,manual_capture,327881.pdf,4098,,Coda Minerals Ltd,,app_3y,,2026-08-13 12:37:04+00,2026-08-19 14:04:09.238595+00,dbc2eccb5fd4efb8338a0a7ae4e4f0802b2d7ae6a8c44b6b587cc9c212fd112d,/home/user/asx-data/raw/db/c2/dbc2eccb5fd4efb8338a0a7ae4e4f0802b2d7ae6a8c44b6b587cc9c212fd112d,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix	3Y	Change	of	Director’s	Interest	Notice		 
 	+	See	chapter	19	for	defined	terms.		01/01/2011	Appendix	3Y		Page	1		
 Rule	3.19A.2	Appendix 3Y  Change of Director’s Interest Notice  Information	or	documents	not	available	now	must	be	given	to	ASX	as	soon	as	available.		Information	and	documents	given	to	ASX	become	ASX’s	property	and	may	be	made	public.	Introduced 30/09/01  Amended 01/01/11  Name of entity   Coda Minerals Ltd ABN                     49 625 763 957  We	(the	entity)	give	ASX	the	following	information	under	listing	rule	3.19A.2	and	as	agent	for	the	director	for	the	purposes	of	section	205G	of	the	Corporations	Act.				Name of Director Keith	Jones	Date of last notice 8	December	2025	 Part 1 - Change of director’s relevant interests in securities In	the	case	of	a	trust,	this	includes	interests	in	the	trust	made	available	by	the	responsible	entity	of	the	trust	 Note:	In	the	case	of	a	company,	interests	which	come	within	paragraph	(i)	of	the	definition	of	“notifiable	interest	of	a	director”	should	be	disclosed	in	this	part.	 Direct or indirect interest Indirect	Nature of indirect interest (including registered holder) Note:	Provide	details	of	the	circumstances	giving	rise	to	the	relevant	interest.	 
 White	 Silk	 Pty	 Ltd	 <Jones	 No	 1	 Trust	A/C>	-	director	of	trustee	and	beneficiary	of	account		Date of change 10	August	2026	No. of securities held prior to change White	 Silk	 Pty	 Ltd	 <Jones	 No	 1	 Trust	A/C>	-	director	of	trustee	and	beneficiary	of	account		13,349,449	fully	paid	ordinary	shares		2,388,890	 listed	 options,	 exercise	 price	$0.15	and	expiring	on	28	March	2029		K	 &	 J	 Corporate	 Pty	 Ltd	–	director	 and	shareholder	733,334	fully	paid	ordinary	shares			Class Fully	paid	ordinary	shares		Listed	 options,	 exercise	 price	 $0.15	 and	expiring	on	28	March	2029	
@@ -3645,7 +3645,7 @@ Interest acquired 	Interest disposed 	Value/Consideration Note:	 If	 considerati
 Interest after change 	 Part 3 – +Closed period  Were the interests in the securities or contracts detailed above traded during a +closed period where prior written clearance was required? No 
 If so, was prior written clearance provided to allow the trade to proceed during this period? N/A If prior written clearance was provided, on what date was this provided? N/A    
 For personal use only",d649a923699dc859a55a33de0b7c44bd73525497bf31b5e6b0abe106636d1d3f,pypdf-6.16.1
-338,manual_capture,327912.pdf,3729,,Aland Equity Group Limited,,app_3y,,,2026-08-19 14:04:09.474645+00,6ef21f7f3b3e95e0f7ea3e1c9170c5ce1198a0f3ec73787ea24c55fb58fdd869,/home/user/asx-data/raw/6e/f2/6ef21f7f3b3e95e0f7ea3e1c9170c5ce1198a0f3ec73787ea24c55fb58fdd869,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+338,manual_capture,327912.pdf,3729,,Aland Equity Group Limited,,app_3y,,2026-08-14 06:32:53+00,2026-08-19 14:04:09.474645+00,6ef21f7f3b3e95e0f7ea3e1c9170c5ce1198a0f3ec73787ea24c55fb58fdd869,/home/user/asx-data/raw/6e/f2/6ef21f7f3b3e95e0f7ea3e1c9170c5ce1198a0f3ec73787ea24c55fb58fdd869,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -3947,7 +3947,7 @@ what date was this provided?
 N/A 
  
 For personal use only",15d65a28a383c75c948ab16d7e2a423a09d718e0ac680c9873521f4fe809ff74,pypdf-6.16.1
-340,manual_capture,327997.pdf,4558,,INVERT GRAPHITE LIMITED,,app_3y,,,2026-08-19 14:04:10.353738+00,f96bf85451233872ffd6be32c3a88c3a24e2873387ce69dd5663079bc040a769,/home/user/asx-data/raw/f9/6b/f96bf85451233872ffd6be32c3a88c3a24e2873387ce69dd5663079bc040a769,unparsed,,,,manual_capture,,,,,,"Appendix	3Y	Change	of	Director’s	Interest	Notice			 Rule 3.19A.2 Appendix 3Y Change of Director’s Interest Notice  Information or documents not available now must be given to ASX as soon as available. Information and documents given to ASX become ASX’s property and may be made public. Introduced 30/09/01 Amended 01/01/11  Name of entity INVERT GRAPHITE LIMITED ABN 45 101 955 088  We (the entity) give ASX the following information under listing rule 3.19A.2 and as agent for the director for the purposes of section 205G of the Corporations Act.  Name of Director Simon Taylor Date of last notice 26 June 2026 Part 1 - Change of director’s relevant interests in securities In the case of a trust, this includes interests in the trust made available by the responsible entity of the trust Note: In the case of a company, interests which come within paragraph (i) of the definition of “notifiable interest of a director” should be disclosed in this part.  Direct or indirect interest Indirect Nature of interest (including registered holder) Note: Provide details of the circumstances giving rise to the relevant interest. 
+340,manual_capture,327997.pdf,4558,,INVERT GRAPHITE LIMITED,,app_3y,,2026-08-13 08:18:33+00,2026-08-19 14:04:10.353738+00,f96bf85451233872ffd6be32c3a88c3a24e2873387ce69dd5663079bc040a769,/home/user/asx-data/raw/f9/6b/f96bf85451233872ffd6be32c3a88c3a24e2873387ce69dd5663079bc040a769,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix	3Y	Change	of	Director’s	Interest	Notice			 Rule 3.19A.2 Appendix 3Y Change of Director’s Interest Notice  Information or documents not available now must be given to ASX as soon as available. Information and documents given to ASX become ASX’s property and may be made public. Introduced 30/09/01 Amended 01/01/11  Name of entity INVERT GRAPHITE LIMITED ABN 45 101 955 088  We (the entity) give ASX the following information under listing rule 3.19A.2 and as agent for the director for the purposes of section 205G of the Corporations Act.  Name of Director Simon Taylor Date of last notice 26 June 2026 Part 1 - Change of director’s relevant interests in securities In the case of a trust, this includes interests in the trust made available by the responsible entity of the trust Note: In the case of a company, interests which come within paragraph (i) of the definition of “notifiable interest of a director” should be disclosed in this part.  Direct or indirect interest Indirect Nature of interest (including registered holder) Note: Provide details of the circumstances giving rise to the relevant interest. 
  Indirect (a) Jimzbal Pty Ltd <Jimzbal Super A/C> (Director and beneficiary)  (b) Jimbzal Pty Ltd <Taylor Family A/C> (Director and beneficiary)  Date of change 14 August 2026 No. of securities held prior to change  (a) 6,066,667 fully paid ordinary shares 15,880,000 fully paid ordinary shares subject to trading restriction of 24 months from official quotation of IVG securities (b) 333,333 fully paid ordinary shares 4,000,000 unlisted options expiring 26 June 2030   Number acquired 6,666,667 fully paid ordinary shares  Number disposed Nil   +	See	chapter	19	for	defined	terms.	01/01/2011	Appendix	3Y	Page	1	
 For personal use only
 
@@ -3988,7 +3988,7 @@ Placement shares issued pursuant to the terms and conditions approved by Shareho
 Interest after change   Part 3 – +Closed period  Were the interests in the securities or contracts detailed above traded during a +closed period where prior written clearance was required? Yes 
 If so, was prior written clearance provided to allow the trade to proceed during this period?  Yes If prior written clearance was provided, on what date was this provided?  13 August 2026  +	See	chapter	19	for	defined	terms.	Appendix	3Y	Page	2	 01/01/2011	
 For personal use only",cf2e4552b43c51119f3c354306d12759d6a75bc4cc6a24a599083b7d7af9b6fe,pypdf-6.16.1
-341,manual_capture,328003.pdf,4801,,328003,,other,,,2026-08-19 14:04:10.570484+00,ca7385935e8376eab6ef8aee449ff558e86762a6a1d56dc3f5adf61b77632784,/home/user/asx-data/raw/ca/73/ca7385935e8376eab6ef8aee449ff558e86762a6a1d56dc3f5adf61b77632784,not_applicable,,,,manual_capture,,,,,,"Appendix 3X 
+341,manual_capture,328003.pdf,4801,,328003,,other,,2026-08-14 00:21:40+00,2026-08-19 14:04:10.570484+00,ca7385935e8376eab6ef8aee449ff558e86762a6a1d56dc3f5adf61b77632784,/home/user/asx-data/raw/ca/73/ca7385935e8376eab6ef8aee449ff558e86762a6a1d56dc3f5adf61b77632784,not_applicable,,,,manual_capture,,,,,pdf_creation,"Appendix 3X 
 Initial Director’s Interest Notice 
  
  
@@ -4114,7 +4114,7 @@ N/A
  
  
 For personal use only",db45e7be0d52d591b36e7d86a13ec9d5273dd1ce5de5f15afbf1d9cb69490130,pypdf-6.16.1
-342,manual_capture,328012.pdf,,,Aura,,app_3y,,,2026-08-19 14:04:10.96283+00,1a5cae4d341e172dc64f553f76e6295bb09dddc0a6a0583a0d48e52b5217b005,/home/user/asx-data/raw/1a/5c/1a5cae4d341e172dc64f553f76e6295bb09dddc0a6a0583a0d48e52b5217b005,unparsed,,,,manual_capture,,,,,,"Appendix  3Y  Change  of  Director’s  Interest  Notice   
+342,manual_capture,328012.pdf,,,Aura,,app_3y,,2026-08-14 07:21:00+00,2026-08-19 14:04:10.96283+00,1a5cae4d341e172dc64f553f76e6295bb09dddc0a6a0583a0d48e52b5217b005,/home/user/asx-data/raw/1a/5c/1a5cae4d341e172dc64f553f76e6295bb09dddc0a6a0583a0d48e52b5217b005,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix  3Y  Change  of  Director’s  Interest  Notice   
  
 Rule
  
@@ -4249,7 +4249,7 @@ N/A
  
  +  See  chapter  19  for  defined  terms.   01/01/2011  Appendix  3Y   Page  3   
 For personal use only",e051a07224b8a37c17699abf3b3028375535f39ddeb455698f267c84c4d7e3f4,pypdf-6.16.1
-343,manual_capture,328014.pdf,4842,,Noronex Limited,,app_3y,,,2026-08-19 14:04:11.217935+00,8b0b7dcb4aeb0c5e4131ea4fcc3e953ff368e4919dcbf6358b7b506f4d502b14,/home/user/asx-data/raw/8b/0b/8b0b7dcb4aeb0c5e4131ea4fcc3e953ff368e4919dcbf6358b7b506f4d502b14,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+343,manual_capture,328014.pdf,4842,,Noronex Limited,,app_3y,,2026-08-14 07:28:33+00,2026-08-19 14:04:11.217935+00,8b0b7dcb4aeb0c5e4131ea4fcc3e953ff368e4919dcbf6358b7b506f4d502b14,/home/user/asx-data/raw/8b/0b/8b0b7dcb4aeb0c5e4131ea4fcc3e953ff368e4919dcbf6358b7b506f4d502b14,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -4380,7 +4380,7 @@ N/A
  
  
 For personal use only",735699a6d3d1e3162e23a9e731d1ee7c05d91a129dd4c606273452f879ee39d8,pypdf-6.16.1
-344,manual_capture,328020.pdf,4842,,Noronex Limited,,app_3y,,,2026-08-19 14:04:11.445849+00,14e97fe15d473b1106082806ca9d54bcdef6e52c24bc996cafaf274393a31668,/home/user/asx-data/raw/14/e9/14e97fe15d473b1106082806ca9d54bcdef6e52c24bc996cafaf274393a31668,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+344,manual_capture,328020.pdf,4842,,Noronex Limited,,app_3y,,2026-08-14 07:30:11+00,2026-08-19 14:04:11.445849+00,14e97fe15d473b1106082806ca9d54bcdef6e52c24bc996cafaf274393a31668,/home/user/asx-data/raw/14/e9/14e97fe15d473b1106082806ca9d54bcdef6e52c24bc996cafaf274393a31668,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -4507,7 +4507,7 @@ N/A
  
  
 For personal use only",bba297ef4fe37adb790dc02f7ea1550fafacda35bd9054657503535354d183a6,pypdf-6.16.1
-345,manual_capture,328021.pdf,5214,,Southern Palladium Limited,,app_3y,,,2026-08-19 14:04:11.724243+00,060606f076d48887a5393d91f2ab44efda33c08966bee0e9e45fea5872859ea6,/home/user/asx-data/raw/06/06/060606f076d48887a5393d91f2ab44efda33c08966bee0e9e45fea5872859ea6,unparsed,,,,manual_capture,,,,,," 
+345,manual_capture,328021.pdf,5214,,Southern Palladium Limited,,app_3y,,2026-08-14 05:30:53+00,2026-08-19 14:04:11.724243+00,060606f076d48887a5393d91f2ab44efda33c08966bee0e9e45fea5872859ea6,/home/user/asx-data/raw/06/06/060606f076d48887a5393d91f2ab44efda33c08966bee0e9e45fea5872859ea6,unparsed,,,,manual_capture,,,,,pdf_creation," 
 Southern Palladium Limited 
 ACN 646 391 899 
 Level 1, 283 George Street, Sydney NSW 2000 Australia 
@@ -4689,7 +4689,7 @@ N/A
  
 14 August 2026 
 For personal use only",a5e89263b380a5d44bafd7191a4792dd99888f8079865382f16732a88be022f9,pypdf-6.16.1
-346,manual_capture,328031.pdf,4842,,Noronex Limited,,app_3y,,,2026-08-19 14:04:11.941134+00,c4cbf5a9699126a8ac31c8f2a10999368f463eb0064c483c1c8700621c8dd4e1,/home/user/asx-data/raw/c4/cb/c4cbf5a9699126a8ac31c8f2a10999368f463eb0064c483c1c8700621c8dd4e1,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+346,manual_capture,328031.pdf,4842,,Noronex Limited,,app_3y,,2026-08-14 07:27:56+00,2026-08-19 14:04:11.941134+00,c4cbf5a9699126a8ac31c8f2a10999368f463eb0064c483c1c8700621c8dd4e1,/home/user/asx-data/raw/c4/cb/c4cbf5a9699126a8ac31c8f2a10999368f463eb0064c483c1c8700621c8dd4e1,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -4821,7 +4821,7 @@ N/A
  
  
 For personal use only",deff2b8ea639ad4efa04f4aa1e104f9545b6e59f14df7184043cc28399e9cd80,pypdf-6.16.1
-347,manual_capture,328043.pdf,4083,,CASSIUS MINING LIMITED,,app_3y,,,2026-08-19 14:04:12.146698+00,93ee2b1fe59586ce0c9ce96ceb4cacecf21065500a4a7aa303bedd4c36571362,/home/user/asx-data/raw/93/ee/93ee2b1fe59586ce0c9ce96ceb4cacecf21065500a4a7aa303bedd4c36571362,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+347,manual_capture,328043.pdf,4083,,CASSIUS MINING LIMITED,,app_3y,,2026-08-14 07:34:17+00,2026-08-19 14:04:12.146698+00,93ee2b1fe59586ce0c9ce96ceb4cacecf21065500a4a7aa303bedd4c36571362,/home/user/asx-data/raw/93/ee/93ee2b1fe59586ce0c9ce96ceb4cacecf21065500a4a7aa303bedd4c36571362,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -5577,7 +5577,7 @@ N/A
  
  
 For personal use only",ca073792637003e202f836899184dc324164d90e2fbb37ab9c8e054bd9e09e75,pypdf-6.16.1
-349,manual_capture,328049.pdf,4123,,Caprice Resources Ltd,,app_3y,,,2026-08-19 14:04:12.840158+00,7251e561e1f89f7f514b0dd90f54e30fab2d0b04d08980810ead23d03dad9295,/home/user/asx-data/raw/72/51/7251e561e1f89f7f514b0dd90f54e30fab2d0b04d08980810ead23d03dad9295,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+349,manual_capture,328049.pdf,4123,,Caprice Resources Ltd,,app_3y,,2026-08-14 07:51:00+00,2026-08-19 14:04:12.840158+00,7251e561e1f89f7f514b0dd90f54e30fab2d0b04d08980810ead23d03dad9295,/home/user/asx-data/raw/72/51/7251e561e1f89f7f514b0dd90f54e30fab2d0b04d08980810ead23d03dad9295,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -5745,7 +5745,7 @@ provided?
  
  
 For personal use only",5490c33d758dd43503b39eddaf7089b941bb0fcefd5db770507692256944ff6b,pypdf-6.16.1
-350,manual_capture,328189.pdf,4631,,London City Equities Limited,,app_3y,,,2026-08-19 14:04:13.277972+00,d0688b1c41022aaf076b0d684bce6b83334e1eb16e66566c54f96dcef2dc1105,/home/user/asx-data/raw/d0/68/d0688b1c41022aaf076b0d684bce6b83334e1eb16e66566c54f96dcef2dc1105,unparsed,,,,manual_capture,,,,,,"Appendix 3Y
+350,manual_capture,328189.pdf,4631,,London City Equities Limited,,app_3y,,2026-08-14 21:26:20+00,2026-08-19 14:04:13.277972+00,d0688b1c41022aaf076b0d684bce6b83334e1eb16e66566c54f96dcef2dc1105,/home/user/asx-data/raw/d0/68/d0688b1c41022aaf076b0d684bce6b83334e1eb16e66566c54f96dcef2dc1105,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y
  
 Change of Director’s Interest Notice
  
@@ -6848,7 +6848,7 @@ Signed ………………………………….
 2026
  
 For personal use only",feaf4b2479804eb0b2488617098991692ca7bbf6974cfc305220f741dc6e75d6,pypdf-6.16.1
-351,manual_capture,328229.pdf,3912,,Baby Bunting Group Limited,,app_3y,,,2026-08-19 14:04:13.517963+00,25a7acc033f962e34e275aa652310718429045c3d5ed6f506f82d86ed2e8b9ae,/home/user/asx-data/raw/25/a7/25a7acc033f962e34e275aa652310718429045c3d5ed6f506f82d86ed2e8b9ae,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+351,manual_capture,328229.pdf,3912,,Baby Bunting Group Limited,,app_3y,,2026-08-14 01:35:41+00,2026-08-19 14:04:13.517963+00,25a7acc033f962e34e275aa652310718429045c3d5ed6f506f82d86ed2e8b9ae,/home/user/asx-data/raw/25/a7/25a7acc033f962e34e275aa652310718429045c3d5ed6f506f82d86ed2e8b9ae,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7022,7 +7022,7 @@ Not applicable
  
  
 For personal use only",3137dd4f2d7965ccfb6e8af6544f00b13bce392726a70a90c2f088c56c2556f5,pypdf-6.16.1
-352,manual_capture,328396.pdf,3994,,BEETALOO ENERGY AUSTRALIA LIMITED,,app_3y,,,2026-08-19 14:04:13.797916+00,d70e5f3e1297d8c5ce4ee3460de21be1b7898b4b93c6a682b11199df61305b1b,/home/user/asx-data/raw/d7/0e/d70e5f3e1297d8c5ce4ee3460de21be1b7898b4b93c6a682b11199df61305b1b,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+352,manual_capture,328396.pdf,3994,,BEETALOO ENERGY AUSTRALIA LIMITED,,app_3y,,2026-08-16 23:51:07+00,2026-08-19 14:04:13.797916+00,d70e5f3e1297d8c5ce4ee3460de21be1b7898b4b93c6a682b11199df61305b1b,/home/user/asx-data/raw/d7/0e/d70e5f3e1297d8c5ce4ee3460de21be1b7898b4b93c6a682b11199df61305b1b,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7166,7 +7166,7 @@ N/A
  
  
 For personal use only",6d112ecfc056c5c5afd1cf89afaeef15287f06a2e8c7a997df3315ffdad96acc,pypdf-6.16.1
-353,manual_capture,328515.pdf,4378,,Great Bear Exploration Ltd,,app_3y,,,2026-08-19 14:06:07.588259+00,85ddb34dc859bb40e630960c909985e38127154acd7dd40d6e66c3cb9dbdd178,/home/user/asx-data/raw/85/dd/85ddb34dc859bb40e630960c909985e38127154acd7dd40d6e66c3cb9dbdd178,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+353,manual_capture,328515.pdf,4378,,Great Bear Exploration Ltd,,app_3y,,2026-08-17 04:07:32+00,2026-08-19 14:06:07.588259+00,85ddb34dc859bb40e630960c909985e38127154acd7dd40d6e66c3cb9dbdd178,/home/user/asx-data/raw/85/dd/85ddb34dc859bb40e630960c909985e38127154acd7dd40d6e66c3cb9dbdd178,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7286,7 +7286,7 @@ N/A
  
  
 For personal use only",8c7c91aa707c04c1b94d4cbad84314fb8a5820a472e6c7ef297c573247da94ea,pypdf-6.16.1
-354,manual_capture,328542.pdf,4102,,COMET RIDGE LIMITED,,app_3y,,,2026-08-19 14:06:07.876976+00,5982e464d2a4abfdc5ba8878979fdee44e02cfa38db4ae9f5a94aec50e583632,/home/user/asx-data/raw/59/82/5982e464d2a4abfdc5ba8878979fdee44e02cfa38db4ae9f5a94aec50e583632,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+354,manual_capture,328542.pdf,4102,,COMET RIDGE LIMITED,,app_3y,,2026-08-17 06:02:15+00,2026-08-19 14:06:07.876976+00,5982e464d2a4abfdc5ba8878979fdee44e02cfa38db4ae9f5a94aec50e583632,/home/user/asx-data/raw/59/82/5982e464d2a4abfdc5ba8878979fdee44e02cfa38db4ae9f5a94aec50e583632,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7448,7 +7448,7 @@ If prior written clearance was provided, on what date was
 this provided? Not Applicable 
  
 For personal use only",417309b6be1fdff32cb0d37ae47b7a21e785cde62294eaabe09ec8fd7a7de5a2,pypdf-6.16.1
-355,manual_capture,328547.pdf,5131,,Scalare Partners Holdings Limited,,app_3y,,,2026-08-19 14:06:08.170913+00,ac7f3facf176b44c4dacc645db0960a587ed888d62524802a43878e340a7ecf4,/home/user/asx-data/raw/ac/7f/ac7f3facf176b44c4dacc645db0960a587ed888d62524802a43878e340a7ecf4,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+355,manual_capture,328547.pdf,5131,,Scalare Partners Holdings Limited,,app_3y,,2026-08-17 06:16:00+00,2026-08-19 14:06:08.170913+00,ac7f3facf176b44c4dacc645db0960a587ed888d62524802a43878e340a7ecf4,/home/user/asx-data/raw/ac/7f/ac7f3facf176b44c4dacc645db0960a587ed888d62524802a43878e340a7ecf4,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7568,7 +7568,7 @@ this provided?
 N/A 
  
 For personal use only",588c8a4bad9d2ccbb21c87a6002d497c644066ceb7108ae8d20243143ee53d54,pypdf-6.16.1
-356,manual_capture,328548.pdf,4102,,COMET RIDGE LIMITED,,app_3y,,,2026-08-19 14:06:08.431397+00,646e39c449417edaf5b12c07acd60f7bacd67ed0f6bbd44fb2e140c79679dd9f,/home/user/asx-data/raw/64/6e/646e39c449417edaf5b12c07acd60f7bacd67ed0f6bbd44fb2e140c79679dd9f,unparsed,,,,manual_capture,,,,,,"  
+356,manual_capture,328548.pdf,4102,,COMET RIDGE LIMITED,,app_3y,,2026-08-17 06:09:40+00,2026-08-19 14:06:08.431397+00,646e39c449417edaf5b12c07acd60f7bacd67ed0f6bbd44fb2e140c79679dd9f,/home/user/asx-data/raw/64/6e/646e39c449417edaf5b12c07acd60f7bacd67ed0f6bbd44fb2e140c79679dd9f,unparsed,,,,manual_capture,,,,,pdf_creation,"  
 Rule 3.19A.2 
 Appendix 3Y 
  
@@ -7738,7 +7738,7 @@ If prior written clearance was provided, on what date was
 this provided? N/A 
  
 For personal use only",3577a6d2bbeb8aaa8fa49516e066be5ff02acca4343c9e8be49fa775f45ca0ae,pypdf-6.16.1
-357,manual_capture,328554.pdf,4102,,Comet Ridge Limited,,app_3y,,,2026-08-19 14:06:08.664819+00,bda1f394c44e9024e914a201d4eccac9b806c12573b90e4d51f75ee9ad5bcdcd,/home/user/asx-data/raw/bd/a1/bda1f394c44e9024e914a201d4eccac9b806c12573b90e4d51f75ee9ad5bcdcd,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+357,manual_capture,328554.pdf,4102,,Comet Ridge Limited,,app_3y,,2026-08-17 06:21:17+00,2026-08-19 14:06:08.664819+00,bda1f394c44e9024e914a201d4eccac9b806c12573b90e4d51f75ee9ad5bcdcd,/home/user/asx-data/raw/bd/a1/bda1f394c44e9024e914a201d4eccac9b806c12573b90e4d51f75ee9ad5bcdcd,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -7866,7 +7866,7 @@ Not Applicable
  
  
 For personal use only",60b01dec7030d8afd5a4506948aea589f28562f85e17f20f14b3e8f9ff613fda,pypdf-6.16.1
-358,manual_capture,328561.pdf,5131,,Scalare Partners Holdings Limited,,app_3y,,,2026-08-19 14:06:09.076383+00,2d0a3e3372ab2b2c011325147135eec30bbca171731b6859406c9b0ac2923d59,/home/user/asx-data/raw/2d/0a/2d0a3e3372ab2b2c011325147135eec30bbca171731b6859406c9b0ac2923d59,unparsed,,,,manual_capture,,,,,," 
+358,manual_capture,328561.pdf,5131,,Scalare Partners Holdings Limited,,app_3y,,2026-08-16 23:38:22+00,2026-08-19 14:06:09.076383+00,2d0a3e3372ab2b2c011325147135eec30bbca171731b6859406c9b0ac2923d59,/home/user/asx-data/raw/2d/0a/2d0a3e3372ab2b2c011325147135eec30bbca171731b6859406c9b0ac2923d59,unparsed,,,,manual_capture,,,,,pdf_creation," 
  
  
  
@@ -8069,7 +8069,7 @@ this provided?
 N/A 
  
 For personal use only",1a977ab7f2b379a364215b79b240471b48ab261d01285cd700ddb24920e59281,pypdf-6.16.1
-369,manual_capture,327604.pdf,,,Aura,,app_3y,,,2026-08-19 14:09:07.910328+00,1675bb6bd5f2cf7599dc979958698e1b558d79ab086548a2992ddaa0ee54406c,/home/user/asx-data/raw/16/75/1675bb6bd5f2cf7599dc979958698e1b558d79ab086548a2992ddaa0ee54406c,unparsed,,,,manual_capture,,,,,,"Appendix  3Y  Change  of  Director’s  Interest  Notice   
+369,manual_capture,327604.pdf,,,Aura,,app_3y,,2026-08-13 14:23:27+00,2026-08-19 14:09:07.910328+00,1675bb6bd5f2cf7599dc979958698e1b558d79ab086548a2992ddaa0ee54406c,/home/user/asx-data/raw/16/75/1675bb6bd5f2cf7599dc979958698e1b558d79ab086548a2992ddaa0ee54406c,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix  3Y  Change  of  Director’s  Interest  Notice   
  
 Rule
  
@@ -8204,7 +8204,7 @@ N/A
  
  +  See  chapter  19  for  defined  terms.   01/01/2011  Appendix  3Y   Page  3   
 For personal use only",5b5aaaa32558116e234b10af87f7c613d5aa1839ea058cb8b687770b14d66efe,pypdf-6.16.1
-370,manual_capture,327613.pdf,3781,,ALS Limited (Company),,app_3y,,,2026-08-19 14:09:08.161308+00,40cac9c140cbac51a0e13a65ffbdbb1019363c113346cb564dd802b24f947bfe,/home/user/asx-data/raw/40/ca/40cac9c140cbac51a0e13a65ffbdbb1019363c113346cb564dd802b24f947bfe,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+370,manual_capture,327613.pdf,3781,,ALS Limited (Company),,app_3y,,2026-08-13 11:23:11+00,2026-08-19 14:09:08.161308+00,40cac9c140cbac51a0e13a65ffbdbb1019363c113346cb564dd802b24f947bfe,/home/user/asx-data/raw/40/ca/40cac9c140cbac51a0e13a65ffbdbb1019363c113346cb564dd802b24f947bfe,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -8357,7 +8357,7 @@ N/A
  
  
 For personal use only",3907fdf1afe0e7c8fbeadfedeb961c21cc479b2c6d834a34182523a08b4bf9ec,pypdf-6.16.1
-371,manual_capture,327657.pdf,4663,,Litchfield Minerals Limited,,app_3y,,,2026-08-19 14:09:08.420237+00,bd6928c77fc20176f6a4c8ca723c5c9fed484190ca65e27e762628edefe8f4da,/home/user/asx-data/raw/bd/69/bd6928c77fc20176f6a4c8ca723c5c9fed484190ca65e27e762628edefe8f4da,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+371,manual_capture,327657.pdf,4663,,Litchfield Minerals Limited,,app_3y,,2026-08-13 21:31:39+00,2026-08-19 14:09:08.420237+00,bd6928c77fc20176f6a4c8ca723c5c9fed484190ca65e27e762628edefe8f4da,/home/user/asx-data/raw/bd/69/bd6928c77fc20176f6a4c8ca723c5c9fed484190ca65e27e762628edefe8f4da,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -8546,7 +8546,7 @@ provided?
  
  
 For personal use only",2ccf64b0f72224c84d41ccbedf3972c8335c2a8c0daecd869ac8060558af4e20,pypdf-6.16.1
-372,manual_capture,327718.pdf,4072,,Collins Foods Limited,,app_3y,,,2026-08-19 14:09:08.603927+00,48021c733c74900584f4fa520dec406a26a13037c5de065b258b7de42a395b82,/home/user/asx-data/raw/48/02/48021c733c74900584f4fa520dec406a26a13037c5de065b258b7de42a395b82,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+372,manual_capture,327718.pdf,4072,,Collins Foods Limited,,app_3y,,2026-08-13 23:24:09+00,2026-08-19 14:09:08.603927+00,48021c733c74900584f4fa520dec406a26a13037c5de065b258b7de42a395b82,/home/user/asx-data/raw/48/02/48021c733c74900584f4fa520dec406a26a13037c5de065b258b7de42a395b82,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -8654,7 +8654,7 @@ this provided? Not applicable
  
  
 For personal use only",72e3c3935b258097486b8b8469d1838eb6fa034b3bb4d3d389f55d5640a4f789,pypdf-6.16.1
-373,manual_capture,327722.pdf,4072,,Collins Foods Limited,,app_3y,,,2026-08-19 14:09:08.903693+00,67fb16fbebd6d206eace57800886ffb8bbd9107851366fcfecdf948cfbaa16fe,/home/user/asx-data/raw/67/fb/67fb16fbebd6d206eace57800886ffb8bbd9107851366fcfecdf948cfbaa16fe,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+373,manual_capture,327722.pdf,4072,,Collins Foods Limited,,app_3y,,2026-08-13 23:32:08+00,2026-08-19 14:09:08.903693+00,67fb16fbebd6d206eace57800886ffb8bbd9107851366fcfecdf948cfbaa16fe,/home/user/asx-data/raw/67/fb/67fb16fbebd6d206eace57800886ffb8bbd9107851366fcfecdf948cfbaa16fe,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -8761,7 +8761,7 @@ this provided? Not applicable
  
  
 For personal use only",114b3c4249251dec9cc436166d3ff15d4aedb30f53599a2d21fd117f1f90fb7e,pypdf-6.16.1
-374,manual_capture,327725.pdf,4345,,FMR Resources Ltd,,app_3y,,,2026-08-19 14:09:09.361922+00,bc246efb5dae4ba23efacadae20d158787ea5c665170027b506eca33528660dc,/home/user/asx-data/raw/bc/24/bc246efb5dae4ba23efacadae20d158787ea5c665170027b506eca33528660dc,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+374,manual_capture,327725.pdf,4345,,FMR Resources Ltd,,app_3y,,2026-08-13 22:35:53+00,2026-08-19 14:09:09.361922+00,bc246efb5dae4ba23efacadae20d158787ea5c665170027b506eca33528660dc,/home/user/asx-data/raw/bc/24/bc246efb5dae4ba23efacadae20d158787ea5c665170027b506eca33528660dc,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9240,7 +9240,7 @@ If so, was prior written clearance provided to allow the trade to proceed during
 If prior written clearance was provided, on what date was this provided? - 
  
 For personal use only",768c5e1f4348c0e4b8eafc26ae6e7ba2ae9cd9d921d4ea894f012833091b563d,pypdf-6.16.1
-375,manual_capture,327769.pdf,5020,,PYC THERAPEUTICS LIMITED,,app_3y,,,2026-08-19 14:09:09.649776+00,79336a017a6d21e18e3be8541d06c0d1716e2a17bf966d2b88905f01a1ebd45c,/home/user/asx-data/raw/79/33/79336a017a6d21e18e3be8541d06c0d1716e2a17bf966d2b88905f01a1ebd45c,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+375,manual_capture,327769.pdf,5020,,PYC THERAPEUTICS LIMITED,,app_3y,,2026-08-13 23:49:56+00,2026-08-19 14:09:09.649776+00,79336a017a6d21e18e3be8541d06c0d1716e2a17bf966d2b88905f01a1ebd45c,/home/user/asx-data/raw/79/33/79336a017a6d21e18e3be8541d06c0d1716e2a17bf966d2b88905f01a1ebd45c,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9391,7 +9391,7 @@ N/A
  
  
 For personal use only",4f07eeaf0c10cd4b3e70811720fd1ae92ad034854734c4c838eed1212efb2bcd,pypdf-6.16.1
-376,manual_capture,327777.pdf,4188,,Delta Lithium Limited,,app_3y,,,2026-08-19 14:09:09.885747+00,3172b94b894bf46299b2c0dcabd0937812d21abfc77039b08f72a972a8ea2572,/home/user/asx-data/raw/31/72/3172b94b894bf46299b2c0dcabd0937812d21abfc77039b08f72a972a8ea2572,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+376,manual_capture,327777.pdf,4188,,Delta Lithium Limited,,app_3y,,2026-08-14 00:11:50+00,2026-08-19 14:09:09.885747+00,3172b94b894bf46299b2c0dcabd0937812d21abfc77039b08f72a972a8ea2572,/home/user/asx-data/raw/31/72/3172b94b894bf46299b2c0dcabd0937812d21abfc77039b08f72a972a8ea2572,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9538,7 +9538,7 @@ n/a
  
  
 For personal use only",6ec2c8b728f1efb7dd47d724b28532bd67d3b7e4d99c80364e2177e72ca5d329,pypdf-6.16.1
-377,manual_capture,327778.pdf,4188,,DELTA LITHIUM LIMITED,,app_3y,,,2026-08-19 14:09:10.105906+00,bc7c137e2d4cc108babe9d05cebd223d993e2524b8f58349337c18c83aadcd23,/home/user/asx-data/raw/bc/7c/bc7c137e2d4cc108babe9d05cebd223d993e2524b8f58349337c18c83aadcd23,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+377,manual_capture,327778.pdf,4188,,DELTA LITHIUM LIMITED,,app_3y,,2026-08-14 00:10:52+00,2026-08-19 14:09:10.105906+00,bc7c137e2d4cc108babe9d05cebd223d993e2524b8f58349337c18c83aadcd23,/home/user/asx-data/raw/bc/7c/bc7c137e2d4cc108babe9d05cebd223d993e2524b8f58349337c18c83aadcd23,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9697,7 +9697,7 @@ N/A
  
  
 For personal use only",8f6db112217a52a30a4784ec0aab9ae715f5bf30766685273c67375419b4409f,pypdf-6.16.1
-378,manual_capture,327782.pdf,4188,,Delta Lithium Limited,,app_3y,,,2026-08-19 14:09:10.32125+00,00f57572f1c04893076f1236d9a7e0898866c5fe9b8fb1c971468622ef1682a6,/home/user/asx-data/raw/00/f5/00f57572f1c04893076f1236d9a7e0898866c5fe9b8fb1c971468622ef1682a6,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+378,manual_capture,327782.pdf,4188,,Delta Lithium Limited,,app_3y,,2026-08-14 01:30:29+00,2026-08-19 14:09:10.32125+00,00f57572f1c04893076f1236d9a7e0898866c5fe9b8fb1c971468622ef1682a6,/home/user/asx-data/raw/00/f5/00f57572f1c04893076f1236d9a7e0898866c5fe9b8fb1c971468622ef1682a6,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9848,7 +9848,7 @@ N/A
  
  
 For personal use only",396ee9035546afc31f36f953117da5e3d3ec9b8ede186de34c47ed419d9cf07d,pypdf-6.16.1
-379,manual_capture,327785.pdf,4378,,Great Bear Exploration Ltd (previously Hydrocarbon Dynamics Limited),,app_3y,,,2026-08-19 14:09:10.572013+00,fa761cdc8ae37ca1204b9f6304e0c82597815abedf356dd49fcb63dcead64829,/home/user/asx-data/raw/fa/76/fa761cdc8ae37ca1204b9f6304e0c82597815abedf356dd49fcb63dcead64829,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+379,manual_capture,327785.pdf,4378,,Great Bear Exploration Ltd (previously Hydrocarbon Dynamics Limited),,app_3y,,2026-08-14 01:36:24+00,2026-08-19 14:09:10.572013+00,fa761cdc8ae37ca1204b9f6304e0c82597815abedf356dd49fcb63dcead64829,/home/user/asx-data/raw/fa/76/fa761cdc8ae37ca1204b9f6304e0c82597815abedf356dd49fcb63dcead64829,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -9994,7 +9994,7 @@ N/A
  
  
 For personal use only",cf21f4c5add13b5f0abad15db34c29d729e56ec8ee04cf0c0993258e08e2457d,pypdf-6.16.1
-380,manual_capture,327811.pdf,4660,,Lunnon Metals Limited,,app_3y,,,2026-08-19 14:09:10.779549+00,801cc7f74aee9d5ea794c4e8533dd63e5c4ac440bcb705bb31347415ceede526,/home/user/asx-data/raw/80/1c/801cc7f74aee9d5ea794c4e8533dd63e5c4ac440bcb705bb31347415ceede526,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+380,manual_capture,327811.pdf,4660,,Lunnon Metals Limited,,app_3y,,2026-08-14 03:02:47+00,2026-08-19 14:09:10.779549+00,801cc7f74aee9d5ea794c4e8533dd63e5c4ac440bcb705bb31347415ceede526,/home/user/asx-data/raw/80/1c/801cc7f74aee9d5ea794c4e8533dd63e5c4ac440bcb705bb31347415ceede526,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -10152,7 +10152,7 @@ provided? N/A
  
  
 For personal use only",df3b0ec59679c9ce9f214abaf5b23ba45e7284bd6ac14cf8f0d6cdceef6ef9b0,pypdf-6.16.1
-381,manual_capture,327819.pdf,4430,,Greenvale Energy Limited,,app_3y,,,2026-08-19 14:09:11.010375+00,72528fd3fe748ca51af88ce482db00c2eb3f29a29413b4c878522e02d3a43fc3,/home/user/asx-data/raw/72/52/72528fd3fe748ca51af88ce482db00c2eb3f29a29413b4c878522e02d3a43fc3,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+381,manual_capture,327819.pdf,4430,,Greenvale Energy Limited,,app_3y,,2026-08-14 03:29:39+00,2026-08-19 14:09:11.010375+00,72528fd3fe748ca51af88ce482db00c2eb3f29a29413b4c878522e02d3a43fc3,/home/user/asx-data/raw/72/52/72528fd3fe748ca51af88ce482db00c2eb3f29a29413b4c878522e02d3a43fc3,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  
@@ -10319,7 +10319,7 @@ N/A
  
  
 For personal use only",97ea0c89c29b1d661621c4019d6c5f47d5e7bc7e3ea3742b2c593a0d079bcc0a,pypdf-6.16.1
-382,manual_capture,327850.pdf,5466,,Xpedra Resources Limited,,other,,,2026-08-19 14:09:11.252351+00,08ec456f06cfa3a06c3e5bf6627b578854f2973d4ca38b5ebf536580bc1d701e,/home/user/asx-data/raw/08/ec/08ec456f06cfa3a06c3e5bf6627b578854f2973d4ca38b5ebf536580bc1d701e,not_applicable,,,,manual_capture,,,,,,"Appendix 3X 
+382,manual_capture,327850.pdf,5466,,Xpedra Resources Limited,,other,,2026-08-14 04:31:43+00,2026-08-19 14:09:11.252351+00,08ec456f06cfa3a06c3e5bf6627b578854f2973d4ca38b5ebf536580bc1d701e,/home/user/asx-data/raw/08/ec/08ec456f06cfa3a06c3e5bf6627b578854f2973d4ca38b5ebf536580bc1d701e,not_applicable,,,,manual_capture,,,,,pdf_creation,"Appendix 3X 
 Initial Director’s Interest Notice 
  
  
@@ -10430,7 +10430,7 @@ interest relates
 N/A 
  
 For personal use only",0e859845e393a8222edf44579813103728080c6df7db17ae0c213721296831e5,pypdf-6.16.1
-383,manual_capture,327864.pdf,5428,,Western Gold Resources Limited,,app_3y,,,2026-08-19 14:09:11.466021+00,785726a478e366a613a4f89e6e1dd86aa59ac5150ac152bd049b6f367819a450,/home/user/asx-data/raw/78/57/785726a478e366a613a4f89e6e1dd86aa59ac5150ac152bd049b6f367819a450,unparsed,,,,manual_capture,,,,,,"Appendix 3Y 
+383,manual_capture,327864.pdf,5428,,Western Gold Resources Limited,,app_3y,,2026-08-14 04:50:33+00,2026-08-19 14:09:11.466021+00,785726a478e366a613a4f89e6e1dd86aa59ac5150ac152bd049b6f367819a450,/home/user/asx-data/raw/78/57/785726a478e366a613a4f89e6e1dd86aa59ac5150ac152bd049b6f367819a450,unparsed,,,,manual_capture,,,,,pdf_creation,"Appendix 3Y 
 Change of Director’s Interest Notice 
  
  

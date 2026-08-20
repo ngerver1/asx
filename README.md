@@ -70,9 +70,10 @@ asx universe --exclude-top 300 --out smallcaps.csv    # the access-decision size
 asx detect         # read the alert mailbox (Gmail API, IMAP, or saved .eml)
 asx snapshot --dir state           # durable state — the VM is ephemeral
 asx snapshot --dir state --restore # rebuild a fresh container
-# a document ingested before the text layer existed has no durable copy;
-# this finds its bytes wherever they still are and stores the reading
-asx backfill-text --from fixtures
+# a document ingested before the text layer or the dating existed carries
+# neither; this finds its bytes wherever they still are and records both.
+# An undated document produces no canonical rows, so this is not cosmetic.
+asx backfill --from fixtures
 asx worklist       # announcements awaiting your personal capture
 asx capture --capture-dir ~/asx-capture
 make test          # unit + integration tests incl. gold-set regression
