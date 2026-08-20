@@ -65,6 +65,37 @@ creates a second artifact and the owner keeps the stale one.
 two rows it changes are the two rows a reader would otherwise most easily
 misread. Republishing is a small job and has not been done.
 
+## Read docs/DD_2026-08-20.md before trusting a screen row
+
+Three of the 19 conviction rows do not mean what the ordering implies, and the
+worst of them cannot be seen from a 3Y at all. BSA — the largest
+single-director accumulation on the corpus — was funded by a $2,000,000 loan
+**from the company to its own Chair**, whose only permitted purpose is buying
+BSA shares (announced 9 June, drawn in Q4 FY26, on the Appendix 4C as
+"Director's loan to acquire BSA shares"). Meanwhile BSA revenue fell 89% to
+$32.1m. The screen ranked it #4 on conviction. Anyone reading the screen alone
+would have had it backwards.
+
+The DD note also carries what the announcements add to SPZ (bought the day
+after FY26 results, alongside a $5m buy-back and Microequities moving to
+14.97%) and to CBE (on-market status verified against source text, because a
+A$90M raise sits right beside those dates).
+
+## Every actionable date on both screens is early
+
+`actionable_from` is `lodged_at`'s date, and for 971 of 1,109 dated documents
+(88%) `lodged_at` is the PDF's *creation* time — when the company made the
+notice, not when ASX released it. Proven exactly on SPZ: created 19 Aug 20:20
+AEST, released by ASX 20 Aug 08:00 AEST. 11h40m early and on the wrong calendar
+day. Across five BSA notices the skew runs 2 minutes to nearly 3 days, always
+the same direction. It applied to all 28 signal rows.
+
+Both screens now carry `actionable_from_may_be_early` rather than asserting a
+date they cannot support. **That is a label, not a fix.** The fix is capturing a
+release timestamp at detection, and it deserves priority: until then every
+forward test the platform runs is flattered by up to a trading day, in the
+column that exists to stop exactly that.
+
 ## Reading the screens: counter_evidence
 
 Both screens now carry what the insiders of the same company were doing in
