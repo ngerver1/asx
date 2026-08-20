@@ -447,3 +447,25 @@ def test_the_captured_corpus_is_overwhelmingly_readable():
     named = [f for f in threes if f.get("entity_name") and f.get("director_name")]
     assert len(named) >= len(threes) - len(scrambled), (
         f"only {len(named)} of {len(threes)} forms yield entity and director")
+
+
+def test_the_form_names_itself_in_a_line_the_sweep_deletes():
+    """"Appendix 3Y Change of Director's Interest Notice" is both the
+    document's identity and a running header that lands in the middle of
+    cells, so it is deleted before any label is located. Most lodgements
+    repeat it in a page footer and survive losing one copy; three of 195 print
+    it exactly once, and were left with no form type at all — filed as
+    unreadable rather than as the ordinary 3Ys they are.
+
+    The form type is therefore read from the segment BEFORE the sweep.
+    """
+    for name in ("326268.pdf", "326319.pdf", "327093.pdf"):
+        assert _first(name).form == "app_3y", name
+
+
+def test_every_captured_document_has_a_form_type():
+    """Corpus canary. A document whose form cannot be named goes nowhere: no
+    parser claims it and no gap report counts it."""
+    unnamed = [path.name for path in sorted(DOCS.glob("*.pdf"))
+               for f in extract_all(_text(path.name)) if f.form is None]
+    assert not unnamed, f"form type not recognised: {unnamed}"

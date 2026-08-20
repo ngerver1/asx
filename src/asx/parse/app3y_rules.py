@@ -227,6 +227,20 @@ class RulesExtraction:
         return v or None
 
 
+def _flatten(text: str) -> str:
+    """Unicode fixes and whitespace collapse — nothing deleted.
+
+    Kept separate from the boilerplate sweep because the form NAMES ITSELF in
+    a line the sweep removes: "Appendix 3Y Change of Director's Interest
+    Notice" is both the document's identity and a running header that lands in
+    the middle of cells. Most lodgements repeat it in a page footer and so
+    survive losing one copy; three of 195 print it exactly once, and swept
+    text alone cannot say what form they are.
+    """
+    text = text.replace("\xa0", " ").replace("\u2019", "'")
+    return re.sub(r"[\s\u200b]+", " ", text).strip()
+
+
 def _normalise(text: str) -> str:
     """Flatten the document and delete the ASX template's own guidance.
 
@@ -242,8 +256,7 @@ def _normalise(text: str) -> str:
     Truncating at the note loses the figure; keeping it captures instructions
     as data. Deleting it once, up front, fixes every field at the same time.
     """
-    text = text.replace("\xa0", " ").replace("\u2019", "'")
-    text = re.sub(r"[\s\u200b]+", " ", text)
+    text = _flatten(text)
     # Swept repeatedly, because deleting one fragment brings two others
     # together: a page footer reads "Appendix 3Y Page 2 01/01/2011", and only
     # once "Page 2" is gone does "Appendix 3Y 01/01/2011" exist to be matched.
@@ -306,9 +319,18 @@ def split_forms(text: str) -> list[str]:
     before the first form is discarded with it, which is also what the
     letterhead-ABN problem needs.
     """
-    flat = _normalise(text)
+    return [_normalise(seg) for seg in _raw_segments(text)]
+
+
+def _raw_segments(text: str) -> list[str]:
+    """The lodgement split into one un-swept segment per form.
+
+    Split before sweeping, on a label the sweep never touches, so each
+    segment still carries the header that names its own form type.
+    """
+    flat = _flatten(text)
     starts = [m.start() for m in re.finditer(
-        r"\bName\s*of\s*entity\b", flat, re.I)]
+        _label_re("Name of entity").pattern, flat, re.I)]
     if not starts:
         return [flat]
     return [flat[a:b] for a, b in zip(starts, starts[1:] + [len(flat)])]
@@ -316,7 +338,7 @@ def split_forms(text: str) -> list[str]:
 
 def extract_all(text: str) -> list["RulesExtraction"]:
     """Every form in the lodgement, in document order."""
-    return [_extract_segment(seg) for seg in split_forms(text)]
+    return [_extract_segment(_normalise(raw), raw) for raw in _raw_segments(text)]
 
 
 def extract(text: str) -> RulesExtraction:
@@ -330,18 +352,24 @@ def extract(text: str) -> RulesExtraction:
     return forms[0] if forms else RulesExtraction()
 
 
-def _extract_segment(flat: str) -> RulesExtraction:
-    """Read one already-isolated form by locating its printed labels."""
+def _extract_segment(flat: str, raw: str | None = None) -> RulesExtraction:
+    """Read one already-isolated form by locating its printed labels.
+
+    `raw` is the same segment before the boilerplate sweep. The form type is
+    read from it, because the line that names the form is itself boilerplate
+    everywhere else it appears.
+    """
     out = RulesExtraction()
+    named = raw if raw is not None else flat
     # 3X is the INITIAL interest notice, lodged when a director is appointed.
     # Two of the sixty captured documents are 3Xs. Naming the form is what
     # keeps them out of the 3Y pipeline; leaving them unnamed would file them
     # as unreadable 3Ys, which reads as a parser failure rather than a form
     # this platform does not yet handle.
     out.form = (
-        "app_3z" if re.search(r"Appendix\s*3Z|Final Director'?s Interest", flat, re.I)
-        else "app_3x" if re.search(r"Appendix\s*3X|Initial Director'?s Interest", flat, re.I)
-        else "app_3y" if re.search(r"Appendix\s*3Y|Change of Director'?s Interest", flat, re.I)
+        "app_3z" if re.search(r"Appendix\s*3Z|Final Director'?s Interest", named, re.I)
+        else "app_3x" if re.search(r"Appendix\s*3X|Initial Director'?s Interest", named, re.I)
+        else "app_3y" if re.search(r"Appendix\s*3Y|Change of Director'?s Interest", named, re.I)
         else None)
 
     # Locate every label first, then slice between consecutive hits. Slicing
