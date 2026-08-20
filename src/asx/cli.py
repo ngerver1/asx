@@ -421,6 +421,20 @@ def cmd_snapshot(args) -> None:
             print(json.dumps({"exported": counts}, indent=2))
 
 
+def cmd_backfill_text(args) -> None:
+    """Store the durable text layer for documents ingested before it existed."""
+    from asx.raw.store import backfill_text
+
+    with db.connect() as conn:
+        counts = backfill_text(conn, [Path(d) for d in (args.source or [])])
+        conn.commit()
+    print(json.dumps(counts, indent=2))
+    if counts["bytes_lost"]:
+        print(f"\n{counts['bytes_lost']} document(s) have no findable bytes and "
+              f"stay unreadable. Point --from at a directory that holds them, "
+              f"or re-capture them.")
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import build_cluster_buys
 
@@ -558,6 +572,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--restore", action="store_true",
                    help="load a snapshot into an empty schema instead")
     p.set_defaults(fn=cmd_snapshot)
+
+    p = sub.add_parser("backfill-text",
+                       help="store the durable text layer for older documents")
+    p.add_argument("--from", dest="source", action="append", metavar="DIR",
+                   help="also look for document bytes under DIR (repeatable)")
+    p.set_defaults(fn=cmd_backfill_text)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
 

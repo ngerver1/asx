@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from asx.raw.store import ingest_document, read_document
+from asx.raw.store import backfill_text, ingest_document, read_document
 
 DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
 UTC = timezone.utc
@@ -123,3 +123,67 @@ def test_the_text_layer_is_a_fraction_of_the_original():
     packed = sum(len(gzip.compress(document_text(d.read_bytes()).encode(), 9))
                  for d in documents)
     assert raw / packed > 50, f"only {raw / packed:.0f}x"
+
+
+def _forget_the_text(conn, doc_id, stored_path):
+    """Put a document back the way migration 0020 found the corpus: bytes on a
+    disk that is about to vanish, and no durable text."""
+    with conn.cursor() as cur:
+        cur.execute("""UPDATE documents SET document_text = NULL,
+                       text_sha256 = NULL, text_extractor = NULL
+                       WHERE doc_id = %s""", (doc_id,))
+    Path(stored_path).unlink()
+
+
+def test_backfill_gives_a_pre_text_document_its_durable_copy(conn, tmp_path):
+    """0020 could not reach backwards: every document ingested before it had
+    no stored text, so when the old container went away read_document could
+    not return one of them. The text layer only protects a corpus it has been
+    run over."""
+    content = _pdf()
+    stored = _ingest(conn, content, tmp_path)
+    _forget_the_text(conn, stored.doc_id, stored.storage_path)
+
+    with pytest.raises(FileNotFoundError):
+        read_document(conn, stored.doc_id)
+
+    counts = backfill_text(conn, [DOCS])
+    assert counts == {"backfilled": 1, "no_text_layer": 0, "bytes_lost": 0}
+    assert b"Appendix 3Y" in read_document(conn, stored.doc_id)
+
+
+def test_backfill_is_idempotent(conn, tmp_path):
+    stored = _ingest(conn, _pdf(), tmp_path)
+    _forget_the_text(conn, stored.doc_id, stored.storage_path)
+    backfill_text(conn, [DOCS])
+    assert backfill_text(conn, [DOCS])["backfilled"] == 0
+
+
+def test_backfill_reports_a_document_whose_bytes_are_gone(conn, tmp_path):
+    """Counted and left NULL, never quietly marked done — an unreadable
+    document is a fact the operator has to see."""
+    stored = _ingest(conn, _pdf(), tmp_path)
+    _forget_the_text(conn, stored.doc_id, stored.storage_path)
+
+    counts = backfill_text(conn, [tmp_path / "nothing-here"])
+    assert counts["bytes_lost"] == 1 and counts["backfilled"] == 0
+    with conn.cursor() as cur:
+        cur.execute("SELECT document_text FROM documents WHERE doc_id = %s",
+                    (stored.doc_id,))
+        assert cur.fetchone()["document_text"] is None
+
+
+def test_backfill_trusts_the_hash_not_the_filename(conn, tmp_path):
+    """A file sitting where the document should be, carrying its name but not
+    its content, is a different document (Invariant 3)."""
+    content = _pdf()
+    stored = _ingest(conn, content, tmp_path)
+    _forget_the_text(conn, stored.doc_id, stored.storage_path)
+
+    decoy = tmp_path / "decoy"
+    decoy.mkdir()
+    (decoy / stored.sha256).write_bytes(b"%PDF-1.4 not the same document")
+
+    counts = backfill_text(conn, [decoy])
+    assert counts["bytes_lost"] == 1, "a mismatched file was trusted"
+    assert hashlib.sha256(content).hexdigest() == stored.sha256

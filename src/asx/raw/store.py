@@ -8,6 +8,7 @@ content; a second ingest of identical bytes is an idempotent no-op.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -227,3 +228,89 @@ def ingest_file(
         cur.execute("SELECT doc_id, storage_path FROM documents WHERE sha256 = %s", (sha,))
         row = cur.fetchone()
         return StoredDocument(row["doc_id"], sha, row["storage_path"], already_existed=True)
+
+
+def _index_by_hash(dirs: Sequence[Path]) -> dict[str, Path]:
+    """sha256 -> path for every file under `dirs`, so bytes can be found by
+    identity rather than by the filename they happen to carry."""
+    index: dict[str, Path] = {}
+    for d in dirs:
+        for p in Path(d).rglob("*"):
+            if p.is_file():
+                index.setdefault(hashlib.sha256(p.read_bytes()).hexdigest(), p)
+    return index
+
+
+def _locate(sha: str, storage_path: str | None,
+            index: dict[str, Path]) -> bytes | None:
+    """The document's original bytes, wherever they still are.
+
+    Identity is the hash, never the location: a candidate whose contents do
+    not hash to `sha` is a different document and is ignored rather than
+    trusted for having the right path.
+    """
+    candidates = [Path(storage_path)] if storage_path else []
+    candidates.append(raw_zone_root() / sha[:2] / sha[2:4] / sha)
+    if sha in index:
+        candidates.append(index[sha])
+    for c in candidates:
+        try:
+            if c.is_file():
+                content = c.read_bytes()
+                if hashlib.sha256(content).hexdigest() == sha:
+                    return content
+        except OSError:
+            continue
+    return None
+
+
+def backfill_text(conn: psycopg.Connection,
+                  search_dirs: Sequence[Path] = ()) -> dict[str, int]:
+    """Give documents ingested before the text layer a durable copy of it.
+
+    Migration 0020 made the extracted text the durable artifact and the file
+    on disk a cache, because the disk does not survive the container. It could
+    not reach backwards: every document ingested before it has document_text
+    NULL, so once the old container went away read_document could not return a
+    single one of them. The text layer only protects a corpus it has been run
+    over.
+
+    So this looks for the bytes wherever they still are — the recorded
+    storage_path, the raw zone, or a directory named on the command line, such
+    as the fixtures that happen to be committed to git — and stores the
+    reading. sha256 is untouched: it is the identity of the original artifact
+    (Invariant 3), and the bytes are verified against it before anything is
+    written.
+
+    A document that is found but yields no text is counted as `no_text_layer`
+    and left NULL rather than marked done. It is a scanned page, and pretending
+    otherwise would hide it from the review queue (Invariant 8).
+    """
+    index = _index_by_hash(search_dirs) if search_dirs else {}
+    counts = {"backfilled": 0, "no_text_layer": 0, "bytes_lost": 0}
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT doc_id, sha256, storage_path FROM documents
+               WHERE document_text IS NULL AND sha256 IS NOT NULL
+               ORDER BY doc_id""")
+        pending = cur.fetchall()
+
+    for row in pending:
+        content = _locate(row["sha256"], row["storage_path"], index)
+        if content is None:
+            counts["bytes_lost"] += 1
+            continue
+        text, text_sha, extractor = _extract_text(content)
+        if text is None:
+            counts["no_text_layer"] += 1
+            continue
+        with conn.cursor() as cur:
+            cur.execute(
+                """UPDATE documents
+                      SET document_text = %s, text_sha256 = %s,
+                          text_extractor = %s
+                    WHERE doc_id = %s AND document_text IS NULL""",
+                (text, text_sha, extractor, row["doc_id"]))
+        counts["backfilled"] += 1
+    return counts
