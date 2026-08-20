@@ -9,6 +9,8 @@ days later as a foreign-key error with no obvious cause.
 
 from __future__ import annotations
 
+import csv
+import hashlib
 from datetime import date
 from pathlib import Path
 
@@ -121,3 +123,48 @@ def test_the_committed_snapshot_restores_into_the_current_schema(conn):
         cur.execute("""SELECT count(*) AS n FROM documents
                        WHERE (lodged_at IS NULL) <> (lodged_at_source IS NULL)""")
         assert cur.fetchone()["n"] == 0
+
+
+def test_export_is_ordered_by_primary_key(populated, tmp_path):
+    """ORDER BY 1 is not a total order. Entity 3874 holds both AUQ and AUQN on
+    one date, so the planner was free to emit them either way and consecutive
+    exports of unchanged data produced different bytes — churn in a file whose
+    whole point is being read as a diff.
+    """
+    conn = populated
+    with conn.cursor() as cur:
+        cur.execute("""SELECT entity_id, as_at, source_load_id
+                       FROM listing_snapshots ORDER BY ticker DESC LIMIT 1""")
+        row = cur.fetchone()
+        # A second code for the same entity on the same date, sorting first.
+        cur.execute("""INSERT INTO listing_snapshots
+                         (entity_id, as_at, ticker, source_load_id)
+                       VALUES (%s, %s, 'AAA', %s)""",
+                    (row["entity_id"], row["as_at"], row["source_load_id"]))
+    conn.commit()
+
+    export_state(conn, tmp_path)
+    rows = list(csv.DictReader((tmp_path / "listing_snapshots.csv").open()))
+    keys = [(int(r["entity_id"]), r["as_at"], r["ticker"]) for r in rows]
+    assert keys == sorted(keys), "export is not in primary-key order"
+
+
+def test_export_counts_rows_not_lines(conn, tmp_path):
+    """document_text carries the newlines of the document it came from, so
+    counting them reported a 194-row table as 10,549 — and the number a
+    snapshot prints is the only check most operators will make on it."""
+    text = "Appendix 3Y\nDirector: A Person\nDate: 2026-08-19\n"
+    with conn.cursor() as cur:
+        cur.execute("""INSERT INTO documents
+                         (source, doc_class, parse_status,
+                          document_text, text_sha256)
+                       VALUES ('test', 'other', 'detected', %s, %s)""",
+                    (text, hashlib.sha256(text.encode()).hexdigest()))
+    conn.commit()
+
+    counts = export_state(conn, tmp_path)
+    assert counts["documents"] == 1
+
+    rows = list(csv.DictReader((tmp_path / "documents.csv").open()))
+    assert len(rows) == 1
+    assert rows[0]["document_text"] == text

@@ -60,6 +60,26 @@ TABLES = [
 ]
 
 
+def _key_columns(conn: psycopg.Connection, table: str) -> list[str]:
+    """The table's primary key, used to give the export a total order.
+
+    ORDER BY 1 is not one: entity 3874 holds both AUQ and AUQN on the same
+    date, so their relative position was left to the planner and every export
+    could reshuffle them. A snapshot is committed to git and reviewed as a
+    diff, so an export that is not byte-stable turns a no-op into churn and
+    hides the real change inside it.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT a.attname AS column_name
+                 FROM pg_index i
+                 JOIN pg_attribute a
+                   ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                WHERE i.indrelid = %s::regclass AND i.indisprimary
+                ORDER BY array_position(i.indkey, a.attnum)""", (table,))
+        return [r["column_name"] for r in cur.fetchall()]
+
+
 def _columns(conn: psycopg.Connection, table: str) -> list[str]:
     with conn.cursor() as cur:
         cur.execute(
@@ -79,16 +99,21 @@ def export_state(conn: psycopg.Connection, out_dir: Path) -> dict[str, int]:
         cols = _columns(conn, table)
         if not cols:
             continue
+        order = _key_columns(conn, table) or cols
         buf = io.StringIO()
         with conn.cursor() as cur, cur.copy(
-            f"COPY (SELECT {', '.join(cols)} FROM {table} ORDER BY 1) "
+            f"COPY (SELECT {', '.join(cols)} FROM {table} "
+            f"ORDER BY {', '.join(order)}) "
             f"TO STDOUT WITH (FORMAT csv, HEADER true)"
         ) as copy:
             for chunk in copy:
                 buf.write(bytes(chunk).decode())
         text = buf.getvalue()
         (out_dir / f"{table}.csv").write_text(text)
-        counts[table] = max(text.count("\n") - 1, 0)
+        # Rows, not lines. document_text carries the newlines of the document
+        # it was extracted from, so counting them reported a 194-row table as
+        # 10,549.
+        counts[table] = max(len(list(csv.reader(io.StringIO(text)))) - 1, 0)
     return counts
 
 
