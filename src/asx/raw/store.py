@@ -61,23 +61,42 @@ def ingest_document(
     possession_source: str = "filedrop",
     root: Path | None = None,
 ) -> StoredDocument:
-    """Store raw bytes and register the document. Idempotent on content hash."""
+    """Store a document and register it. Idempotent on content hash.
+
+    Two copies are kept, and only one of them is durable.
+
+    The EXTRACTED TEXT goes in the database. That is the copy the platform
+    relies on: the container's filesystem is wiped between sessions, so a raw
+    zone that lives only on disk does not survive, and until now every
+    read_document call would have failed after a restart.
+
+    The ORIGINAL FILE is also written to the raw zone, because while the disk
+    lasts it is the better artifact — layout intact, re-extractable by a
+    later library that reads a page better. Nothing depends on it being there.
+
+    sha256 stays the hash of the ORIGINAL. It is the identity of the source
+    artifact and what dedupe keys on; hashing the text would collide two
+    different lodgements that extract to the same characters, which amended
+    notices routinely do.
+    """
     root = root or raw_zone_root()
     sha, path = _store_bytes(content, root)
     fetched_at = fetched_at or datetime.now(timezone.utc)
+    text, text_sha, extractor = _extract_text(content)
 
     with conn.cursor() as cur:
         cur.execute(
             """INSERT INTO documents
                  (source, source_ref, entity_id, ticker_as_lodged, title,
                   asx_doc_types, price_sensitive, lodged_at, lodged_at_source, fetched_at,
-                  sha256, storage_path, possession_source)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                  sha256, storage_path, possession_source,
+                  document_text, text_sha256, text_extractor)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                ON CONFLICT (sha256) DO NOTHING
                RETURNING doc_id""",
             (source, source_ref, entity_id, ticker_as_lodged, title,
              asx_doc_types, price_sensitive, lodged_at, lodged_at_source, fetched_at,
-             sha, str(path), possession_source),
+             sha, str(path), possession_source, text, text_sha, extractor),
         )
         row = cur.fetchone()
         if row is not None:
@@ -88,15 +107,69 @@ def ingest_document(
 
 
 def read_document(conn: psycopg.Connection, doc_id: int) -> bytes:
+    """The document, preferring the original file and falling back to text.
+
+    The file is a cache on a disk that does not survive the container; the
+    text in the database is what does. Callers get bytes either way and pass
+    them to document_text(), which reads a PDF as a PDF and anything else as
+    UTF-8 — so a restart changes nothing but the fidelity of what is read.
+    """
     with conn.cursor() as cur:
-        cur.execute("SELECT storage_path, sha256 FROM documents WHERE doc_id = %s", (doc_id,))
+        cur.execute(
+            """SELECT storage_path, sha256, document_text, text_sha256
+               FROM documents WHERE doc_id = %s""", (doc_id,))
         row = cur.fetchone()
     if row is None:
         raise KeyError(f"doc_id {doc_id} not found")
-    content = Path(row["storage_path"]).read_bytes()
-    if hashlib.sha256(content).hexdigest() != row["sha256"]:
-        raise RuntimeError(f"raw zone corruption: doc {doc_id} fails hash check")
-    return content
+
+    path = row["storage_path"]
+    if path and Path(path).exists():
+        content = Path(path).read_bytes()
+        if hashlib.sha256(content).hexdigest() != row["sha256"]:
+            raise RuntimeError(f"raw zone corruption: doc {doc_id} fails hash check")
+        return content
+
+    if row["document_text"] is None:
+        raise FileNotFoundError(
+            f"doc {doc_id} has neither a readable file at {path!r} nor stored "
+            f"text. The raw zone is not durable across containers; a document "
+            f"ingested before the text layer existed must be re-ingested."
+        )
+    text = row["document_text"].encode("utf-8")
+    if hashlib.sha256(text).hexdigest() != row["text_sha256"]:
+        raise RuntimeError(f"raw zone corruption: doc {doc_id} text fails hash check")
+    return text
+
+
+def _extract_text(content: bytes) -> tuple[str | None, str | None, str | None]:
+    """The document's text layer, its checksum, and what produced it.
+
+    A text layer is a READING of the document, not the document (Invariant 6),
+    so the extractor is recorded: a later library that reads a page better has
+    to be able to find what the old one produced and supersede it.
+
+    A document that yields no text still registers. It has bytes, it is held,
+    and the emptiness is a fact about the document — a scanned page — that the
+    review queue should see rather than an ingestion failure.
+    """
+    from asx.parse.text import UnreadableDocument, document_text
+
+    try:
+        text = document_text(content)
+    except UnreadableDocument:
+        raise           # an environment fault, never silently an empty document
+    except Exception:
+        return None, None, None
+    if not text.strip():
+        return None, None, None
+    version = ""
+    try:
+        import pypdf
+        version = f"pypdf-{pypdf.__version__}"
+    except Exception:
+        version = "utf8"
+    return (text, hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            version if content[:5] == b"%PDF-" else "utf8")
 
 
 def _store_file(src: Path, root: Path) -> tuple[str, Path]:
