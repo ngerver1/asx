@@ -37,7 +37,11 @@ def test_db_url():
 
 
 _ALL_TABLES = [
-    "asic_registry", "reference_loads", "index_membership", "manual_share_counts", "signal_cluster_buys", "float_series", "monitor_runs", "hypothesis_log",
+    "asic_registry", "reference_loads", "index_membership", "manual_share_counts",
+    # Both signal tables and the display quotes keyed off them: a signal row
+    # surviving into the next test is a false pass waiting to happen.
+    "signal_cluster_buys", "signal_conviction_buys", "price_quotes",
+    "float_series", "monitor_runs", "hypothesis_log",
     "share_reconciliations", "director_trades", "substantial_holdings",
     "holder_snapshots", "escrow_parcels", "share_events", "share_anchors",
     "security_classes", "parsed_records", "review_items", "entity_aliases",

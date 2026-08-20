@@ -41,6 +41,7 @@ import threading
 import time
 import urllib.robotparser
 from dataclasses import dataclass
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -76,8 +77,15 @@ PROHIBITED_HOSTS = RESTRICTED_HOSTS
 # Path or query fragments that mean DISCOVERY rather than retrieval. Refused
 # on every host, with or without targeted_document, because a caller cannot
 # assert its way out of the fact that a search result is not a known document.
+# `/screener` is here because a stock screener is the purest discovery
+# endpoint there is — its entire purpose is answering "which securities exist
+# that match this?". It is matched only at a path boundary, deliberately: this
+# platform's universe is mining explorers, where "screening" is ore
+# processing, and a real announcement called `ore-screening-results.pdf` must
+# not be refused as if it were a search.
 _DISCOVERY_RE = re.compile(
     r"(/search|/browse|/find|/list|/index|/directory|/results|/query|"
+    r"/screener|/screen(?=[/?]|$)|"
     r"[?&](q|query|search|page|offset|start|from|to|keyword)=)", re.I)
 
 # What a retrievable document looks like. Deliberately narrow, and widened
@@ -121,6 +129,31 @@ DECLARED_SOURCES: dict[str, SourceTerms] = {
         basis="access decision §6 amendment, 20 Aug 2026: targeted retrieval "
               "of specific announcement documents, on the owner's legal advice",
         targeted_only=True,
+    ),
+    # Display quotes only — see `asx/ingest/quote_source.py` and the migration
+    # for why that is a different thing from a price vendor.
+    #
+    # Terms read at declaration time rather than remembered, per Invariant 11
+    # and the working-style rule about verifying against the primary source:
+    #   * robots.txt (read 20 Aug 2026) disallows only /e/ and /p/ for `*`;
+    #     /quote/ is permitted.
+    #   * Terms of Use (last updated 12 Jun 2025) contain no prohibition on
+    #     automated access — no clause about scraping, crawling, bots, APIs,
+    #     data mining, or commercial use. The only content restriction is
+    #     republication: "not allowed to republish our content in full", while
+    #     snippets are permitted "as long as you do not modify the content and
+    #     clearly state where you got it from". One price per company, shown
+    #     unmodified with the source named on the screen, is that snippet case.
+    #   * The site states its ASX prices are delayed and its accuracy is not
+    #     guaranteed, which is why quotes are stored with an as-at and shown
+    #     as "price as at", never as "latest".
+    "stockanalysis.com": SourceTerms(
+        basis="owner sign-off 20 Aug 2026 (ACCESS_DECISION §3, display-quote "
+              "amendment). robots.txt permits /quote/; Terms of Use of "
+              "12 Jun 2025 carry no automated-access prohibition and permit "
+              "unmodified, attributed snippets. Display only: this source "
+              "drops delisted securities, so it must never back a backtest "
+              "(Invariant 4) and does not implement PriceSource",
     ),
 }
 
@@ -273,19 +306,51 @@ def reset_restricted_budget() -> None:
 
 
 def _robots_allows(url: str) -> bool:
+    """Ask robots.txt whether WE may fetch this, as the agent we actually are.
+
+    `RobotFileParser.read()` is not used, and the reason is not cosmetic. It
+    fetches robots.txt under urllib's default user-agent, which is a different
+    identity from the one every real request carries. That is wrong twice:
+
+      * robots.txt rules are keyed BY user-agent, so asking under another name
+        can read a different set of rules than the ones that bind us;
+      * some CDNs reject the default urllib agent outright, and the resulting
+        error was caught below and reported as "robots.txt disallows this" —
+        a fetch refused on the strength of a file nobody managed to read.
+
+    That second case was live: stockanalysis.com returns 403 to
+    `Python-urllib/3.11` and 200 to this platform's declared agent, so every
+    quote was refused for a rule its robots.txt does not contain.
+
+    Using our own honest, unrotated user-agent here is the opposite of the
+    evasion Invariant 11 prohibits: it is asking the question under the same
+    name we act under.
+    """
     parsed = urlparse(url)
     root = f"{parsed.scheme}://{parsed.netloc}"
     rp = _robots_cache.get(root)
     if rp is None:
         rp = urllib.robotparser.RobotFileParser()
         rp.set_url(f"{root}/robots.txt")
+        _throttle(parsed.hostname or "")
         try:
-            rp.read()
+            request = Request(f"{root}/robots.txt",
+                              headers={"User-Agent": USER_AGENT})
+            with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+                body = response.read().decode("utf-8", errors="replace")
+        except HTTPError as exc:
+            if exc.code == 404:
+                # RFC 9309 §2.3.1.3: no robots.txt means no restrictions. This
+                # is the one unreadable case with a defined answer, so it is
+                # the only one treated as permission.
+                body = ""
+            else:
+                # Any other failure leaves the access question unanswered, and
+                # stopping is the prescribed response to that.
+                return False
         except Exception:
-            # Unreachable robots.txt: treat as disallowed rather than assume
-            # permission. Stopping is the prescribed response to an access
-            # question we cannot answer.
             return False
+        rp.parse(body.splitlines())
         _robots_cache[root] = rp
     return rp.can_fetch(USER_AGENT, url)
 
