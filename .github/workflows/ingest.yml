@@ -1,0 +1,96 @@
+name: Daily ingest
+
+# Why this lives in GitHub Actions and not in a Claude Code session.
+#
+# The ingest has to reach the real database, and the cloud execution
+# environment cannot: its egress is HTTPS/443 only, while the Postgres wire
+# protocol needs raw TCP on 5432. That is why every session falls back to a
+# local cluster whose contents are discarded when the container is reclaimed.
+# A scheduled session would therefore ingest into nothing.
+#
+# Actions runners have unrestricted egress, so this is the only always-on
+# place the platform owns that can write to Neon. It is the same principle as
+# the Market Index feed, whose scheduler is an Apps Script trigger living in
+# the owner's Google account rather than in this repo.
+#
+# Dormant until three secrets exist. It fails loudly rather than silently
+# doing nothing, because a feed that reports success while ingesting zero rows
+# is the failure mode the whole detection design exists to prevent.
+
+on:
+  schedule:
+    # 09:00 UTC = 19:00 AEST / 20:00 AEDT — after the Sydney close and after
+    # the evening lodgement tail. Cron is UTC and does not follow daylight
+    # saving, so the local hour shifts by one across the year; that is
+    # deliberate and harmless, because the window overlaps by days.
+    - cron: "0 9 * * *"
+  workflow_dispatch:        # so a missed day can be caught up by hand
+
+concurrency:
+  # Two overlapping runs would both fetch the same documents. Detections are
+  # idempotent so nothing would corrupt, but the politeness budget is per
+  # process and two processes are twice the request rate.
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  investorpa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ASX_INVESTORPA_CLIENT_ID: ${{ secrets.ASX_INVESTORPA_CLIENT_ID }}
+      ASX_INVESTORPA_REFRESH_TOKEN: ${{ secrets.ASX_INVESTORPA_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+
+      - name: Check the credentials exist
+        run: |
+          missing=
+          for v in DATABASE_URL ASX_INVESTORPA_CLIENT_ID ASX_INVESTORPA_REFRESH_TOKEN; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::missing repository secrets:$missing"
+            echo "See docs/SOURCE_INVESTORPA.md for how to obtain the grant."
+            exit 1
+          fi
+
+      - name: Migrate
+        run: python -m asx.cli migrate
+
+      # A three-day window against a daily schedule. The overlap is free:
+      # detections are idempotent on the URL the vendor stated, so re-reading
+      # records nothing twice. It buys tolerance for two consecutive missed
+      # runs without anyone noticing a hole.
+      - name: Detect (whole exchange)
+        run: python -m asx.cli detect --source investorpa --since-days 3
+
+      # Possession, from the URLs those detections carried. Bounded and
+      # throttled by fetch_guard; only URLs a search result stated.
+      - name: Possess
+        run: python -m asx.cli capture --capture-dir captures --investorpa
+
+      - name: Parse and rebuild signals
+        run: |
+          python -m asx.cli parse || true
+          python -m asx.cli build-signals
+
+      # Zero lodgements in a period is a pipeline alarm until a human says
+      # otherwise (CLAUDE.md). The monitor owns that judgement; this step
+      # exists so a broken feed turns the run red instead of green.
+      - name: Monitor
+        run: python -m asx.cli monitor
+
+      - name: Cross-feed coverage
+        # Not a gate, a number worth seeing: the market_index_only bucket says
+        # whether investorpa is really the superset it is assumed to be.
+        if: always()
+        run: |
+          psql "$DATABASE_URL" -c \
+            "SELECT coverage, count(*), count(*) FILTER (WHERE duplicate_rows) AS dupes
+               FROM detection_feed_coverage GROUP BY coverage ORDER BY 2 DESC;"

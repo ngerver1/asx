@@ -39,6 +39,7 @@ import urllib.request
 
 from asx.ingest.investorpa import (
     AUTHORIZE_URL,
+    MCP_URL,
     READ_SCOPE,
     REGISTER_URL,
     TOKEN_URL,
@@ -90,14 +91,28 @@ def register_client(opener=None) -> dict:
     }, opener=opener)
 
 
-def consent_url(client_id: str, verifier: str) -> str:
+def new_state() -> str:
+    """Opaque CSRF value echoed back on the redirect. Not optional: this
+    server rejects an authorization request without it, and its 400 page
+    names no reason, so the omission costs an hour rather than a retry."""
+    return base64.urlsafe_b64encode(secrets.token_bytes(24)).decode().rstrip("=")
+
+
+def consent_url(client_id: str, verifier: str, state: str | None = None) -> str:
     params = {
+        "response_type": "code",
         "client_id": client_id,
         "redirect_uri": REDIRECT,
-        "response_type": "code",
         "scope": READ_SCOPE,
+        "state": state or new_state(),
         "code_challenge": challenge_for(verifier),
         "code_challenge_method": "S256",
+        # RFC 8707 resource indicator. The MCP authorization profile requires
+        # it: it names WHICH protected resource the token is for, so a token
+        # minted for this endpoint cannot be replayed against another. The
+        # value is the `resource` field of the endpoint's own
+        # oauth-protected-resource metadata, not a guess.
+        "resource": MCP_URL,
     }
     return f"{AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
 
@@ -109,6 +124,9 @@ def exchange(client_id: str, code: str, verifier: str, opener=None) -> dict:
         "code": code,
         "redirect_uri": REDIRECT,
         "code_verifier": verifier,
+        # Carried into the exchange as well as the authorization request;
+        # RFC 8707 §2.2 requires the two to agree.
+        "resource": MCP_URL,
     }, opener=opener)
 
 
