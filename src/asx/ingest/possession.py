@@ -28,6 +28,7 @@ from urllib.parse import urlparse
 import psycopg
 
 from asx.config import raw_zone_root
+from asx.ingest import lodgement
 from asx.ingest.fetch_guard import (
     ProhibitedSourceError,
     RobotsDisallowedError,
@@ -560,13 +561,32 @@ def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
     """
     from asx.raw.store import ingest_document
 
-    lodged_at = None
+    # When this became public, and which source says so (Invariant 2).
+    #
+    # A sidecar timestamp is a human's statement and is labelled 'manual';
+    # otherwise the document's own creation date stands in, labelled
+    # 'pdf_creation' so anything needing release-time precision can exclude
+    # it. asx.ingest.lodgement holds that preference order and the evidence
+    # for it.
+    #
+    # Without the fallback a capture with no sidecar was ingested undated,
+    # and an undated document produces no canonical rows at all — which is
+    # how 52 captured Appendix 3Ys came to sit in the corpus yielding
+    # nothing while the module written to date them was never called.
+    lodged_at, lodged_at_source = None, None
     if meta.get("lodged_at"):
         lodged_at = datetime.fromisoformat(meta["lodged_at"])
         if lodged_at.tzinfo is None:
             from asx.ids.market_time import SYDNEY
 
             lodged_at = lodged_at.replace(tzinfo=SYDNEY)
+        # A timestamp with no stated source is refused by
+        # documents_lodged_at_provenance, so this path could not have
+        # inserted a row at all.
+        lodged_at_source = "manual"
+    else:
+        dated = lodgement.resolve(pdf_content=content)
+        lodged_at, lodged_at_source = dated.at, dated.source
     # Read the document before deciding anything about it. Titling a capture
     # from its filename made "329721.pdf" an untitled blob that classified as
     # 'other' and was never parsed — and left entity_id NULL, so it was
@@ -584,6 +604,7 @@ def _create_standalone(conn: psycopg.Connection, content: bytes, meta: dict,
         ticker_as_lodged=meta.get("ticker"),
         title=title,
         lodged_at=lodged_at,
+        lodged_at_source=lodged_at_source,
         possession_source="manual_capture",
     )
     from asx.ingest.classifier import classify

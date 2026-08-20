@@ -1,6 +1,7 @@
 """Integration tests for the Tier 0 detection/possession flow."""
 
 import json
+from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -123,6 +124,81 @@ def test_capture_attaches_bytes_to_the_detection(conn, tmp_path):
     assert doc["parse_status"] == "unparsed"
     assert doc["possession_source"] == "manual_capture"
     assert doc["sha256"] is not None
+
+
+DOCS = Path(__file__).parent.parent / "fixtures" / "app3y" / "documents"
+
+
+def _real_pdf():
+    """A captured announcement that carries its own creation date."""
+    from asx.ingest.lodgement import pdf_created_at
+
+    for path in sorted(DOCS.glob("*.pdf")):
+        content = path.read_bytes()
+        if pdf_created_at(content):
+            return content
+    pytest.skip("no dated PDF in the corpus")
+
+
+def _capture(tmp_path, content, meta=None, name="found.pdf"):
+    capture = tmp_path / "capture"
+    capture.mkdir(exist_ok=True)
+    (capture / name).write_bytes(content)
+    if meta is not None:
+        (capture / f"{name}.meta.json").write_text(json.dumps(meta))
+    return capture
+
+
+def _doc(conn, ticker_free=True):
+    with conn.cursor() as cur:
+        cur.execute("""SELECT lodged_at, lodged_at_source FROM documents
+                       ORDER BY doc_id DESC LIMIT 1""")
+        return cur.fetchone()
+
+
+def test_a_capture_with_no_sidecar_is_dated_from_the_document_itself(conn, tmp_path):
+    """asx.ingest.lodgement existed, was documented and was tested — and
+    nothing in the pipeline called it. Every capture without a sidecar
+    timestamp was therefore ingested undated, and an undated document
+    produces no canonical rows, so 52 captured Appendix 3Ys sat in the corpus
+    yielding nothing. This is the test whose absence let that happen.
+    """
+    from asx.ingest.lodgement import pdf_created_at
+
+    content = _real_pdf()
+    file_captured_documents(conn, _capture(tmp_path, content))
+
+    doc = _doc(conn)
+    assert doc["lodged_at"] is not None, "captured document was left undated"
+    assert doc["lodged_at_source"] == "pdf_creation"
+    assert doc["lodged_at"] == pdf_created_at(content)
+
+
+def test_a_sidecar_timestamp_is_recorded_as_a_human_statement(conn, tmp_path):
+    """It is also the only way this path could insert a row at all: a
+    timestamp with no stated source is refused by
+    documents_lodged_at_provenance, so a sidecar capture raised a constraint
+    violation rather than being filed."""
+    file_captured_documents(conn, _capture(
+        tmp_path, _real_pdf(), meta={"lodged_at": "2026-08-14T09:30:00"}))
+
+    from asx.ids.market_time import SYDNEY
+
+    doc = _doc(conn)
+    assert doc["lodged_at_source"] == "manual"
+    # A naive sidecar time is Sydney local, so 09:30 on the 14th is 23:30 UTC
+    # on the 13th — the same instant, stored the way every other row is.
+    assert doc["lodged_at"] == datetime(2026, 8, 14, 9, 30, tzinfo=SYDNEY)
+
+
+def test_a_document_that_states_no_date_stays_undated(conn, tmp_path):
+    """No third source (asx.ingest.lodgement). Guessing here would put an
+    invented knowable_at on every trade the document produces, which is worse
+    than producing none."""
+    file_captured_documents(conn, _capture(tmp_path, b"%PDF- no creation date"))
+
+    doc = _doc(conn)
+    assert doc["lodged_at"] is None and doc["lodged_at_source"] is None
 
 
 def test_capture_without_a_prior_detection_creates_a_standalone_document(conn, tmp_path):
