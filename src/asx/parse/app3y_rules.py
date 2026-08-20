@@ -199,13 +199,30 @@ _MONTHS = {m.lower(): i for i, m in enumerate(
      "August", "September", "October", "November", "December"], 1)}
 
 
+# The Part 1 cells that carry the change. Every correctly-ordered form fills
+# them; several blank at once is the fingerprint of a scrambled extraction.
+_CORE_FIELDS = ("director_name", "date_of_change", "held_before", "held_after",
+                "security_class", "interest_nature")
+
+
 @dataclass
 class RulesExtraction:
     fields: dict[str, str] = field(default_factory=dict)
     form: str | None = None
     unreadable: list[str] = field(default_factory=list)
+    #: The PDF's reading order is not the form's layout order, so no value can
+    #: be trusted to belong to the label it was found under.
+    scrambled: bool = False
 
     def get(self, key: str) -> str | None:
+        """A value, or None — and nothing at all from a scrambled form.
+
+        `fields` still holds what was read, because a review item needs to
+        show a human what the document looked like. But nothing reaches the
+        canonical tables from a form whose cells came out in the wrong order.
+        """
+        if self.scrambled:
+            return None
         v = (self.fields.get(key) or "").strip()
         return v or None
 
@@ -382,6 +399,27 @@ def _extract_segment(flat: str) -> RulesExtraction:
     for i, (key, _start, end) in enumerate(positions):
         stop = positions[i + 1][1] if i + 1 < len(positions) else limit
         out.fields[key] = _clean_value(flat[end:min(stop, limit)])
+
+    # Some PDFs extract with the table's cells in the wrong order — all the
+    # labels bunched together, then all the values:
+    #
+    #   Name of Director  Date of last notice  Andrew Shi  08 July 2026
+    #
+    # Reading "the text between a label and the next label" then yields
+    # nothing for most cells. Klevo Rewards' lodgement is one of 117 captured
+    # documents that does this, and it left four core cells blank while two
+    # others returned numbers that happened to be correct — the value landed
+    # beside the right label by chance.
+    #
+    # That is the danger. A form read out of order can bind a real number to
+    # the wrong label and look entirely ordinary doing it, and there is no way
+    # to tell which of the surviving values are correctly bound. So the whole
+    # form is refused rather than allowed to contribute the cells that look
+    # fine (Invariant 8), and it goes to review intact.
+    blank = [k for k in _CORE_FIELDS if k in out.fields and not out.fields[k].strip()]
+    if len(blank) >= 2:
+        out.scrambled = True
+        out.unreadable.extend(k for k in _CORE_FIELDS if k not in out.unreadable)
     return out
 
 

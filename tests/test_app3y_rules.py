@@ -394,3 +394,56 @@ def test_a_genuinely_unreadable_pdf_still_degrades_quietly():
 
     facts = read_document_facts(b"%PDF-1.7 this is not a pdf")
     assert facts.doc_class is None and facts.text == ""
+
+
+# --- a form whose cells came out in the wrong order -------------------------
+
+def test_a_scrambled_extraction_yields_nothing_at_all():
+    """Klevo Rewards' PDF extracts with the table's cells out of order — all
+    the labels bunched together, then all the values:
+
+        Name of Director  Date of last notice  Andrew Shi  08 July 2026
+
+    Reading "the text between a label and the next label" then yields nothing
+    for most cells. Four core cells came out blank; two others returned
+    numbers that happened to be correct, because the value landed beside the
+    right label by chance.
+
+    That coincidence is the danger. A form read out of order can bind a real
+    number to the wrong label and look entirely ordinary doing it, and nothing
+    distinguishes the cells that bound correctly from the ones that did not.
+    So the whole form is refused rather than allowed to contribute the cells
+    that look fine, and it goes to review intact.
+    """
+    form = _first("329297.pdf")
+    assert form.scrambled
+    assert form.get("director_name") is None
+    assert form.get("entity_name") is None
+    # ...including the two cells that DID produce plausible numbers.
+    assert form.get("qty_acquired") is None
+    assert _holdings(form) == (None, None)
+    # The raw reading survives for the review item to show a human.
+    assert "3,515,000" in form.fields["qty_acquired"]
+
+
+def test_an_ordinary_form_is_never_called_scrambled():
+    """The guard must not fire on forms that simply leave a cell empty."""
+    clean = [f for name in ("329745.pdf", "329737.pdf", "328630.pdf",
+                            "6A1339259.pdf", "2A1690462.pdf")
+             for f in extract_all(_text(name))]
+    assert clean and not any(f.scrambled for f in clean)
+
+
+def test_the_captured_corpus_is_overwhelmingly_readable():
+    """A whole-corpus canary. If a future change starts refusing forms
+    wholesale — or starts trusting scrambled ones — this moves."""
+    forms = [f for path in sorted(DOCS.glob("*.pdf"))
+             for f in extract_all(_text(path.name))]
+    threes = [f for f in forms if f.form == "app_3y"]
+    assert len(threes) >= 100, f"only {len(threes)} Appendix 3Y forms found"
+    scrambled = [f for f in threes if f.scrambled]
+    assert len(scrambled) <= len(threes) // 20, (
+        f"{len(scrambled)} of {len(threes)} forms read as scrambled")
+    named = [f for f in threes if f.get("entity_name") and f.get("director_name")]
+    assert len(named) >= len(threes) - len(scrambled), (
+        f"only {len(named)} of {len(threes)} forms yield entity and director")
