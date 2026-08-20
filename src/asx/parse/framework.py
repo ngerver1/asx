@@ -105,6 +105,27 @@ def auto_accept_halted(conn: psycopg.Connection, parser_name: str) -> bool:
         return cur.fetchone()["n"] > 0
 
 
+# Warning prefix meaning "this notice checked against nothing". Defined here
+# rather than imported from the parser, because parsers import this module.
+ARITHMETIC_UNVERIFIABLE = "arithmetic unverifiable:"
+
+
+def _uncorroborated(validation: ValidationResult) -> list[str]:
+    """Why a single reading has nothing standing behind it, if anything.
+
+    The dual-pass design routes to review when two readings disagree. A rules
+    reading has no second reading, so what it is checked against is the sum
+    printed on the form — held after = held before + acquired - disposed. A
+    notice whose arithmetic reconciles has been verified against the issuer's
+    own numbers, which is stronger evidence than two models agreeing. A notice
+    with no before/after figures to check has been verified against nothing,
+    and is returned here so it scores and routes exactly as a disagreement
+    would.
+    """
+    return [w for w in validation.warnings
+            if w.startswith(ARITHMETIC_UNVERIFIABLE)]
+
+
 def _score(disagreements: list[str], validation: ValidationResult) -> float:
     if validation.errors:
         return 0.0
@@ -156,15 +177,27 @@ def evaluate_doc(
     content = parser.locate(read_document(conn, doc["doc_id"]))
 
     # Extract: two independent passes; disagreement routes to review (SPEC §6).
-    pass_a = extractor.extract_text_pass(content, parser.schema, parser.task_prompt)
-    pass_b = extractor.extract_vision_pass(content, parser.schema, parser.task_prompt)
-    disagreements = field_disagreements(pass_a.payload, pass_b.payload)
-    if content[:5] == b"%PDF-":
-        payload, alt = pass_b.payload, pass_a.payload
+    #
+    # A rules extractor reads once. Running a deterministic function twice and
+    # comparing the results is not a second opinion — it is the same answer
+    # twice, and scoring it as agreement would manufacture confidence out of
+    # nothing. So a single-pass extractor is scored against a different
+    # witness: the arithmetic the form itself prints. See _uncorroborated().
+    if getattr(extractor, "single_pass", False):
+        pass_a = pass_b = extractor.extract_text_pass(
+            content, parser.schema, parser.task_prompt)
+        payload = alt = pass_a.payload
+        validation = parser.validate(payload, doc)
+        disagreements = _uncorroborated(validation)
     else:
-        payload, alt = pass_a.payload, pass_b.payload
-
-    validation = parser.validate(payload, doc)
+        pass_a = extractor.extract_text_pass(content, parser.schema, parser.task_prompt)
+        pass_b = extractor.extract_vision_pass(content, parser.schema, parser.task_prompt)
+        disagreements = field_disagreements(pass_a.payload, pass_b.payload)
+        if content[:5] == b"%PDF-":
+            payload, alt = pass_b.payload, pass_a.payload
+        else:
+            payload, alt = pass_a.payload, pass_b.payload
+        validation = parser.validate(payload, doc)
     validation.errors.extend(parser.reconcile(conn, payload, doc))
     confidence = _score(disagreements, validation)
 

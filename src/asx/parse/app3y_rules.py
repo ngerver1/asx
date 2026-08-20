@@ -803,3 +803,121 @@ def parse_holdings(
     # lists one.
     return (b[0].quantity if len(b) == 1 else None,
             a[0].quantity if len(a) == 1 else None)
+
+
+# --------------------------------------------------------------------------
+# Enumerated cells
+#
+# FMR Resources' notice reads:
+#
+#   Class            (a) Fully Paid Ordinary Shares (b) Class I Performance
+#                    Rights expiring 12 August 2031 (c) Class J Performance
+#                    Rights expiring 12 August 2031
+#   Number acquired  (a) 150,000 (b) 250,000 (c) 250,000
+#
+# Taking the first number and pairing it with the whole class string records
+# 150,000 of "(a) shares (b) rights (c) rights" — a quantity of no particular
+# security. It happens to be the right number here, which is precisely the
+# hazard: the same code records 250,000 shares on the next form that lists
+# its rights first.
+#
+# The form itself says which is which. The markers pair the cells, so the
+# ordinary-class quantity is the one under the ordinary-class marker. Where
+# the markers do not pair, nothing is returned — an enumerated cell read as a
+# single value is the defect that once buried a $6.4m sale behind a vesting.
+
+_ENUM_ITEM = re.compile(r"\(\s*([a-h]|\d{1,2}|[ivx]{1,4})\s*\)|"
+                        r"(?<![\w.,])([a-h]|\d{1,2})\s*[.)]\s", re.I)
+
+
+def split_enumerated(cell: str | None, *, min_items: int = 2) -> dict[str, str]:
+    """A cell's lettered or numbered items, keyed by marker.
+
+    Returns {} for a cell that is not an enumeration, so callers keep their
+    ordinary single-value behaviour.
+
+    min_items=1 is for a cell being paired against an already-enumerated
+    class cell. Brightstar's disposal cell reads just "B. 53,571" — one
+    marker, because only one of the two classes was disposed of. Requiring
+    two markers reads that as an unenumerated "53,571" and subtracts a parcel
+    of performance rights from a holding of ordinary shares.
+    """
+    if not cell:
+        return {}
+    hits = list(_ENUM_ITEM.finditer(cell))
+    if len(hits) < min_items:
+        return {}
+    items: dict[str, str] = {}
+    for i, m in enumerate(hits):
+        key = (m.group(1) or m.group(2)).lower()
+        stop = hits[i + 1].start() if i + 1 < len(hits) else len(cell)
+        text = cell[m.end():stop].strip(" .:-–")
+        # "(b) and (c) Nil cash consideration" — one value covering two
+        # markers. Both keys get it; neither is invented.
+        items.setdefault(key, text)
+        if re.fullmatch(r"and", text, re.I) and i + 1 < len(hits):
+            items[key] = cell[hits[i + 1].end():
+                              (hits[i + 2].start() if i + 2 < len(hits) else len(cell))].strip(" .:-–")
+    return items
+
+
+def select_by_class(class_cell: str | None, *cells: str | None
+                    ) -> tuple[str | None, list[str | None]]:
+    """Pair enumerated cells to the ordinary-class marker.
+
+    Returns (class text, [value per cell]). When the class cell is not an
+    enumeration the cells are returned untouched. When it enumerates but the
+    ordinary class cannot be singled out, everything is None: a value that
+    cannot be attributed to a security is not a value.
+    """
+    classes = split_enumerated(class_cell)
+    if not classes:
+        return class_cell, list(cells)
+    ordinary = [k for k, v in classes.items() if _classify_security(v) == "ordinary"]
+    if len(ordinary) != 1:
+        return None, [None] * len(cells)
+    key = ordinary[0]
+    out: list[str | None] = []
+    for cell in cells:
+        # The class cell enumerates, so a single marker in a value cell is an
+        # enumeration too — it names which class the value belongs to, and
+        # the answer is None when that is not the ordinary one.
+        items = split_enumerated(cell, min_items=1)
+        out.append(items.get(key) if items else cell)
+    return classes[key], out
+
+
+def security_is_ordinary(class_text: str | None) -> bool:
+    """Whether a Class cell names the ordinary class and only that.
+
+    A cell naming several classes at once ("Ordinary Fully Paid Shares
+    Performance Rights") names none of them unambiguously, and returns False:
+    quantities under such a heading cannot be attributed to a class.
+    """
+    return _classify_security(class_text or "") == "ordinary"
+
+
+def quantity_of_class(cell: str | None, *, ordinary: bool) -> int | None:
+    """A quantity, but only when the cell does not attribute it elsewhere.
+
+    Where a form has no lettered enumeration to pair cells by, it often names
+    the class beside the number instead:
+
+        Number acquired   5,025 fully paid ordinary shares
+        Number disposed   5,025 share rights
+
+    Reading the disposal as 5,025 ordinary shares subtracts a parcel of share
+    rights from a holding of ordinary shares, and the notice then fails its
+    own arithmetic. Pantoro's two directors, Bellevue's and Ora Banda's
+    notices all do this.
+
+    A cell whose class words are absent takes the notice's class. A cell that
+    names a DIFFERENT class, or names one ambiguously ("share rights" is both
+    share-shaped and rights-shaped), yields nothing.
+    """
+    if not cell:
+        return None
+    if ordinary and (_ORDINARY_RE.search(cell) or _OTHER_CLASS_RE.search(cell)):
+        if _classify_security(cell) != "ordinary":
+            return None
+    return parse_quantity(cell)
