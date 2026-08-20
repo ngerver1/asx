@@ -154,6 +154,10 @@ class TradeRow:
     held_before: Decimal | None = None
     held_after: Decimal | None = None
     confidence: float = 1.0
+    # How event_date was arrived at, and every date the form stated. An
+    # estimated date that cannot say so is the prohibited output (0022).
+    event_date_basis: str = "stated"
+    event_dates_stated: list | None = None
 
 
 def derive_price_per_unit(row: TradeRow) -> Decimal | None:
@@ -239,14 +243,15 @@ def apply_trades(
                       security_class, qty_acquired, qty_disposed,
                       consideration_text, consideration_aud, price_per_unit,
                       held_before, held_after, classification, confidence,
-                      review_status)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                      review_status, event_date_basis, event_dates_stated)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (row.entity_id, row.person_name_raw, person_id, doc_id,
                  row.event_date, row.knowable_at, row.interest_nature,
                  row.indirect_detail, row.security_class, row.qty_acquired,
                  row.qty_disposed, row.consideration_text, row.consideration_aud,
                  derive_price_per_unit(row), row.held_before, row.held_after,
-                 classification, row.confidence, review_status),
+                 classification, row.confidence, review_status,
+                 row.event_date_basis, row.event_dates_stated),
             )
             keys.add((row.entity_id, person_id, row.event_date, row.security_class))
     _recompute_supersession(conn, keys)

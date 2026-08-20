@@ -39,6 +39,8 @@ class ReprocessReport:
     version: int
     applied: bool
     docs: list[dict] = field(default_factory=list)
+    not_held: int = 0          # detected, never captured — nothing to re-read
+    unreadable: list[int] = field(default_factory=list)
 
     def summary(self) -> str:
         changed = [d for d in self.docs if d["changed_fields"]]
@@ -49,6 +51,14 @@ class ReprocessReport:
             f"{len(skipped)} skipped (human-resolved), "
             f"{'APPLIED' if self.applied else 'DRY RUN (rerun with --apply after review)'}",
         ]
+        # Named, never merely omitted: a document the corpus cannot re-read is
+        # a gap in the reprocess, and a silent one would read as coverage.
+        if self.not_held:
+            lines.append(f"  {self.not_held} detected but never captured — no "
+                         f"bytes to re-read (asx worklist)")
+        if self.unreadable:
+            lines.append(f"  {len(self.unreadable)} held but unreadable: "
+                         f"{self.unreadable[:8]} — run `asx backfill --from DIR`")
         for d in changed:
             lines.append(f"  doc {d['doc_id']}: {d['status']}; changed: {', '.join(d['changed_fields'])}")
         for d in skipped:
@@ -80,14 +90,24 @@ def reprocess(
         cur.execute(
             """SELECT doc_id FROM documents
                WHERE doc_class = ANY(%s)
-                 AND parse_status NOT IN ('not_applicable', 'rejected')
+                 -- 'detected' means the announcement is known to exist and its
+                 -- bytes were never captured, so there is nothing to re-read.
+                 -- Including it crashed the whole run on the first one.
+                 AND parse_status NOT IN ('not_applicable', 'rejected', 'detected')
                  AND (%s::date IS NULL OR lodged_at >= %s)
                ORDER BY doc_id""",
             (list(parser.doc_classes), since, since),
         )
         doc_ids = [r["doc_id"] for r in cur.fetchall()]
+        cur.execute(
+            """SELECT count(*) AS n FROM documents
+               WHERE doc_class = ANY(%s) AND parse_status = 'detected'
+                 AND (%s::date IS NULL OR lodged_at >= %s)""",
+            (list(parser.doc_classes), since, since),
+        )
+        not_held = cur.fetchone()["n"]
 
-    report = ReprocessReport(parser.name, parser.version, apply)
+    report = ReprocessReport(parser.name, parser.version, apply, not_held=not_held)
     for doc_id in doc_ids:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM documents WHERE doc_id = %s", (doc_id,))
@@ -104,7 +124,14 @@ def reprocess(
 
         ev = load_stored_evaluation(conn, parser, doc)
         if ev is None:
-            ev = evaluate_doc(conn, parser, doc, extractor)
+            try:
+                ev = evaluate_doc(conn, parser, doc, extractor)
+            except FileNotFoundError:
+                # The document is held on paper but its bytes are gone. One
+                # such document must not abort a corpus-wide reprocess.
+                conn.rollback()
+                report.unreadable.append(doc_id)
+                continue
             conn.commit()  # parsed-zone append is the dry run's only write
 
         changed = (

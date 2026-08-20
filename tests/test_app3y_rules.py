@@ -479,3 +479,63 @@ def test_every_captured_document_has_a_form_type():
     unnamed = [path.name for path in sorted(DOCS.glob("*.pdf"))
                for f in _forms(path.name) if f.form is None]
     assert not unnamed, f"form type not recognised: {unnamed}"
+
+
+# --- a change stated across several days ---------------------------------
+
+def test_a_single_stated_date_is_used_as_printed():
+    from asx.parse.app3y_rules import resolve_change_date
+
+    assert resolve_change_date("11 August 2026") == (
+        "2026-08-11", "stated", ["2026-08-11"])
+
+
+def test_formats_the_reader_used_to_refuse():
+    """Neither was a principle — just a gap that left the notice unusable.
+    '06 Aug 2026' failed on the month abbreviation, '4.8.2026' on the
+    separator."""
+    from asx.parse.app3y_rules import resolve_change_date
+
+    assert resolve_change_date("06 Aug 2026")[0] == "2026-08-06"
+    assert resolve_change_date("4.8.2026")[0] == "2026-08-04"
+
+
+def test_a_range_shares_its_month_across_both_endpoints():
+    """'12-14 August 2026' states two dates using one month. Read literally
+    only the 14th is a date, which turns a three-day change into a one-day
+    one."""
+    from asx.parse.app3y_rules import resolve_change_date
+
+    day, basis, stated = resolve_change_date("12-14 August 2026")
+    assert stated == ["2026-08-12", "2026-08-14"]
+    assert day == "2026-08-13" and basis == "range_midpoint"
+
+
+def test_an_enumeration_is_estimated_but_labelled_differently_from_a_range():
+    """Both are estimates; they are not equally good. The midpoint of a period
+    lies inside it, whereas the midpoint of '17 August and 13 August' is a day
+    on which nothing happened — so a screen that cannot carry an invented day
+    can exclude one and keep the other."""
+    from asx.parse.app3y_rules import resolve_change_date
+
+    day, basis, stated = resolve_change_date("A. 17 August 2026 B. 13 August 2026")
+    assert day == "2026-08-15" and basis == "enumeration_midpoint"
+    assert stated == ["2026-08-13", "2026-08-17"], "the real dates must survive"
+
+
+def test_dates_too_far_apart_are_still_refused():
+    """The midpoint of 12 March and 14 August is 28 May: five months from
+    either real date, and it would put a fabricated event_date into the
+    cluster-buy window. LR 3.19B's five business days is the yardstick."""
+    from asx.parse.app3y_rules import resolve_change_date
+
+    day, _basis, stated = resolve_change_date("12 March 2026 14 August 2026")
+    assert day is None, "a five-month midpoint was invented"
+    assert stated == ["2026-03-12", "2026-08-14"], "but what it said is kept"
+
+
+def test_a_field_stating_no_date_yields_none():
+    from asx.parse.app3y_rules import resolve_change_date
+
+    assert resolve_change_date("N/A")[0] is None
+    assert resolve_change_date(None)[0] is None

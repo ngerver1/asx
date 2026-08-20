@@ -531,3 +531,80 @@ def test_human_correction_is_persisted_on_the_item(conn):
     # even after later reprocessing (Invariant 3: hand-edits must not be
     # destroyable by the next pipeline run).
     assert payload["applied_payload"]["notices"][0]["securities"][0]["held_after"] == 500000
+
+
+# --- reload must not manufacture agreement --------------------------------
+
+class _SinglePassExtractor:
+    """A rules reader: one reading, no second opinion."""
+
+    single_pass = True
+
+    def __init__(self, payload):
+        self.payload = payload
+
+    def extract_text_pass(self, content, schema, prompt):
+        return ExtractionPass(self.payload, "rules/app3y@3", "rules")
+
+    def extract_vision_pass(self, content, schema, prompt):
+        raise NotImplementedError("reads once")
+
+
+def test_reloading_a_rules_reading_reaches_the_same_verdict(conn):
+    """reprocess evaluates fresh for its dry run and reloads from the parsed
+    zone for --apply, so the two must agree about whether a reading is
+    corroborated.
+
+    They did not. A rules reading is stored once and written to both pass
+    slots, so the reload compared it with itself, found no disagreement, and
+    scored one unwitnessed reading as two readings agreeing — the exact false
+    confidence rules_extractor.py exists to prevent. --apply therefore accepted
+    into canonical what its own dry run had routed to review, and 70 notices
+    with no arithmetic to check them against became director_trades.
+    """
+    from asx.parse.framework import evaluate_doc, load_stored_evaluation
+
+    _entity, doc_id = _setup_3y_doc(conn)
+    payload = _payload_3y()
+    _securities(payload)[0].update(held_before=None, held_after=None)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM documents WHERE doc_id = %s", (doc_id,))
+        doc = cur.fetchone()
+
+    fresh = evaluate_doc(conn, App3YParser(), doc, _SinglePassExtractor(payload))
+    conn.commit()
+    assert fresh.disagreements, "a reading with nothing behind it looked corroborated"
+
+    reloaded = load_stored_evaluation(conn, App3YParser(), doc)
+    assert reloaded is not None
+    assert reloaded.disagreements == fresh.disagreements, (
+        "the reload manufactured agreement out of one reading stored twice")
+    assert reloaded.confidence == fresh.confidence
+
+
+def test_routing_to_review_removes_rows_an_earlier_version_wrote(conn):
+    """Canonical holds validated readings only (Invariant 6). A document that
+    validated once and later fails must not keep its old rows: they describe a
+    reading the platform has just decided it cannot stand behind."""
+    from asx.parse.framework import evaluate_doc, route_outcome
+
+    _entity, doc_id = _setup_3y_doc(conn)
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM documents WHERE doc_id = %s", (doc_id,))
+        doc = cur.fetchone()
+
+    good = evaluate_doc(conn, App3YParser(), doc, FakeExtractor(_payload_3y()))
+    assert route_outcome(conn, App3YParser(), doc, good).status == "validated"
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM director_trades WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["n"] == 1
+
+    unverifiable = _payload_3y()
+    _securities(unverifiable)[0].update(held_before=None, held_after=None)
+    bad = evaluate_doc(conn, App3YParser(), doc, _SinglePassExtractor(unverifiable))
+    assert route_outcome(conn, App3YParser(), doc, bad).status == "review"
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM director_trades WHERE doc_id = %s", (doc_id,))
+        assert cur.fetchone()["n"] == 0, "stale rows survived the move to review"

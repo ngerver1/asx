@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from functools import lru_cache
 
 def _phrase(text: str) -> str:
@@ -193,10 +194,18 @@ _DATE_RES = [
      "dmy_name"),
     (re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b"), "dmy_slash"),
     (re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{2})\b"), "dmy_slash2"),
+    # "4.8.2026". A real format on real notices, and refusing it was a gap,
+    # not a principle. Four-digit year required so a clause number like
+    # "3.19.A" cannot present itself as a date.
+    (re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b"), "dmy_slash"),
 ]
-_MONTHS = {m.lower(): i for i, m in enumerate(
-    ["January", "February", "March", "April", "May", "June", "July",
-     "August", "September", "October", "November", "December"], 1)}
+_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July",
+                "August", "September", "October", "November", "December"]
+# Abbreviations too: "06 Aug 2026" is a date, and reading only full month names
+# left it unparsed and the notice unusable.
+_MONTHS = {m.lower(): i for i, m in enumerate(_MONTH_NAMES, 1)}
+_MONTHS.update({m[:3].lower(): i for i, m in enumerate(_MONTH_NAMES, 1)})
+_MONTHS["sept"] = 9
 
 
 # The Part 1 cells that carry the change. Every correctly-ordered form fills
@@ -921,3 +930,80 @@ def quantity_of_class(cell: str | None, *, ordinary: bool) -> int | None:
         if _classify_security(cell) != "ordinary":
             return None
     return parse_quantity(cell)
+
+
+# "12-14 August 2026": the month and year are printed once and shared. Read as
+# it stands, only the 14th is a date, which silently turns a three-day change
+# into a one-day one.
+_COMPACT_RANGE = re.compile(
+    r"\b(\d{1,2})\s*[-–]\s*(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})\b")
+
+
+def dates_stated(value: str | None) -> list[str]:
+    """Every distinct ISO date the field states, earliest first.
+
+    A compact range is expanded to both its endpoints, because "12-14 August"
+    states two dates using one month.
+    """
+    if not value:
+        return []
+    found: list[str] = []
+    for m in _COMPACT_RANGE.finditer(value):
+        month = _MONTHS.get(m.group(3).lower())
+        if not month:
+            continue
+        for day in (m.group(1), m.group(2)):
+            iso = f"{int(m.group(4)):04d}-{month:02d}-{int(day):02d}"
+            if iso not in found:
+                found.append(iso)
+    for iso in _dates_in(value):
+        if iso not in found:
+            found.append(iso)
+    return sorted(found)
+
+
+def is_continuous_range(value: str | None) -> bool:
+    """Whether the field states a PERIOD rather than a list of days.
+
+    The distinction decides how much an estimated date is worth: a change
+    somewhere inside 12-14 August did happen in that window, whereas the
+    midpoint of "17 August and 13 August" is a day on which nothing happened.
+    """
+    return bool(value) and bool(
+        _COMPACT_RANGE.search(value)
+        or re.search(r"\d{4}\s*[-–]\s*\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}", value))
+
+
+# How far apart enumerated dates may be before their midpoint stops meaning
+# anything. LR 3.19B allows five business days to disclose a change, so a
+# notice whose dates sit inside a week is describing one clustered change and
+# its midpoint falls among them. "12 March 2026 14 August 2026" is not that:
+# the midpoint is 28 May, five months from either real date and a day on which
+# demonstrably nothing happened. Estimating there would put a fabricated
+# event_date into the cluster-buy window, so those stay in review.
+_MIDPOINT_SPAN_LIMIT_DAYS = 7
+
+
+def resolve_change_date(value: str | None) -> tuple[str | None, str, list[str]]:
+    """(date, basis, every date stated) for a 'Date of change' field.
+
+    One date is used as printed. Several are reduced to their midpoint and
+    labelled as an estimate, so the row exists and anything that cannot
+    tolerate an invented day can exclude it (see migration 0022). The dates
+    themselves are always returned, so nothing the form said is lost.
+    """
+    stated = dates_stated(value)
+    if not stated:
+        return None, "stated", []
+    if len(stated) == 1:
+        return stated[0], "stated", stated
+    first, last = date.fromisoformat(stated[0]), date.fromisoformat(stated[-1])
+    if is_continuous_range(value):
+        # The change happened somewhere inside a stated period, so a point in
+        # that period is a real approximation of it.
+        basis = "range_midpoint"
+    elif (last - first).days > _MIDPOINT_SPAN_LIMIT_DAYS:
+        return None, "stated", stated       # too far apart to estimate between
+    else:
+        basis = "enumeration_midpoint"
+    return (first + (last - first) / 2).isoformat(), basis, stated

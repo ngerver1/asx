@@ -68,6 +68,13 @@ _NOTICE = {
             "type": ["string", "null"],
             "description": "Date of change of interest (ISO 8601), NOT the lodgement date",
         },
+        # A form may state several dates in the one box. What it stated is
+        # kept, and date_basis says whether date_of_change was printed or
+        # estimated between them (migration 0022).
+        "date_basis": {
+            "enum": ["stated", "range_midpoint", "enumeration_midpoint", None]},
+        "dates_stated": {
+            "type": ["array", "null"], "items": {"type": "string"}},
         # 'both' is a real category, not a blend: 58 of the 209 forms in the
         # captured corpus state the interest as direct AND indirect, for a
         # director holding some shares personally and some through a trust.
@@ -159,7 +166,10 @@ def _dec(v) -> Decimal | None:
 class App3YParser:
     name = "app3y"
     # v2: one lodgement holds several directors' notices, not one.
-    version = 2
+    # v3: a "Date of change" box may state several dates. They are kept, and a
+    #     date close enough to estimate between is estimated and labelled
+    #     (migration 0022); month abbreviations and dotted dates now read.
+    version = 3
     doc_classes = {"app_3y", "app_3z"}
     schema = SCHEMA
     task_prompt = TASK_PROMPT
@@ -204,6 +214,13 @@ class App3YParser:
     def _notice_from_rules(form) -> dict:
         from asx.parse import app3y_rules as rules
 
+        # A single stated date is used as printed. Several close together are
+        # reduced to their midpoint and labelled an estimate, so the notice
+        # yields a row instead of nothing; several far apart still yield no
+        # date, because there is no honest point between them.
+        change_date, date_basis, stated_dates = rules.resolve_change_date(
+            form.get("date_of_change"))
+
         held_before, held_after = rules.parse_holdings(
             form.get("held_before"),
             form.get("held_at_ceasing") if form.form == "app_3z" else form.get("held_after"),
@@ -236,7 +253,9 @@ class App3YParser:
         changed_ordinary = rules.security_is_ordinary(security_class)
         return {
             "director_name": form.get("director_name"),
-            "date_of_change": rules.parse_date(form.get("date_of_change")),
+            "date_of_change": change_date,
+            "date_basis": date_basis,
+            "dates_stated": stated_dates or None,
             "interest_nature": _interest_nature(form.get("interest_nature")),
             "indirect_detail": form.get("indirect_detail"),
             "securities": [{
@@ -383,6 +402,9 @@ class App3YParser:
                     person_name_raw=notice["director_name"],
                     doc_id=doc["doc_id"],
                     event_date=event_date,
+                    event_date_basis=notice.get("date_basis") or "stated",
+                    event_dates_stated=[date.fromisoformat(d)
+                                        for d in (notice.get("dates_stated") or [])] or None,
                     knowable_at=doc["lodged_at"],
                     security_class=(s.get("security_class") or "unknown").strip(),
                     interest_nature=notice.get("interest_nature"),

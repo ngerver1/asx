@@ -215,7 +215,7 @@ def load_stored_evaluation(
     reprocess so --apply applies exactly the payload the dry-run recorded."""
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT payload FROM parsed_records
+            """SELECT payload, model_id FROM parsed_records
                WHERE doc_id = %s AND parser_name = %s AND parser_version = %s""",
             (doc["doc_id"], parser.name, parser.version),
         )
@@ -226,8 +226,21 @@ def load_stored_evaluation(
     payload = stored.get("primary") or {}
     text_pass = stored.get("text_pass") or {}
     vision_pass = stored.get("vision_pass") or {}
-    disagreements = field_disagreements(text_pass, vision_pass)
     validation = parser.validate(payload, doc)
+    # A rules reading was stored once and written to both pass slots, so
+    # comparing them finds nothing and would score a single unwitnessed
+    # reading as two readings agreeing — the exact false confidence
+    # rules_extractor.py exists to prevent. It has to be checked against the
+    # same witness evaluate_doc uses: the arithmetic the form prints.
+    #
+    # This is why reprocess --apply could accept what its own dry run had
+    # routed to review: the dry run evaluated fresh and saw the reading was
+    # uncorroborated, then --apply reloaded it from the parsed zone and saw
+    # two identical passes.
+    if (row["model_id"] or "").startswith("rules/"):
+        disagreements = _uncorroborated(validation)
+    else:
+        disagreements = field_disagreements(text_pass, vision_pass)
     validation.errors.extend(parser.reconcile(conn, payload, doc))
     alt = text_pass if payload == vision_pass else vision_pass
     return Evaluation(payload, alt, disagreements, validation,
@@ -256,6 +269,14 @@ def route_outcome(
         _set_parse_status(conn, doc_id, "validated")
         status = "validated"
     else:
+        # A document that does not validate must leave no canonical rows
+        # behind (Invariant 6). Routing to review without this kept the rows
+        # written by an earlier, wronger version of the parser: after the
+        # reload fix above moved 70 documents back to review, 72 trades stayed
+        # in canonical describing readings the platform had just decided it
+        # could not stand behind. Reprocess skips human-resolved documents
+        # before reaching here, so a human's correction is never wiped.
+        parser.retract(conn, doc_id)
         reason_bits = list(ev.validation.errors)
         reason_bits += [f"disagree:{d}" for d in ev.disagreements]
         if ev.version_conflict:
