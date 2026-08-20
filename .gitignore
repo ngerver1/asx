@@ -11,3 +11,4 @@ data/parsed/
 asx_universe_*.csv
 asx_smallcaps_*.csv
 cluster_buys_*.csv
+conviction_buys_*.csv

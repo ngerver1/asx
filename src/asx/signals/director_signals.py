@@ -191,3 +191,102 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
             "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()
+
+
+# Conviction sizing (SPEC §7). The bar is the top quartile of the stake
+# increases actually observed on the corpus — 19 of 73 on-market buys clear
+# 25% — rather than a number chosen for looking round. Revisit it against the
+# distribution when the corpus grows; that is what versioning is for.
+CONVICTION_MIN_STAKE_INCREASE = 0.25
+
+# Below this, a large percentage is arithmetic rather than conviction: a 27%
+# increase costing $2,460 says the holding was tiny, not that anyone changed
+# their mind. Such rows are FLAGGED, never dropped — the reader can see them
+# and decide, which a silent exclusion does not allow.
+CONVICTION_SMALL_SPEND_AUD = 20000
+
+
+def build_conviction_buys(conn: psycopg.Connection) -> int:
+    """Rebuild the conviction-sizing signal table for SIGNAL_VERSION."""
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM signal_conviction_buys WHERE signal_version = %s",
+                    (SIGNAL_VERSION,))
+        cur.execute(
+            """SELECT trade_id, entity_id, person_name_raw, event_date,
+                      knowable_at, consideration_aud, qty_acquired, held_before
+                 FROM director_trades
+                WHERE classification = 'onmkt_buy_cash'
+                  AND NOT superseded
+                  AND review_status IN ('auto','human_accepted','human_corrected')
+                  AND held_before > 0
+                  AND qty_acquired > 0
+                ORDER BY knowable_at, trade_id""")
+        candidates = cur.fetchall()
+
+    written = 0
+    with conn.cursor() as cur:
+        for t in candidates:
+            increase = t["qty_acquired"] / t["held_before"]
+            if increase < CONVICTION_MIN_STAKE_INCREASE:
+                continue
+            # Same size ceiling as the cluster signal, evaluated as at the day
+            # this became knowable so no later rebalance leaks backwards.
+            member = is_index_member(
+                conn, t["entity_id"], t["knowable_at"].date(), DEFAULT_INDEX_CODE)
+            if member is True:
+                continue
+            flags = [f"size_ceiling_proxy:{DEFAULT_INDEX_CODE}"]
+            if member is None:
+                flags.append("membership_unknown")
+            if (t["consideration_aud"] or 0) < CONVICTION_SMALL_SPEND_AUD:
+                flags.append("small_absolute_spend")
+            if t["consideration_aud"] is None:
+                flags.append("consideration_not_stated")
+            cur.execute(
+                """INSERT INTO signal_conviction_buys
+                     (signal_version, entity_id, trade_id, person_name_raw,
+                      event_date, knowable_at, consideration_aud, qty_acquired,
+                      held_before, stake_increase, coverage_flags)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (SIGNAL_VERSION, t["entity_id"], t["trade_id"],
+                 t["person_name_raw"], t["event_date"], t["knowable_at"],
+                 t["consideration_aud"], t["qty_acquired"], t["held_before"],
+                 increase, flags))
+            written += 1
+    conn.commit()
+    return written
+
+
+def conviction_buys_csv(conn: psycopg.Connection) -> str:
+    """The conviction-sizing screen as CSV, biggest stake increase first."""
+    import csv
+    import io
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT l.ticker, n.name AS entity, s.person_name_raw,
+                      s.event_date, s.knowable_at, s.consideration_aud,
+                      s.qty_acquired, s.held_before, s.stake_increase,
+                      s.coverage_flags, s.signal_version
+                 FROM signal_conviction_buys s
+                 LEFT JOIN listings l
+                        ON l.entity_id = s.entity_id AND l.valid_to IS NULL
+                 LEFT JOIN entity_names n
+                        ON n.entity_id = s.entity_id AND n.valid_to IS NULL
+                ORDER BY s.stake_increase DESC""")
+        rows = cur.fetchall()
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(["ticker", "entity", "director", "event_date", "actionable_from",
+                "consideration_aud", "qty_acquired", "held_before",
+                "stake_increase_pct", "coverage_flags", "signal_version"])
+    for r in rows:
+        w.writerow([
+            r["ticker"] or "", r["entity"] or "", r["person_name_raw"],
+            r["event_date"], r["knowable_at"].date(), r["consideration_aud"],
+            r["qty_acquired"], r["held_before"],
+            round(float(r["stake_increase"]) * 100, 1),
+            "|".join(r["coverage_flags"] or []), r["signal_version"],
+        ])
+    return buf.getvalue()

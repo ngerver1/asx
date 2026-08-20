@@ -458,10 +458,11 @@ def cmd_backfill(args) -> None:
 
 def cmd_signals(args) -> None:
     """Print or write the cluster-buy screen."""
-    from asx.signals.director_signals import cluster_buys_csv
+    from asx.signals.director_signals import cluster_buys_csv, conviction_buys_csv
 
     with db.connect() as conn:
-        out = cluster_buys_csv(conn)
+        out = (conviction_buys_csv(conn) if args.kind == "conviction"
+               else cluster_buys_csv(conn))
     if args.out:
         Path(args.out).write_text(out)
         print(f"wrote {args.out} ({len(out.splitlines()) - 1} clusters)")
@@ -470,11 +471,13 @@ def cmd_signals(args) -> None:
 
 
 def cmd_build_signals(_args) -> None:
-    from asx.signals.director_signals import build_cluster_buys
+    from asx.signals.director_signals import (build_cluster_buys,
+                                              build_conviction_buys)
 
     with db.connect() as conn:
-        n = build_cluster_buys(conn)
-    print(f"built {n} cluster-buy signal rows")
+        clusters = build_cluster_buys(conn)
+        conviction = build_conviction_buys(conn)
+    print(f"built {clusters} cluster-buy and {conviction} conviction-buy signal rows")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -617,7 +620,10 @@ def main(argv: list[str] | None = None) -> None:
                    help="also look for document bytes under DIR (repeatable)")
     p.set_defaults(fn=cmd_backfill)
 
-    p = sub.add_parser("signals", help="the cluster-buy screen, as CSV")
+    p = sub.add_parser("signals", help="a director screen, as CSV")
+    p.add_argument("--kind", choices=["cluster", "conviction"], default="cluster",
+                   help="cluster: >=2 directors buying on-market in 30 days. "
+                        "conviction: one director raising their own stake sharply")
     p.add_argument("--out", help="write to a file instead of stdout")
     p.set_defaults(fn=cmd_signals)
 

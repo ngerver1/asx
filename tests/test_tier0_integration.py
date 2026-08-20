@@ -665,3 +665,91 @@ def test_ticker_alone_refuses_when_the_company_lodged_several(conn):
     shutil.copy(gold, tmp / "BCA.pdf")
     stats = file_captured_documents(conn, tmp)
     assert stats["attached"] == 0
+
+
+# --- conviction sizing (SPEC §7, second named signal) --------------------
+
+def _conviction_trade(conn, eid, name, *, held_before, qty, spend, day=10, lodged=12):
+    from asx.canonical.director_trades import TradeRow, apply_trades
+    from asx.raw.store import ingest_document
+
+    doc = ingest_document(conn, f"3y {name} {qty}".encode(), source="t", title="3Y",
+                          lodged_at=datetime(2026, 3, lodged, tzinfo=UTC),
+                          lodged_at_source="manual").doc_id
+    apply_trades(conn, doc, [TradeRow(
+        entity_id=eid, person_name_raw=name, doc_id=doc,
+        event_date=date(2026, 3, day),
+        knowable_at=datetime(2026, 3, lodged, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_acquired=D(qty),
+        consideration_text="On-market purchase",
+        consideration_aud=D(spend), held_before=D(held_before),
+        held_after=D(held_before + qty))])
+    conn.commit()
+    return doc
+
+
+def test_a_director_sharply_raising_their_own_stake_is_a_signal(conn):
+    """The case cluster buying cannot see: one director, buying heavily.
+    On the real corpus this is a $896,000 purchase that doubled the buyer's
+    holding and scored nothing, while a $2,402 two-director cluster topped the
+    screen."""
+    from asx.signals.director_signals import build_conviction_buys
+
+    eid = _entity(conn, "Xyz Mining Limited", "XYZ")
+    _conviction_trade(conn, eid, "Jane Citizen",
+                      held_before=100000, qty=145000, spend=896000)
+
+    assert build_conviction_buys(conn) == 1
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM signal_conviction_buys")
+        row = cur.fetchone()
+    assert row["stake_increase"] == D("1.45")
+    assert row["person_name_raw"] == "Jane Citizen"
+    # Actionable from this notice's own lodgement — unlike a cluster, there is
+    # no later member to wait for.
+    assert row["knowable_at"] == datetime(2026, 3, 12, 10, 0, tzinfo=UTC)
+
+
+def test_a_big_cheque_that_barely_moves_the_stake_is_not_a_signal(conn):
+    """$500,000 against an 83-million-share holding changes that director's
+    exposure by 0.1%. Ranking on dollars would put it near the top; ranking on
+    conviction correctly leaves it out."""
+    from asx.signals.director_signals import build_conviction_buys
+
+    eid = _entity(conn, "Xyz Mining Limited", "XYZ")
+    _conviction_trade(conn, eid, "Big Holder",
+                      held_before=83000000, qty=70000, spend=500000)
+
+    assert build_conviction_buys(conn) == 0
+
+
+def test_a_large_percentage_on_a_tiny_spend_is_flagged_not_dropped(conn):
+    """A 27% increase costing $2,460 says the holding was tiny, not that
+    anyone changed their mind. The reader is told, and decides."""
+    from asx.signals.director_signals import build_conviction_buys
+
+    eid = _entity(conn, "Xyz Mining Limited", "XYZ")
+    _conviction_trade(conn, eid, "Small Fry",
+                      held_before=10000, qty=4000, spend=2460)
+
+    assert build_conviction_buys(conn) == 1
+    with conn.cursor() as cur:
+        cur.execute("SELECT coverage_flags FROM signal_conviction_buys")
+        assert "small_absolute_spend" in cur.fetchone()["coverage_flags"]
+
+
+def test_conviction_buys_respect_the_same_size_ceiling(conn):
+    """A signal that ignored the size cut would put large caps back on a
+    smallcap screen through the side door."""
+    from asx.signals.director_signals import build_conviction_buys
+
+    eid = _entity(conn, "Xyz Mining Limited", "XYZ")
+    _conviction_trade(conn, eid, "Jane Citizen",
+                      held_before=100000, qty=145000, spend=896000)
+    assert build_conviction_buys(conn) == 1
+
+    load_membership(conn, HOLDINGS_CSV,
+                    source_url="https://issuer.example/holdings.csv",
+                    as_of=date(2026, 3, 11),
+                    knowable_at=datetime(2026, 3, 11, tzinfo=UTC))
+    assert build_conviction_buys(conn) == 0
