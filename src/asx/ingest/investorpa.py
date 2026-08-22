@@ -52,12 +52,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Iterable
 
+from asx.ids.market_time import market_date
 from asx.ingest.detection import Detection
 from asx.ingest.fetch_guard import fetch
 
@@ -118,18 +119,40 @@ class InvestorPACredentials:
 # Parsing the API's answers
 # --------------------------------------------------------------------------
 # The tools return prose for a human to read, not structured records, so the
-# fields have to be recovered from a line. That is fragile in the specific way
-# CLAUDE.md cares about: a provider who restyles their output would otherwise
-# start yielding half-read detections that look deliberate. So a line that does
-# not match is not skipped — it sets format_recognised=False and reaches the
-# review queue through the same path an unreadable alert email does.
+# fields have to be recovered from a line. Three mechanisms keep that from
+# failing silently, in increasing order of how little they trust the format.
 #
-#   • 2026-08-20T17:17:24+10:00 | LOT - Change of Director's Interest Notice - G Bittar | [PDF](https://…) | [View Details](https://…)
+# 1. _RESULT_LINE parses a line we understand.
+# 2. _LOOKS_LIKE_RESULT recognises a line we were MEANT to understand and did
+#    not, so it becomes an unreadable Detection and reaches the review queue
+#    through the same path an unreadable alert email does.
+# 3. The vendor states how many results it returned. Comparing that against
+#    the lines we recognised catches a line that matched NEITHER pattern -
+#    the case the first two are blind to by construction.
 #
-# Split on the FIRST " - " only: titles routinely contain more of them.
+# The third exists because the first two drifted apart: the bullet class was
+# widened in one and not the other, and a restyled line stopped being parsed
+# AND stopped being recognised, so the run reported success having read
+# nothing. The count is independent of how the vendor styles anything, which
+# is the property the other two cannot have.
+#
+# What the count is NOT: a total. Checked against the live API on 21 Aug 2026,
+# the same 19-hour window answers "Found 20" at limit=100 and "Found 5" at
+# limit=5, so N is the number RETURNED, capped by the limit. Truncation is
+# invisible in it and needs page_looks_truncated() instead.
+
+# One source of truth for the bullet, used by both patterns so they cannot
+# drift again. The bullet is OPTIONAL: a provider who drops it entirely must
+# still be recognised rather than read as prose.
+_BULLET = r"[\u2022*\-\u2013\u2014]"
+_ISO_INSTANT = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+\-]\d{2}:\d{2}"
+
+#   \u2022 2026-08-20T17:17:24+10:00 | LOT - Change of Director's Interest Notice - G Bittar | [PDF](https://...) | [View Details](https://...)
+#
+# Split on the FIRST " - " only: titles routinely contain more.
 _RESULT_LINE = re.compile(
-    r"^\s*[•*\-]\s*"
-    r"(?P<when>\d{4}-\d{2}-\d{2}T[\d:]{8}[+\-]\d{2}:\d{2})\s*\|\s*"
+    rf"^\s*{_BULLET}?\s*"
+    rf"(?P<when>{_ISO_INSTANT})\s*\|\s*"
     r"(?P<ticker>[A-Z0-9]{2,6})\s*-\s*"
     r"(?P<title>.*?)\s*\|\s*"
     r"\[PDF\]\((?P<pdf>[^)\s]+)\)"
@@ -137,34 +160,92 @@ _RESULT_LINE = re.compile(
     r"\s*$"
 )
 
-# A line that begins like a result but does not parse. Used to tell "the
-# provider changed their format" apart from "this line was never a result"
-# (headers, tips, blank lines), because only the first is an alarm.
-_LOOKS_LIKE_RESULT = re.compile(r"^\s*[•*]\s*\d{4}-\d{2}-\d{2}T")
+# Result-SHAPED: a timestamp where a result's timestamp goes. Deliberately
+# weaker than _RESULT_LINE and built from the same bullet, so the set it
+# recognises is always a superset of the set the other parses.
+_LOOKS_LIKE_RESULT = re.compile(rf"^\s*{_BULLET}?\s*{_ISO_INSTANT}")
+
+# "Found 20 announcements for: 'x' | dates: ..."
+_STATED_COUNT = re.compile(r"^\s*Found\s+(\d+)\s+announcement", re.I | re.M)
+
+
+@dataclass
+class SearchPage:
+    """One search response: what we read, and what the vendor said it sent.
+
+    Carries the discrepancy rather than raising on it. A count mismatch means
+    a line vanished, which is serious - but the readable detections on the
+    same page are still facts, and throwing them away would turn one styling
+    change into a lost day (Invariant 7: make the gap visible, do not widen
+    it).
+    """
+    detections: list[Detection]
+    stated: int | None
+    recognised: int
+    # Set by the caller that knows the limit it asked for. A full page and a
+    # page that is exactly `limit` long look identical from the response.
+    truncated: bool = False
+
+    @property
+    def missing(self) -> int:
+        """Lines the vendor counted that we did not even recognise."""
+        if self.stated is None:
+            return 0
+        return max(0, self.stated - self.recognised)
+
+    @property
+    def complete(self) -> bool:
+        return self.stated is not None and self.missing == 0
+
+
+def page_looks_truncated(*, returned: int, limit: int) -> bool:
+    """True when a page is exactly as long as we allowed it to be.
+
+    The vendor's stated count is capped by the limit, so a full page and a
+    page that happens to be exactly `limit` long are indistinguishable from
+    the response alone. Treating a full page as complete is how announcements
+    go missing while the run reports success, so a full page is always
+    reported as possibly truncated and the caller narrows its window.
+    """
+    return returned >= limit
+
+
+def _unreadable(line: str) -> Detection:
+    """A line we were meant to read and could not.
+
+    Recorded rather than skipped: it reaches the review queue through the same
+    path an unreadable alert email does, so a provider who restyles their
+    output produces a visible pile of review items instead of a quiet run.
+    """
+    return Detection(
+        detection_source="investorpa",
+        source_ref=line.strip()[:200],
+        title=line.strip()[:200],
+        format_recognised=False,
+    )
 
 
 def _parse_result_line(line: str) -> Detection | None:
     """One search-result line -> a Detection, or None if it is not a result."""
     match = _RESULT_LINE.match(line)
     if match is None:
-        if not _LOOKS_LIKE_RESULT.match(line):
-            return None
-        # Shaped like a result and unreadable: record it so it is visible.
-        return Detection(
-            detection_source="investorpa",
-            source_ref=line.strip()[:200],
-            title=line.strip()[:200],
-            format_recognised=False,
-        )
+        return _unreadable(line) if _LOOKS_LIKE_RESULT.match(line) else None
 
-    when = datetime.fromisoformat(match["when"])
+    try:
+        when = datetime.fromisoformat(match["when"])
+    except ValueError:
+        # Shape-valid but impossible - '25:61:61' matches the pattern and is
+        # not a time. One bad line costs one line; letting this escape
+        # abandoned every detection in the batch.
+        return _unreadable(line)
+
     pdf = match["pdf"]
     return Detection(
         detection_source="investorpa",
         # Their announcement id, taken from the URL they gave us rather than
         # constructed. It is their publication sequence, NOT the ASX
         # announcement number, so it is deliberately not written to
-        # documents.asx_announcement_id — that column means the exchange's
+        # documents.asx_announcement_id - that column means the exchange's
         # identifier, and putting a vendor's counter in it would make two
         # feeds' rows look like the same lodgement or different ones at random.
         source_ref=pdf,
@@ -182,10 +263,19 @@ def _parse_result_line(line: str) -> Detection | None:
     )
 
 
-def detections_from_text(text: str) -> list[Detection]:
-    """Every detection in one tool response."""
-    return [d for d in (_parse_result_line(line) for line in text.splitlines())
-            if d is not None]
+def detections_from_text(text: str) -> SearchPage:
+    """Read one tool response into a page of detections plus its own audit."""
+    detections, recognised = [], 0
+    for line in text.splitlines():
+        if _LOOKS_LIKE_RESULT.match(line):
+            recognised += 1
+        detection = _parse_result_line(line)
+        if detection is not None:
+            detections.append(detection)
+    stated = _STATED_COUNT.search(text)
+    return SearchPage(detections=detections,
+                      stated=int(stated.group(1)) if stated else None,
+                      recognised=recognised)
 
 
 # --------------------------------------------------------------------------
@@ -246,12 +336,12 @@ class InvestorPAClient:
         }
         result = fetch(MCP_URL, opener=self._opener, post_json=envelope,
                        bearer_token=self.access_token())
-        return _text_from_jsonrpc(result.content)
+        return _tool_text(result.content, self._request_id)
 
     # -- the one query this module makes -----------------------------------
     def director_interest_notices(self, *, date_from: str, date_to: str,
                                   limit: int = MAX_RESULTS_PER_CALL,
-                                  ) -> list[Detection]:
+                                  ) -> SearchPage:
         """Appendix 3Y/3Z lodged in a date range, across the whole exchange.
 
         `search_stocks` is deliberately never called, here or anywhere. Their
@@ -274,35 +364,63 @@ class InvestorPAClient:
             "date_to": date_to,
             "limit": limit,
         })
-        return detections_from_text(text)
+        page = detections_from_text(text)
+        # Truncation is judged on the vendor's OWN count of what it returned,
+        # not on what we managed to recognise. If a line vanished, recognised
+        # is short of the page's real length, and using it would hide a full
+        # page — two silent failures compounding into one invisible gap.
+        page.truncated = page_looks_truncated(
+            returned=page.stated if page.stated is not None else page.recognised,
+            limit=limit)
+        return page
 
 
-def _text_from_jsonrpc(raw: bytes) -> str:
-    """Pull the text content out of a JSON-RPC (or SSE-framed) tool result.
+def _jsonrpc_messages(raw: bytes) -> list[dict]:
+    """Every JSON-RPC object in a response, whether framed as JSON or as SSE.
 
-    Streamable-HTTP MCP servers may answer with application/json or with an
-    event stream carrying the same object, so both are handled rather than
-    assumed.
+    Streamable-HTTP MCP servers may answer either way, and an event stream may
+    carry more than the answer: a log notification or a ping can follow the
+    result. So all frames are collected and the caller picks by id.
     """
     body = raw.decode("utf-8", errors="replace").strip()
     if not body:
         raise InvestorPAProtocolError("empty response from the MCP endpoint")
-
-    payload = None
     if body.startswith("{"):
-        payload = json.loads(body)
-    else:
-        # SSE framing: one or more "data: {...}" lines.
-        for line in body.splitlines():
-            line = line.strip()
-            if line.startswith("data:"):
-                candidate = line[len("data:"):].strip()
-                if candidate.startswith("{"):
-                    payload = json.loads(candidate)
-        if payload is None:
-            raise InvestorPAProtocolError(
-                f"could not find a JSON-RPC object in the response: {body[:200]!r}")
+        return [json.loads(body)]
 
+    messages = []
+    for line in body.splitlines():
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[len("data:"):].strip()
+        if payload.startswith("{"):
+            messages.append(json.loads(payload))
+    if not messages:
+        raise InvestorPAProtocolError(
+            f"no JSON-RPC object in the response: {body[:200]!r}")
+    return messages
+
+
+def _response_for(messages: list[dict], request_id: int) -> dict:
+    """The frame answering OUR request.
+
+    Taking the last frame instead was a real bug: a server that emits the tool
+    result followed by any notification left us reading the notification,
+    which has neither 'result' nor 'error', so a perfectly good answer was
+    reported as carrying no content.
+    """
+    for message in messages:
+        if message.get("id") == request_id:
+            return message
+    ids = [m.get("id") for m in messages]
+    raise InvestorPAProtocolError(
+        f"no frame answered request {request_id}; got ids {ids}")
+
+
+def _tool_text(raw: bytes, request_id: int) -> str:
+    """The text content of a tools/call result."""
+    payload = _response_for(_jsonrpc_messages(raw), request_id)
     if "error" in payload:
         raise InvestorPAProtocolError(f"MCP error: {payload['error']!r}")
     result = payload.get("result") or {}
@@ -324,23 +442,52 @@ def ingest(conn, *, since_days: int = 3, client: InvestorPAClient | None = None,
     """Record every Appendix 3Y/3Z lodged in the window as a detection.
 
     Idempotent through record_detection's detection_key, which for this source
-    is the document URL the vendor stated — stable across re-reads, so running
+    is the document URL the vendor stated - stable across re-reads, so running
     it twice costs nothing and a wider window is always safe.
     """
     from asx.ingest.detection import record_detection
 
     client = client or InvestorPAClient()
     now = today or datetime.now(timezone.utc)
-    date_to = now.date().isoformat()
-    date_from = (now.date() - timedelta(days=since_days)).isoformat()
+    # The Sydney trading date, not the UTC one. market_time.py: "Any code that
+    # needs the calendar date of a lodgement must go through market_date() -
+    # taking .date() of a UTC timestamp shifts pre-open lodgements to the
+    # previous day." The scheduled 09:00 UTC run was safe by luck; the manual
+    # workflow_dispatch button was not, and would have asked for a window
+    # ending yesterday while the current Sydney session was still lodging.
+    end = market_date(now)
+    date_to = end.isoformat()
+    date_from = (end - timedelta(days=since_days)).isoformat()
 
-    stats = {"found": 0, "new": 0, "duplicate": 0, "unreadable": 0}
-    for detection in client.director_interest_notices(date_from=date_from,
-                                                      date_to=date_to):
+    stats = {"found": 0, "new": 0, "duplicate": 0, "unreadable": 0,
+             "missing": 0, "truncated": False, "failed": 0,
+             "window": [date_from, date_to]}
+
+    page = client.director_interest_notices(date_from=date_from, date_to=date_to)
+    stats["truncated"] = page.truncated
+    # Lines the vendor counted and we did not even recognise. Not raised: the
+    # readable detections on the same page are still facts, and discarding
+    # them would turn one styling change into a lost day. Reported instead,
+    # and the monitor decides.
+    stats["missing"] = page.missing
+
+    for detection in page.detections:
         stats["found"] += 1
         if not detection.format_recognised:
             stats["unreadable"] += 1
-        _, is_new = record_detection(conn, detection, llm_classifier=llm_classifier)
-        stats["new" if is_new else "duplicate"] += 1
-    conn.commit()
+        # Committed per detection, exactly as cmd_detect's mailbox loop does
+        # and for the reason stated there: "One malformed email must not roll
+        # back the alerts already read in this run - under Tier 0 a dropped
+        # alert is a permanent dataset hole." Committing once at the end made
+        # a single bad row cost the whole window.
+        try:
+            _doc_id, is_new = record_detection(conn, detection,
+                                               llm_classifier=llm_classifier)
+            conn.commit()
+            stats["new" if is_new else "duplicate"] += 1
+        except Exception as exc:      # noqa: BLE001 - deliberate: keep going
+            conn.rollback()
+            stats["failed"] += 1
+            print(f"could not record {detection.source_ref!r}: "
+                  f"{type(exc).__name__}: {exc}", file=sys.stderr)
     return stats

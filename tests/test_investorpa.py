@@ -176,7 +176,7 @@ def test_the_ir_route_does_not_claim_investorpa_documents():
 # --- reading their output -------------------------------------------------
 
 def test_the_real_response_format_parses():
-    detections = detections_from_text(REAL_RESPONSE)
+    detections = detections_from_text(REAL_RESPONSE).detections
     assert len(detections) == 4
     first = detections[0]
     assert first.ticker == "CPO"
@@ -189,7 +189,7 @@ def test_the_real_response_format_parses():
 
 
 def test_a_title_containing_a_dash_keeps_its_whole_title():
-    detections = detections_from_text(REAL_RESPONSE)
+    detections = detections_from_text(REAL_RESPONSE).detections
     lot = next(d for d in detections if d.ticker == "LOT")
     assert lot.title == "Change of Director's Interest Notice - G Bittar"
 
@@ -199,7 +199,7 @@ def test_the_timestamp_is_attributed_to_investorpa_not_market_index():
     until migration 0026. knowable_at is the column every analytic joins
     through, and a provenance that names the wrong observer is worse than no
     provenance at all."""
-    for d in detections_from_text(REAL_RESPONSE):
+    for d in detections_from_text(REAL_RESPONSE).detections:
         assert d.lodged_at_source == "investorpa"
 
 
@@ -207,15 +207,15 @@ def test_a_line_shaped_like_a_result_but_unreadable_is_loud():
     """Silence is the failure mode. A provider who restyles their output would
     otherwise yield half-read detections that look deliberate."""
     broken = "• 2026-08-20T99:99:99+10:00 | XXX - not a parseable line"
-    detections = detections_from_text(broken)
+    detections = detections_from_text(broken).detections
     assert len(detections) == 1
     assert detections[0].format_recognised is False
 
 
 def test_prose_around_the_results_is_not_mistaken_for_data():
-    detections = detections_from_text(
+    page = detections_from_text(
         "Found 0 announcements for: 'x'\n\nTip: Use get_announcement_detail")
-    assert detections == []
+    assert page.detections == [] and page.stated == 0 and page.complete
 
 
 def test_an_initial_directors_interest_notice_is_not_read_as_a_trade():
@@ -226,7 +226,7 @@ def test_an_initial_directors_interest_notice_is_not_read_as_a_trade():
     mattered little at 17 captured documents and would matter a great deal
     against a feed that returns every one on the exchange.
     """
-    detections = detections_from_text(REAL_RESPONSE)
+    detections = detections_from_text(REAL_RESPONSE).detections
     initial = next(d for d in detections if "Initial" in d.title)
     doc_class, _ = classify(initial.title, None)
     assert doc_class == "app_3x"
@@ -243,9 +243,9 @@ def test_the_tool_call_goes_through_the_guard_as_a_post():
     opener = _Opener(_jsonrpc(REAL_RESPONSE))
     client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
     client._token = "at"                      # skip the token round-trip
-    detections = client.director_interest_notices(date_from="2026-08-19",
-                                                  date_to="2026-08-20")
-    assert len(detections) == 4
+    page = client.director_interest_notices(date_from="2026-08-19",
+                                            date_to="2026-08-20")
+    assert len(page.detections) == 4
     request = opener.requests[0]
     assert request.get_method() == "POST"
     assert request.full_url == "https://investorpa.com/mcp/"
@@ -266,7 +266,7 @@ def test_an_sse_framed_answer_is_read_too():
     client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
     client._token = "at"
     assert len(client.director_interest_notices(
-        date_from="2026-08-19", date_to="2026-08-20")) == 4
+        date_from="2026-08-19", date_to="2026-08-20").detections) == 4
 
 
 def test_an_error_answer_raises_rather_than_returning_nothing():
@@ -292,15 +292,22 @@ def test_credentials_say_what_to_do_when_absent(monkeypatch):
 # --- end to end, against a database --------------------------------------
 
 class _FakeClient:
-    def __init__(self, detections):
-        self._detections = detections
+    def __init__(self, detections, *, stated=None, truncated=False):
+        from asx.ingest.investorpa import SearchPage
+
+        self._page = SearchPage(
+            detections=detections,
+            stated=len(detections) if stated is None else stated,
+            recognised=len(detections),
+            truncated=truncated,
+        )
 
     def director_interest_notices(self, **_kwargs):
-        return self._detections
+        return self._page
 
 
 def test_detections_reach_the_database_with_honest_provenance(conn):
-    detections = detections_from_text(REAL_RESPONSE)
+    detections = detections_from_text(REAL_RESPONSE).detections
     stats = ingest(conn, client=_FakeClient(detections),
                    today=datetime(2026, 8, 20, tzinfo=timezone.utc))
     assert stats["found"] == 4
@@ -335,7 +342,7 @@ def test_detections_reach_the_database_with_honest_provenance(conn):
 
 
 def test_re_reading_the_same_window_records_nothing_twice(conn):
-    detections = detections_from_text(REAL_RESPONSE)
+    detections = detections_from_text(REAL_RESPONSE).detections
     client = _FakeClient(detections)
     first = ingest(conn, client=client,
                    today=datetime(2026, 8, 20, tzinfo=timezone.utc))
@@ -576,62 +583,57 @@ def test_a_dead_route_cannot_report_itself_as_a_quiet_one(conn, monkeypatch):
 # limit=5 (checked against the live API, 21 Aug 2026). So it is worthless for
 # detecting truncation, and exact for detecting a line we failed to read.
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: no completeness check against the vendor's stated count yet. "
-    "strict=True so the fix removes this marker rather than leaving it.")
-def test_a_line_we_cannot_read_is_counted_not_skipped():
-    """The vendor states a count. If we parse fewer lines than it says it
-    returned, we have silently dropped an announcement — whatever the reason,
-    and without needing a second regex to agree with the first."""
-    from asx.ingest.investorpa import InvestorPAProtocolError
+def test_a_restyled_line_is_recognised_and_flagged_not_dropped():
+    """A dash bullet whose link is no longer wrapped in [PDF](...) markdown.
+    The strict pattern misses it; the shape pattern must still recognise it,
+    so it becomes an unreadable detection with a review item rather than
+    evaporating. Both patterns are built from one _BULLET, so widening one
+    cannot leave the other behind again.
 
-    # A dash bullet alone still parses. The drift that disappears is a dash
-    # bullet whose link is no longer wrapped in [PDF](...) markdown: the strict
-    # pattern misses it, and the "does this look like a result?" pattern was
-    # written with a narrower bullet class, so it misses it too. Neither fires
-    # and the line evaporates.
+    Deliberately NOT a raise. An earlier version of this test demanded one,
+    which would have thrown away every readable detection on the same page —
+    turning one styling change into a lost day, against the rule that a single
+    bad row must not destroy a batch."""
     drifted = ("Found 2 announcements for: 'x'\n\n"
                "- 2026-08-20T17:17:24+10:00 | LOT - Change of Director's "
                "Interest Notice | PDF: https://investorpa.com/a.pdf\n"
                "- 2026-08-20T17:15:44+10:00 | LOT - Change of Director's "
                "Interest Notice | PDF: https://investorpa.com/b.pdf\n")
-    with pytest.raises(InvestorPAProtocolError, match="stated 2"):
-        detections_from_text(drifted)
+    page = detections_from_text(drifted)
+    assert page.recognised == 2 and page.stated == 2
+    assert page.missing == 0                       # nothing vanished
+    assert [d.format_recognised for d in page.detections] == [False, False]
 
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: no completeness check against the vendor's stated count yet. "
-    "strict=True so the fix removes this marker rather than leaving it.")
-def test_a_format_with_no_bullet_at_all_is_loud():
-    """If the provider drops bullets entirely, every line stops matching. The
-    run must not come back empty and green."""
-    from asx.ingest.investorpa import InvestorPAProtocolError
+def test_a_line_that_vanishes_entirely_is_counted_against_the_stated_total():
+    """The case the two patterns are blind to by construction: a line neither
+    parses NOR recognises. Only the vendor's own count can see it, which is
+    why the count exists — it is independent of how they style anything."""
+    body = ("Found 3 announcements for: 'x'\n\n"
+            "• 2026-08-20T17:17:24+10:00 | LOT - Title | [PDF](https://investorpa.com/a.pdf)\n"
+            "~~~ 2026-08-20 LOT something in a shape nothing recognises ~~~\n"
+            "~~~ 2026-08-20 LOT another one ~~~\n")
+    page = detections_from_text(body)
+    assert page.recognised == 1
+    assert page.stated == 3
+    assert page.missing == 2, "two lines vanished and nothing else can see it"
+    assert not page.complete
+    # The readable one survives: a gap is reported, not widened.
+    assert len(page.detections) == 1 and page.detections[0].ticker == "LOT"
 
-    body = ("Found 2 announcements for: 'x'\n\n"
-            "2026-08-20T17:17:24+10:00 | LOT - Title | https://investorpa.com/a.pdf\n"
-            "2026-08-20T17:15:44+10:00 | LOT - Title | https://investorpa.com/b.pdf\n")
-    with pytest.raises(InvestorPAProtocolError, match="stated 2"):
-        detections_from_text(body)
 
-
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: fromisoformat still escapes and abandons the batch. "
-    "strict=True so the fix removes this marker rather than leaving it.")
 def test_an_impossible_timestamp_becomes_one_unreadable_line():
     """Shape-valid but impossible times reach datetime.fromisoformat. One bad
     line must not abandon the batch with a traceback."""
     body = ("Found 2 announcements for: 'x'\n\n"
             "• 2026-08-20T25:61:61+10:00 | LOT - Title | [PDF](https://investorpa.com/a.pdf)\n"
             "• 2026-08-20T17:15:44+10:00 | LOT - Good | [PDF](https://investorpa.com/b.pdf)\n")
-    detections = detections_from_text(body)
-    assert len(detections) == 2
-    assert [d.format_recognised for d in detections] == [False, True]
-    assert detections[1].ticker == "LOT"       # the good line still survives
+    page = detections_from_text(body)
+    assert len(page.detections) == 2
+    assert [d.format_recognised for d in page.detections] == [False, True]
+    assert page.detections[1].ticker == "LOT"       # the good line still survives
 
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: page_looks_truncated not implemented. "
-    "strict=True so the fix removes this marker rather than leaving it.")
 def test_a_full_page_is_reported_as_possibly_truncated():
     """'Found N' is capped by the limit, so a full page cannot be told apart
     from a page that happens to be exactly N long. Silence here would make
@@ -642,9 +644,6 @@ def test_a_full_page_is_reported_as_possibly_truncated():
     assert page_looks_truncated(returned=499, limit=500) is False
 
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: ingest still builds the window from the UTC date. "
-    "strict=True so the fix removes this marker rather than leaving it.")
 def test_the_window_is_the_sydney_trading_day_not_the_utc_one(conn, monkeypatch):
     """market_time.py: 'Any code that needs the calendar date of a lodgement
     must go through market_date() — taking .date() of a UTC timestamp shifts
@@ -656,8 +655,10 @@ def test_the_window_is_the_sydney_trading_day_not_the_utc_one(conn, monkeypatch)
 
     class _Recorder:
         def director_interest_notices(self, *, date_from, date_to, **_kw):
+            from asx.ingest.investorpa import SearchPage
+
             asked["from"], asked["to"] = date_from, date_to
-            return []
+            return SearchPage(detections=[], stated=0, recognised=0)
 
     # 2026-08-21T14:00Z is 2026-08-22 00:00 in Sydney — a new trading day.
     investorpa.ingest(conn, client=_Recorder(), since_days=1,
@@ -711,3 +712,58 @@ def test_skipping_a_document_on_the_ir_route_leaves_a_trace(conn, monkeypatch):
     stats = possession.fetch_ir_documents(conn)
     assert sum(stats.values()) > 0, (
         f"the skipped document left no trace anywhere in {stats}")
+
+
+def test_the_answer_is_picked_by_request_id_not_by_being_last():
+    """A server may emit the tool result and then a log notification or a
+    ping. Taking the last frame left us reading the notification, which has
+    neither 'result' nor 'error' — so a perfectly good answer was reported as
+    carrying no text content."""
+    result_frame = json.dumps({
+        "jsonrpc": "2.0", "id": 1,
+        "result": {"content": [{"type": "text", "text": REAL_RESPONSE}]}})
+    trailing_notification = json.dumps({
+        "jsonrpc": "2.0", "method": "notifications/message",
+        "params": {"level": "info", "data": "search complete"}})
+    body = (f"event: message\ndata: {result_frame}\n\n"
+            f"event: message\ndata: {trailing_notification}\n\n").encode()
+
+    opener = _Opener(body)
+    client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
+    client._token = "at"
+    page = client.director_interest_notices(date_from="2026-08-19",
+                                            date_to="2026-08-20")
+    assert len(page.detections) == 4
+
+
+def test_a_frame_that_answers_a_different_request_is_not_accepted():
+    """Silently accepting someone else's answer is worse than failing."""
+    from asx.ingest.investorpa import InvestorPAProtocolError, _tool_text
+
+    other = json.dumps({"jsonrpc": "2.0", "id": 99,
+                        "result": {"content": [{"type": "text", "text": "x"}]}})
+    with pytest.raises(InvestorPAProtocolError, match="no frame answered"):
+        _tool_text(f"data: {other}\n\n".encode(), 1)
+
+
+def test_a_possibly_truncated_page_is_reported_in_the_run_stats(conn):
+    """A page exactly as long as the limit cannot be told from a truncated one,
+    so ingest reports it rather than treating it as complete. The stats dict is
+    what cmd_detect prints and what the workflow reads, so the fact has to
+    reach it — a truncation nobody can see is announcements gone missing while
+    the run reports success."""
+    detections = detections_from_text(REAL_RESPONSE).detections
+    stats = ingest(conn, client=_FakeClient(detections, truncated=True),
+                   today=datetime(2026, 8, 20, tzinfo=timezone.utc))
+    assert stats["truncated"] is True
+    assert stats["found"] == 4          # and the page's contents still landed
+
+
+def test_lines_the_vendor_counted_but_we_never_saw_reach_the_run_stats(conn):
+    """page.missing is the only signal that a line vanished. It must survive
+    into the stats rather than being computed and dropped."""
+    detections = detections_from_text(REAL_RESPONSE).detections
+    stats = ingest(conn, client=_FakeClient(detections, stated=9),
+                   today=datetime(2026, 8, 20, tzinfo=timezone.utc))
+    assert stats["missing"] == 5
+    assert stats["found"] == 4, "the readable detections still landed"
