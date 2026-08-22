@@ -95,6 +95,13 @@ _NON_DOCUMENT_URL_RE = re.compile(
     r"/ss/c/|/click|/track|/redirect|/r/|webversion|viewonline)", re.I)
 
 
+# What a document link looks like. One definition, because the own-host
+# recording branch and the fetch-candidate filter must agree on it: if they
+# drift, a link is neither recorded nor fetched, which is the shape of the bug
+# this constant was extracted to prevent.
+_DOCUMENT_URL_RE = re.compile(r"\.pdf($|[?#])", re.I)
+
+
 @dataclass
 class SenderRule:
     """How to read one alert provider's emails."""
@@ -134,9 +141,16 @@ SENDER_RULES: list[SenderRule] = [
         # the announcement and its PDF URL directly and is not watchlist-bound.
         #
         # NOT calibrated: no real email has ever been seen, so no subject_re —
-        # the conservative generic path applies until fixtures exist. An alert
-        # that does arrive is deduped against the API by announcement identity,
-        # so reading it twice costs nothing.
+        # the conservative generic path applies until fixtures exist.
+        #
+        # An alert that does arrive is NOT deduped against the API, and saying
+        # so was wrong. Detection.key() falls back to the source_ref, which is
+        # the stated PDF URL for an API result and the Message-ID for an
+        # email, so one lodgement seen both ways becomes two documents rows.
+        # It cannot be otherwise while investorpa exposes only its own
+        # publication counter and never the ASX announcement number that
+        # documents.asx_announcement_id means. The cross-feed reconciliation
+        # is where that is surfaced; it is not silently resolved here.
         #
         # own_hosts still keeps the alert's links out of the automatic fetch
         # set. That is not a terms judgement any more (investorpa.com is
@@ -232,9 +246,13 @@ def partition_urls(urls: list[str], rule: SenderRule,
                    sender_domain: str = "") -> tuple[list[str], list[str]]:
     """Split an alert's links into (manual_open, fetch_candidates).
 
-    `manual_open` is every link on a host no automated device may touch. They
-    are KEPT, not dropped: the access decision promises they are recorded so
-    the owner can open them personally, and `asx worklist` prints them.
+    `manual_open` is every link on a host no automated device may touch, plus
+    the own-host links of a sender nobody has calibrated yet. They are KEPT,
+    not dropped: the access decision promises they are recorded so the owner
+    can open them personally, and `asx worklist` prints them. That promise was
+    false for a sender declaring own_hosts without an open_url_re — its links
+    matched no recording branch and fell through to the fetch-candidate
+    filter, which discarded them.
 
     `fetch_candidates` is an ALLOWLIST, not "everything else". An alert body
     also carries the provider's tracking redirects, "manage your watchlist"
@@ -276,10 +294,39 @@ def partition_urls(urls: list[str], rule: SenderRule,
         if not url.lower().startswith("https://"):
             continue
         if any(host == b or host.endswith("." + b) for b in blocked_hosts):
+            # An own-host link is never a fetch candidate. Whether it is worth
+            # RECORDING depends on whether the rule has been calibrated.
+            #
+            # A rule with open_url_re has been read against real emails, so it
+            # knows which own-host link is the owner's route to the document;
+            # the branch above already captured that one, and everything else
+            # on the provider's domain is tracking furniture worth dropping.
+            #
+            # A rule with own_hosts but no open_url_re has NOT been calibrated
+            # — nobody has seen one of its emails, so nobody knows which link
+            # is which. Dropping them all leaves the detection with no route
+            # to the document at all, which is how the investorpa rule came to
+            # discard the announcement PDF URL that was the entire reason it
+            # existed. Recorded for the owner instead: it costs a line on the
+            # worklist and it cannot cost a document. List-management links
+            # are still excluded, because those are never the announcement.
+            # And a link that looks like a DOCUMENT is recorded whatever the
+            # rule's calibration. Market Index alerts carry no PDF today, so
+            # this changes nothing for them now — but the branch above only
+            # knows which link is the announcement PAGE, and a provider who
+            # started attaching the document would have it silently dropped
+            # for not matching that pattern. Tracking furniture is never a
+            # .pdf, so this cannot re-admit the noise the rule exists to
+            # exclude.
+            uncalibrated = rule.open_url_re is None and rule.own_hosts
+            if ((uncalibrated or _DOCUMENT_URL_RE.search(url))
+                    and not _NON_DOCUMENT_URL_RE.search(url)
+                    and url not in manual):
+                manual.append(url)
             continue
         if _NON_DOCUMENT_URL_RE.search(url):
             continue
-        if not re.search(r"\.pdf($|[?#])", url, re.I):
+        if not _DOCUMENT_URL_RE.search(url):
             continue      # ambiguous -> left out entirely (Invariant 8)
         candidates.append(url)
     return manual, candidates

@@ -668,9 +668,6 @@ def test_the_window_is_the_sydney_trading_day_not_the_utc_one(conn, monkeypatch)
         f"on the current Sydney trading day")
 
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: partition_urls drops own_hosts links for a sender with no open_url_re. "
-    "strict=True so the fix removes this marker rather than leaving it.")
 def test_an_investorpa_alert_keeps_its_document_link_for_the_owner():
     """partition_urls' docstring promises manual_open links are "KEPT, not
     dropped", and the sender rule's comment says own_hosts merely "keeps the
@@ -693,9 +690,6 @@ def test_an_investorpa_alert_keeps_its_document_link_for_the_owner():
         "now has no route to the document at all")
 
 
-@pytest.mark.xfail(strict=True, reason=
-    "REVIEW 21 Aug 2026: the investorpa skip increments no counter. "
-    "strict=True so the fix removes this marker rather than leaving it.")
 def test_skipping_a_document_on_the_ir_route_leaves_a_trace(conn, monkeypatch):
     """possession.py's own comment: "a route that never runs and a route that
     runs and finds nothing look identical in an all-zero stats dict, and the
@@ -767,3 +761,49 @@ def test_lines_the_vendor_counted_but_we_never_saw_reach_the_run_stats(conn):
                    today=datetime(2026, 8, 20, tzinfo=timezone.utc))
     assert stats["missing"] == 5
     assert stats["found"] == 4, "the readable detections still landed"
+
+
+def test_no_sender_rule_can_silently_lose_a_document_link():
+    """The standing accounting invariant, and the correction to the test that
+    let this bug ship.
+
+    `test_investorpa_links_are_recorded_not_auto_fetched` asserted
+    `document_urls == []` — which a function that drops EVERY link satisfies
+    just as well as one that correctly withholds a fetch candidate. So the
+    announcement PDF URL disappeared from both lists and the suite stayed
+    green.
+
+    The property that actually matters is conservation: a link that looks like
+    a document, on a host nothing is prohibited from touching, must end up
+    somewhere a human or a fetcher can reach it. Asserted across every
+    configured sender rather than for one of them, because the next
+    uncalibrated aggregator will have the same shape and nobody will think to
+    write this test again.
+    """
+    from asx.ingest.mailbox import SENDER_RULES, partition_urls
+
+    for rule in SENDER_RULES:
+        host = rule.own_hosts[0] if rule.own_hosts else "example-ir.com.au"
+        document = f"https://{host}/announcements/3y-aug26.pdf"
+        manual, candidates = partition_urls([document], rule)
+        assert document in manual or document in candidates, (
+            f"{rule.detection_source} drops {document} from both lists: the "
+            f"detection would be recorded with no route to the document at "
+            f"all, which is indistinguishable from an announcement that has "
+            f"no document"
+        )
+
+
+def test_a_calibrated_sender_still_drops_its_tracking_furniture():
+    """The counterpart. Recording own-host links for an uncalibrated sender
+    must not become 'record everything': Market Index has been read against
+    real emails, so its non-announcement own-host links are known to be
+    tracking redirects and list management, and putting those on the owner's
+    worklist would bury the documents among them."""
+    from asx.ingest.mailbox import SENDER_RULES, partition_urls
+
+    market_index = next(r for r in SENDER_RULES
+                        if r.detection_source == "market_index_alert")
+    noise = "https://www.marketindex.com.au/manage/unsubscribe?u=123"
+    manual, candidates = partition_urls([noise], market_index)
+    assert noise not in manual and noise not in candidates

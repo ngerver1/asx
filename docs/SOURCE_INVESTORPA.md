@@ -127,12 +127,30 @@ the guard's own docstring rather than left implicit.
 
 The MCP endpoint is OAuth-protected (`mcp:read`, a read-only scope the server
 defines and enforces). It is a public client supporting Dynamic Client
-Registration and PKCE, so consent is a one-off browser step:
+Registration and PKCE, so consent should be a one-off browser step:
 
     python -m asx.ingest.investorpa_consent          # registers, prints a URL
     python -m asx.ingest.investorpa_consent --code ... --client-id ... --verifier ...
 
-That prints a refresh token once. Put it in the environment where the platform
+**This has never completed, and the platform holds no grant.** Registration
+returns 201; the authorization endpoint then rejects that `client_id` with a
+bare 400 naming no reason, across four parameter combinations, and it refuses
+to validate anything before login so it cannot be diagnosed from outside an
+authenticated session.
+
+What is known: `claude mcp login` succeeds against the same endpoint, and its
+request uses no DCR client at all — its `client_id` is a URL,
+`https://claude.ai/oauth/claude-code-client-metadata`, the Client ID Metadata
+Document flow this server advertises as
+`client_id_metadata_document_supported: true`. The likely reading is that the
+beta implements CIMD and not the DCR clients its own registration endpoint
+issues. Publishing a metadata document and passing its URL as `client_id` is
+the next thing to try; failing that, ask the vendor, since an endpoint
+refusing the clients it just issued is a bug they would want. `state` and
+`resource` are required regardless and were missing from the first attempts.
+
+Everything downstream is built and tested and waits on that one token. When it
+exists, the flow prints a refresh token once. Put it in the environment where the platform
 runs — never in the repo, never in a chat:
 
     ASX_INVESTORPA_CLIENT_ID=...

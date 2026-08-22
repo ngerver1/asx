@@ -90,8 +90,8 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
     from asx.ingest.detection import open_detections
 
     stats = {"attempted": 0, "captured": 0, "skipped_asx": 0,
-             "robots_blocked": 0, "failed": 0, "not_a_document": 0,
-             "no_candidates": 0}
+             "skipped_investorpa": 0, "robots_blocked": 0, "failed": 0,
+             "not_a_document": 0, "no_candidates": 0}
     for doc in open_detections(conn, limit=limit):
         urls = _document_urls_for(conn, doc["doc_id"])
         if not urls:
@@ -109,6 +109,14 @@ def fetch_ir_documents(conn: psycopg.Connection, limit: int = 25) -> dict:
                 # Fetchable, but not on this route: it would be stored
                 # possession_source='ir_website', which would be a lie about
                 # where the bytes came from. fetch_investorpa_documents owns it.
+                #
+                # Counted, not merely skipped. This function's own comment
+                # eight lines up is the reason: "a route that never runs and a
+                # route that runs and finds nothing look identical in an
+                # all-zero stats dict, and the first is a dead route reported
+                # as a quiet one." A silent `continue` here made that true
+                # again for anything handed to the wrong route.
+                stats["skipped_investorpa"] += 1
                 continue
             stats["attempted"] += 1
             try:

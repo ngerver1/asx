@@ -10,18 +10,33 @@ Produces a refresh token, printed once and never written to disk — a secret in
 a file inside a repository checkout is a secret waiting to be committed. Put it
 in the environment where `asx detect --source investorpa` runs.
 
-Three things about this server make the flow simpler than the Gmail one, and
-all three come from its published metadata rather than from memory
-(https://investorpa.com/.well-known/oauth-authorization-server, read
-20 Aug 2026):
+What the server publishes, read from its own metadata rather than remembered
+(https://investorpa.com/.well-known/oauth-authorization-server, 20 Aug 2026):
 
-  * **Dynamic Client Registration** — there is no console to visit and no
-    client to create by hand. This tool registers one.
+  * **Dynamic Client Registration** — no console to visit and no client to
+    create by hand. This tool registers one.
   * **No client secret.** `token_endpoint_auth_methods_supported: ["none"]`,
     i.e. a public client. The refresh token is the entire credential, which is
     why it is treated as the whole secret.
   * **PKCE (S256) is the protection instead**, so the verifier from step 1 has
     to be carried into step 2. That is what --verifier is for.
+
+**This flow has never completed, and saying otherwise would be a comment
+describing behaviour the code does not have.** `/oauth/register/` issues a
+client (HTTP 201) whose `client_id` the authorization endpoint then rejects
+with a bare 400 naming no reason, across four parameter combinations, and it
+refuses to validate anything before login so it cannot be diagnosed from
+outside an authenticated session.
+
+What is known: `claude mcp login` succeeds against this same endpoint, and its
+request does not use a DCR client at all. Its `client_id` is a URL —
+`https://claude.ai/oauth/claude-code-client-metadata` — i.e. the Client ID
+Metadata Document flow, which this server advertises as
+`client_id_metadata_document_supported: true`. The likely reading is that the
+beta implements CIMD and not the DCR clients its own registration endpoint
+hands out. Publishing a metadata document and passing its URL as `client_id`
+is therefore the next thing to try, and `state` and `resource` — both absent
+from the first three attempts here — are required regardless.
 
 The granted scope is `mcp:read`, which the server defines as read-only. This
 platform could not write to the account through it even if it tried.
