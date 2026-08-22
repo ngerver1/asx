@@ -151,6 +151,30 @@ the next thing to try; failing that, ask the vendor, since an endpoint
 refusing the clients it just issued is a bug they would want. `state` and
 `resource` are required regardless and were missing from the first attempts.
 
+### The transport handshake
+
+The client speaks the MCP Streamable HTTP transport properly: it sends
+`initialize`, then `notifications/initialized`, echoes any `Mcp-Session-Id`
+the server assigns, carries `MCP-Protocol-Version` on every later request, and
+re-initialises once on a 404. Those are MUSTs of the specification, read at
+implementation time from the primary source rather than remembered
+(revision 2025-06-18, read 22 Aug 2026) and quoted in
+`asx/ingest/investorpa.py`.
+
+An earlier version sent `tools/call` cold. A server that assigns a session
+would have answered 400 to the very first request, and no test here could have
+caught it — every transport test injected a stand-in that returned the same
+canned body regardless of what it was sent, so it asserted what the fake did
+rather than what a server would. The stand-in now implements the transport's
+MUSTs and rejects a request that omits them, the way a session-requiring
+server does.
+
+**Unverified against investorpa specifically**, and it cannot be until a grant
+exists: the endpoint answers 401 to everything including `initialize`, so its
+lifecycle behaviour is unobservable from outside an authenticated session. The
+specification is the authority, not a guess about the beta — but the first
+authenticated run is the real test, and the error messages say so.
+
 Everything downstream is built and tested and waits on that one token. When it
 exists, the flow prints a refresh token once. Put it in the environment where the platform
 runs — never in the repo, never in a chat:

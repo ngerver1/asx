@@ -10,6 +10,7 @@ with it.
 from __future__ import annotations
 
 import ast
+import io
 import json
 import pathlib
 import re
@@ -29,6 +30,24 @@ from asx.ingest.investorpa import (
 from asx.parse.registry import parseable_doc_classes
 
 SRC = pathlib.Path(__file__).parent.parent / "src" / "asx"
+
+
+@pytest.fixture(autouse=True)
+def _no_throttle_in_tests(monkeypatch):
+    """fetch_guard throttles to one request per host per five seconds, which
+    is correct in production and ruinous here: the MCP handshake alone is
+    three requests, so a dozen transport tests would spend three minutes
+    asleep.
+
+    Zeroed rather than bypassed, so the code path under test is still the real
+    one. The interval itself is asserted where it belongs, in
+    tests/test_fetch_guard.py — not implicitly, by making every other test
+    slow.
+    """
+    from asx.ingest import fetch_guard
+
+    monkeypatch.setattr(fetch_guard, "MIN_INTERVAL_SECONDS", 0.0)
+    fetch_guard._last_request.clear()
 
 # Captured verbatim from the live API on 20 Aug 2026. Kept real rather than
 # invented: the whole point of a format fixture is that it is the provider's
@@ -51,9 +70,10 @@ def _jsonrpc(text: str) -> bytes:
 
 
 class _Response:
-    def __init__(self, body: bytes):
+    def __init__(self, body: bytes, *, status=200, headers=None):
         self._body = body
-        self.headers = {"Content-Type": "application/json"}
+        self.status = status
+        self.headers = headers or {"Content-Type": "application/json"}
 
     def read(self):
         return self._body
@@ -75,6 +95,70 @@ class _Opener:
     def __call__(self, request, timeout=None):
         self.requests.append(request)
         return _Response(self.body)
+
+
+class _FakeMCPServer:
+    """A stand-in that answers what it was ASKED, not a fixed body.
+
+    The transport tests used to inject an opener returning one canned
+    response to every request, which meant they asserted what the fake did
+    rather than what a server would — and could not have caught a client that
+    skipped the handshake entirely, which is precisely the bug they missed.
+
+    This one implements the MUSTs of the Streamable HTTP transport (revision
+    2025-06-18) that the client has to satisfy: it assigns a session at
+    initialization, rejects later requests that omit it the way the spec says
+    a session-requiring server SHOULD, echoes JSON-RPC ids, and returns 202
+    with no body for a notification.
+    """
+
+    def __init__(self, tool_text: str, *, session_id="sess-1",
+                 protocol_version="2025-06-18", expire_after=None):
+        self.tool_text = tool_text
+        self.session_id = session_id
+        self.protocol_version = protocol_version
+        self.expire_after = expire_after      # 404 the Nth tools/call
+        self.requests = []
+        self.tool_calls = 0
+
+    def __call__(self, request, timeout=None):
+        from urllib.error import HTTPError
+
+        body = json.loads(request.data)
+        self.requests.append((body, dict(request.headers)))
+        method = body.get("method")
+        # urllib title-cases header names it is given.
+        headers = {k.lower(): v for k, v in request.headers.items()}
+
+        if method == "initialize":
+            return _Response(json.dumps({
+                "jsonrpc": "2.0", "id": body["id"],
+                "result": {"protocolVersion": self.protocol_version,
+                           "capabilities": {}, "serverInfo": {"name": "fake"}},
+            }).encode(), headers={"Content-Type": "application/json",
+                                  "Mcp-Session-Id": self.session_id})
+
+        # Everything after initialization must carry the session and version.
+        if headers.get("mcp-session-id") != self.session_id:
+            raise HTTPError(request.full_url, 400, "Missing session", {},
+                            io.BytesIO(b""))
+        if not headers.get("mcp-protocol-version"):
+            raise HTTPError(request.full_url, 400, "Missing version", {},
+                            io.BytesIO(b""))
+
+        if method == "notifications/initialized":
+            return _Response(b"", status=202,
+                             headers={"Content-Type": "application/json"})
+
+        self.tool_calls += 1
+        if self.expire_after and self.tool_calls == self.expire_after:
+            self.session_id = "sess-2"        # server rotated it
+            raise HTTPError(request.full_url, 404, "Session expired", {},
+                                io.BytesIO(b""))
+        return _Response(json.dumps({
+            "jsonrpc": "2.0", "id": body["id"],
+            "result": {"content": [{"type": "text", "text": self.tool_text}]},
+        }).encode(), headers={"Content-Type": "application/json"})
 
 
 # --- the boundaries -------------------------------------------------------
@@ -239,33 +323,98 @@ def test_an_initial_directors_interest_notice_is_not_read_as_a_trade():
 
 # --- transport ------------------------------------------------------------
 
-def test_the_tool_call_goes_through_the_guard_as_a_post():
-    opener = _Opener(_jsonrpc(REAL_RESPONSE))
-    client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
+def _client(server):
+    client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=server)
     client._token = "at"                      # skip the token round-trip
-    page = client.director_interest_notices(date_from="2026-08-19",
-                                            date_to="2026-08-20")
+    return client
+
+
+def test_the_tool_call_goes_through_the_guard_as_a_post():
+    server = _FakeMCPServer(REAL_RESPONSE)
+    page = _client(server).director_interest_notices(date_from="2026-08-19",
+                                                     date_to="2026-08-20")
     assert len(page.detections) == 4
-    request = opener.requests[0]
-    assert request.get_method() == "POST"
-    assert request.full_url == "https://investorpa.com/mcp/"
-    assert request.get_header("Authorization") == "Bearer at"
-    # Honest identification, never a browser string (Invariant 11).
-    assert "asx-structural-alpha" in request.get_header("User-agent")
-    body = json.loads(request.data)
-    assert body["params"]["name"] == "search_announcements"
+
+    call, headers = server.requests[-1]
+    assert call["params"]["name"] == "search_announcements"
     # Only the forms the platform parses, not the whole feed.
-    assert "Director's Interest Notice" in body["params"]["arguments"]["keywords"]
+    assert "Director's Interest Notice" in call["params"]["arguments"]["keywords"]
+    assert headers["Authorization"] == "Bearer at"
+    # Honest identification, never a browser string (Invariant 11).
+    assert "asx-structural-alpha" in headers["User-agent"]
+
+
+def test_the_handshake_happens_before_any_tool_is_called():
+    """The transport requires a session to begin with initialization. The
+    client used to send tools/call cold, which a server assigning a session
+    would answer 400 — and the old fake, which replied identically to
+    anything, could never have shown it."""
+    server = _FakeMCPServer(REAL_RESPONSE)
+    _client(server).director_interest_notices(date_from="2026-08-19",
+                                              date_to="2026-08-20")
+    methods = [body.get("method") for body, _ in server.requests]
+    assert methods == ["initialize", "notifications/initialized", "tools/call"]
+
+
+def test_the_session_id_and_protocol_version_travel_on_every_later_request():
+    """Both are MUSTs of the 2025-06-18 transport, and the fake enforces them
+    the way a session-requiring server does — by answering 400 without them."""
+    server = _FakeMCPServer(REAL_RESPONSE)
+    _client(server).director_interest_notices(date_from="2026-08-19",
+                                              date_to="2026-08-20")
+    for body, headers in server.requests[1:]:          # all but initialize
+        assert headers["Mcp-session-id"] == "sess-1", body.get("method")
+        assert headers["Mcp-protocol-version"] == "2025-06-18"
+    # ...and initialize itself carries no session, because none exists yet.
+    assert "Mcp-session-id" not in server.requests[0][1]
+
+
+def test_the_negotiated_protocol_version_is_used_not_ours():
+    """The spec says the header SHOULD carry the version agreed at
+    initialization, which need not be the one we proposed."""
+    server = _FakeMCPServer(REAL_RESPONSE, protocol_version="2025-03-26")
+    client = _client(server)
+    client.director_interest_notices(date_from="2026-08-19", date_to="2026-08-20")
+    assert client._protocol_version == "2025-03-26"
+    assert server.requests[-1][1]["Mcp-protocol-version"] == "2025-03-26"
+
+
+def test_an_expired_session_is_re_established_once():
+    """"When a client receives HTTP 404 in response to a request containing an
+    Mcp-Session-Id, it MUST start a new session by sending a new
+    InitializeRequest without a session id attached." Once, not forever: a 404
+    on a fresh session means something other than expiry."""
+    server = _FakeMCPServer(REAL_RESPONSE, expire_after=1)
+    page = _client(server).director_interest_notices(date_from="2026-08-19",
+                                                     date_to="2026-08-20")
+    assert len(page.detections) == 4, "the retry recovered the call"
+    methods = [body.get("method") for body, _ in server.requests]
+    assert methods.count("initialize") == 2
+    assert server.requests[-1][1]["Mcp-session-id"] == "sess-2"
+
+
+class _SSEServer(_FakeMCPServer):
+    """Answers tool calls as an event stream. "the server MUST either return
+    Content-Type: text/event-stream ... or application/json ... The client
+    MUST support both these cases."""
+
+    def __call__(self, request, timeout=None):
+        response = super().__call__(request, timeout)
+        body = json.loads(request.data)
+        if body.get("method") != "tools/call":
+            return response
+        framed = (f"event: message\ndata: {response.read().decode()}\n\n"
+                  f"event: message\ndata: "
+                  f'{json.dumps({"jsonrpc": "2.0", "method": "notifications/message"})}'
+                  f"\n\n").encode()
+        return _Response(framed, headers={"Content-Type": "text/event-stream"})
 
 
 def test_an_sse_framed_answer_is_read_too():
-    """Streamable-HTTP MCP servers may answer either way."""
-    body = ("event: message\n"
-            "data: " + _jsonrpc(REAL_RESPONSE).decode() + "\n\n").encode()
-    opener = _Opener(body)
-    client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
-    client._token = "at"
-    assert len(client.director_interest_notices(
+    """And a trailing notification after the result does not displace it —
+    taking the last frame reported a good answer as carrying no content."""
+    server = _SSEServer(REAL_RESPONSE)
+    assert len(_client(server).director_interest_notices(
         date_from="2026-08-19", date_to="2026-08-20").detections) == 4
 
 
@@ -746,25 +895,24 @@ def test_skipping_a_document_on_the_ir_route_leaves_a_trace(conn, monkeypatch):
 
 
 def test_the_answer_is_picked_by_request_id_not_by_being_last():
-    """A server may emit the tool result and then a log notification or a
-    ping. Taking the last frame left us reading the notification, which has
-    neither 'result' nor 'error' — so a perfectly good answer was reported as
-    carrying no text content."""
+    """The framing helper in isolation. A server may emit the tool result and
+    then a log notification or a ping; taking the last frame left us reading
+    the notification, which has neither 'result' nor 'error', so a perfectly
+    good answer was reported as carrying no text content. The end-to-end path
+    is covered by _SSEServer, which appends a trailing notification of its
+    own."""
+    from asx.ingest.investorpa import _tool_text
+
     result_frame = json.dumps({
-        "jsonrpc": "2.0", "id": 1,
+        "jsonrpc": "2.0", "id": 7,
         "result": {"content": [{"type": "text", "text": REAL_RESPONSE}]}})
-    trailing_notification = json.dumps({
+    trailing = json.dumps({
         "jsonrpc": "2.0", "method": "notifications/message",
         "params": {"level": "info", "data": "search complete"}})
     body = (f"event: message\ndata: {result_frame}\n\n"
-            f"event: message\ndata: {trailing_notification}\n\n").encode()
+            f"event: message\ndata: {trailing}\n\n").encode()
 
-    opener = _Opener(body)
-    client = InvestorPAClient(InvestorPACredentials("cid", "rt"), opener=opener)
-    client._token = "at"
-    page = client.director_interest_notices(date_from="2026-08-19",
-                                            date_to="2026-08-20")
-    assert len(page.detections) == 4
+    assert len(detections_from_text(_tool_text(body, 7)).detections) == 4
 
 
 def test_a_frame_that_answers_a_different_request_is_not_accepted():

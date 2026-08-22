@@ -68,6 +68,30 @@ AUTHORIZE_URL = "https://investorpa.com/oauth/authorize/"
 REGISTER_URL = "https://investorpa.com/oauth/register/"
 READ_SCOPE = "mcp:read"
 
+# MCP Streamable HTTP transport, revision 2025-06-18. Read at implementation
+# time from the specification itself rather than remembered, per CLAUDE.md:
+# https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+# (read 22 Aug 2026). The requirements this client implements, quoted:
+#
+#   * "The client MUST include an `Accept` header, listing both
+#     `application/json` and `text/event-stream`" — set by fetch_guard.
+#   * "If an `Mcp-Session-Id` is returned by the server during initialization,
+#     clients ... MUST include it in the `Mcp-Session-Id` header on all of
+#     their subsequent HTTP requests." Servers requiring one "SHOULD respond to
+#     requests without [it] (other than initialization) with HTTP 400".
+#   * "the client MUST include the `MCP-Protocol-Version: <protocol-version>`
+#     HTTP header on all subsequent requests."
+#   * "When a client receives HTTP 404 in response to a request containing an
+#     `Mcp-Session-Id`, it MUST start a new session by sending a new
+#     `InitializeRequest` without a session id attached."
+#
+# This is UNVERIFIED against investorpa's endpoint, and cannot be until a
+# grant exists: it answers 401 to everything including initialize, so its
+# lifecycle behaviour is unobservable from outside an authenticated session.
+# The spec is the authority here, not a guess about the beta — but the first
+# authenticated run is the real test, and the errors below say so.
+MCP_PROTOCOL_VERSION = "2025-06-18"
+
 # The forms this platform parses. Searched by title because that is the only
 # filter the API offers, and kept to the two the registry actually handles —
 # asking for more would be collecting documents nothing reads.
@@ -293,6 +317,71 @@ class InvestorPAClient:
         self._token_opener = token_opener
         self._token: str | None = None
         self._request_id = 0
+        self._session_id: str | None = None
+        self._protocol_version = MCP_PROTOCOL_VERSION
+        self._initialised = False
+
+    # -- lifecycle ---------------------------------------------------------
+    def _next_id(self) -> int:
+        self._request_id += 1
+        return self._request_id
+
+    def _session_headers(self) -> dict:
+        """Headers every post-initialization request must carry."""
+        headers = {"MCP-Protocol-Version": self._protocol_version}
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        return headers
+
+    def _post(self, envelope: dict, *, headers: dict | None = None,
+              allow_status: frozenset = frozenset()):
+        return fetch(MCP_URL, opener=self._opener, post_json=envelope,
+                     bearer_token=self.access_token(),
+                     extra_headers=headers, allow_status=allow_status)
+
+    def initialise(self) -> None:
+        """The handshake the transport requires before anything else.
+
+        The previous version sent tools/call cold. A server that assigns a
+        session would have answered 400 to the very first call, and no test
+        here could have caught it: every transport test injects an opener that
+        returns a canned body regardless of what was sent, so it asserts what
+        the fake does, not what a server would.
+        """
+        request_id = self._next_id()
+        result = self._post({
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "asx-structural-alpha", "version": "0.1"},
+            },
+        })
+        # Assigned by the server if it wants one; absent is legitimate.
+        self._session_id = result.header("Mcp-Session-Id")
+
+        payload = _response_for(_jsonrpc_messages(result.content), request_id)
+        if "error" in payload:
+            raise InvestorPAProtocolError(
+                f"the endpoint refused the MCP handshake: {payload['error']!r}. "
+                f"If it reports an unsupported protocol version, read "
+                f"{MCP_PROTOCOL_VERSION} against the vendor's own and update "
+                f"MCP_PROTOCOL_VERSION rather than removing the handshake."
+            )
+        # Negotiated, not assumed: the spec says the header SHOULD carry the
+        # version agreed at initialization, which need not be ours.
+        negotiated = (payload.get("result") or {}).get("protocolVersion")
+        if negotiated:
+            self._protocol_version = negotiated
+
+        # "If the input is a JSON-RPC response or notification ... the server
+        # MUST return HTTP status code 202 Accepted with no body", so nothing
+        # is parsed from this one.
+        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"},
+                   headers=self._session_headers())
+        self._initialised = True
 
     # -- auth --------------------------------------------------------------
     def access_token(self) -> str:
@@ -325,18 +414,35 @@ class InvestorPAClient:
         return token
 
     # -- transport ---------------------------------------------------------
-    def call_tool(self, name: str, arguments: dict) -> str:
+    def call_tool(self, name: str, arguments: dict, *,
+                  _retry: bool = True) -> str:
         """Invoke one MCP tool and return its text content."""
-        self._request_id += 1
+        if not self._initialised:
+            self.initialise()
+
+        request_id = self._next_id()
         envelope = {
             "jsonrpc": "2.0",
-            "id": self._request_id,
+            "id": request_id,
             "method": "tools/call",
             "params": {"name": name, "arguments": arguments},
         }
-        result = fetch(MCP_URL, opener=self._opener, post_json=envelope,
-                       bearer_token=self.access_token())
-        return _tool_text(result.content, self._request_id)
+        result = self._post(envelope, headers=self._session_headers(),
+                            allow_status=frozenset({404}))
+        if result.status == 404 and self._session_id:
+            # "When a client receives HTTP 404 in response to a request
+            # containing an Mcp-Session-Id, it MUST start a new session by
+            # sending a new InitializeRequest without a session id attached."
+            # Once only: a server answering 404 to a fresh session is saying
+            # something other than "your session expired", and retrying
+            # forever would turn that into a loop nobody can see.
+            if not _retry:
+                raise InvestorPAProtocolError(
+                    "the endpoint answered 404 to a freshly initialised "
+                    "session; this is not an expired session id")
+            self._session_id, self._initialised = None, False
+            return self.call_tool(name, arguments, _retry=False)
+        return _tool_text(result.content, request_id)
 
     # -- the one query this module makes -----------------------------------
     def director_interest_notices(self, *, date_from: str, date_to: str,

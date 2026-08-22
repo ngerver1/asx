@@ -402,7 +402,8 @@ def fetch(url: str, *, opener=None, targeted_document: bool = False,
           terms_basis: str | None = None,
           post_json: dict | None = None,
           bearer_token: str | None = None,
-          allow_status: frozenset = frozenset()) -> FetchResult:
+          allow_status: frozenset = frozenset(),
+          extra_headers: dict[str, str] | None = None) -> FetchResult:
     """Politely fetch a URL. The only sanctioned automated-fetch path.
 
     `opener` is injectable so tests exercise the guard without network access.
@@ -451,6 +452,21 @@ def fetch(url: str, *, opener=None, targeted_document: bool = False,
         _throttle(_host(url))
 
         headers = {"User-Agent": USER_AGENT}
+        if extra_headers:
+            # Protocol headers a caller genuinely needs — an MCP client must
+            # echo a session id and state a protocol version. Deliberately
+            # NOT a general header pass-through: User-Agent and Authorization
+            # are the guard's own, and a caller able to set User-Agent could
+            # disguise this platform as something else, which Invariant 11
+            # prohibits outright ("never randomised, never disguised as a
+            # browser"). Refused rather than ignored, so the attempt is loud.
+            for name in extra_headers:
+                if name.lower() in ("user-agent", "authorization"):
+                    raise ValueError(
+                        f"{name!r} is the guard's to set, not a caller's. "
+                        f"Honest identification is Invariant 11."
+                    )
+            headers.update(extra_headers)
         if bearer_token:
             headers["Authorization"] = f"Bearer {bearer_token}"
         body = None
