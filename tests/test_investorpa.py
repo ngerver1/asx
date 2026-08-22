@@ -562,3 +562,152 @@ def test_a_dead_route_cannot_report_itself_as_a_quiet_one(conn, monkeypatch):
     stats = possession.fetch_investorpa_documents(conn)
     assert stats["no_candidates"] == 1
     assert stats["attempted"] == 0 and stats["captured"] == 0
+
+
+# ==========================================================================
+# Regression tests for the 20 Aug 2026 review. Each one FAILS against the
+# code as first shipped, and each pins a bug that reported success while
+# doing nothing — the failure mode CLAUDE.md names most sharply and that this
+# module reproduced six times in one sitting.
+# ==========================================================================
+
+# The vendor's header states how many results it RETURNED, not how many exist:
+# the same 19-hour window answers "Found 20" at limit=100 and "Found 5" at
+# limit=5 (checked against the live API, 21 Aug 2026). So it is worthless for
+# detecting truncation, and exact for detecting a line we failed to read.
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: no completeness check against the vendor's stated count yet. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_a_line_we_cannot_read_is_counted_not_skipped():
+    """The vendor states a count. If we parse fewer lines than it says it
+    returned, we have silently dropped an announcement — whatever the reason,
+    and without needing a second regex to agree with the first."""
+    from asx.ingest.investorpa import InvestorPAProtocolError
+
+    # A dash bullet alone still parses. The drift that disappears is a dash
+    # bullet whose link is no longer wrapped in [PDF](...) markdown: the strict
+    # pattern misses it, and the "does this look like a result?" pattern was
+    # written with a narrower bullet class, so it misses it too. Neither fires
+    # and the line evaporates.
+    drifted = ("Found 2 announcements for: 'x'\n\n"
+               "- 2026-08-20T17:17:24+10:00 | LOT - Change of Director's "
+               "Interest Notice | PDF: https://investorpa.com/a.pdf\n"
+               "- 2026-08-20T17:15:44+10:00 | LOT - Change of Director's "
+               "Interest Notice | PDF: https://investorpa.com/b.pdf\n")
+    with pytest.raises(InvestorPAProtocolError, match="stated 2"):
+        detections_from_text(drifted)
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: no completeness check against the vendor's stated count yet. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_a_format_with_no_bullet_at_all_is_loud():
+    """If the provider drops bullets entirely, every line stops matching. The
+    run must not come back empty and green."""
+    from asx.ingest.investorpa import InvestorPAProtocolError
+
+    body = ("Found 2 announcements for: 'x'\n\n"
+            "2026-08-20T17:17:24+10:00 | LOT - Title | https://investorpa.com/a.pdf\n"
+            "2026-08-20T17:15:44+10:00 | LOT - Title | https://investorpa.com/b.pdf\n")
+    with pytest.raises(InvestorPAProtocolError, match="stated 2"):
+        detections_from_text(body)
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: fromisoformat still escapes and abandons the batch. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_an_impossible_timestamp_becomes_one_unreadable_line():
+    """Shape-valid but impossible times reach datetime.fromisoformat. One bad
+    line must not abandon the batch with a traceback."""
+    body = ("Found 2 announcements for: 'x'\n\n"
+            "• 2026-08-20T25:61:61+10:00 | LOT - Title | [PDF](https://investorpa.com/a.pdf)\n"
+            "• 2026-08-20T17:15:44+10:00 | LOT - Good | [PDF](https://investorpa.com/b.pdf)\n")
+    detections = detections_from_text(body)
+    assert len(detections) == 2
+    assert [d.format_recognised for d in detections] == [False, True]
+    assert detections[1].ticker == "LOT"       # the good line still survives
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: page_looks_truncated not implemented. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_a_full_page_is_reported_as_possibly_truncated():
+    """'Found N' is capped by the limit, so a full page cannot be told apart
+    from a page that happens to be exactly N long. Silence here would make
+    dropped announcements indistinguishable from announcements never lodged."""
+    from asx.ingest.investorpa import page_looks_truncated
+
+    assert page_looks_truncated(returned=500, limit=500) is True
+    assert page_looks_truncated(returned=499, limit=500) is False
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: ingest still builds the window from the UTC date. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_the_window_is_the_sydney_trading_day_not_the_utc_one(conn, monkeypatch):
+    """market_time.py: 'Any code that needs the calendar date of a lodgement
+    must go through market_date() — taking .date() of a UTC timestamp shifts
+    pre-open lodgements to the previous day.' The 09:00 UTC cron is safe by
+    luck; workflow_dispatch at 23:00 Sydney is not."""
+    from asx.ingest import investorpa
+
+    asked = {}
+
+    class _Recorder:
+        def director_interest_notices(self, *, date_from, date_to, **_kw):
+            asked["from"], asked["to"] = date_from, date_to
+            return []
+
+    # 2026-08-21T14:00Z is 2026-08-22 00:00 in Sydney — a new trading day.
+    investorpa.ingest(conn, client=_Recorder(), since_days=1,
+                      today=datetime(2026, 8, 21, 14, 0, tzinfo=timezone.utc))
+    assert asked["to"] == "2026-08-22", (
+        f"asked for a window ending {asked['to']}, missing everything lodged "
+        f"on the current Sydney trading day")
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: partition_urls drops own_hosts links for a sender with no open_url_re. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_an_investorpa_alert_keeps_its_document_link_for_the_owner():
+    """partition_urls' docstring promises manual_open links are "KEPT, not
+    dropped", and the sender rule's comment says own_hosts merely "keeps the
+    alert's links out of the automatic fetch set". Both are false for this
+    sender: the own_hosts branch continues without appending, so the
+    announcement PDF URL — the only route to the document, and the whole
+    reason this sender has a rule — is discarded from both lists."""
+    import email as _email
+
+    from asx.ingest.mailbox import detection_from_email
+
+    raw = ("From: alerts@investorpa.com\n"
+           "Subject: ASX:CYL - Change of Director's Interest Notice\n"
+           "Message-ID: <ipa-2@investorpa.com>\n"
+           "Date: Wed, 19 Aug 2026 09:35:00 +1000\n\n"
+           "https://investorpa.com/announcement-pdf/20260819/293079.pdf\n")
+    d = detection_from_email(_email.message_from_string(raw))
+    assert d.document_urls or d.manual_open_urls, (
+        "the announcement PDF URL was dropped from BOTH lists; the detection "
+        "now has no route to the document at all")
+
+
+@pytest.mark.xfail(strict=True, reason=
+    "REVIEW 21 Aug 2026: the investorpa skip increments no counter. "
+    "strict=True so the fix removes this marker rather than leaving it.")
+def test_skipping_a_document_on_the_ir_route_leaves_a_trace(conn, monkeypatch):
+    """possession.py's own comment: "a route that never runs and a route that
+    runs and finds nothing look identical in an all-zero stats dict, and the
+    first is a dead route reported as a quiet one." The investorpa skip
+    continues without incrementing anything, so it is invisible."""
+    from asx.ingest import possession
+
+    _detected_investorpa_doc(conn)
+
+    def _never_called(url, **kwargs):        # noqa: ARG001
+        raise AssertionError("the IR route must not fetch an investorpa URL")
+
+    monkeypatch.setattr(possession, "fetch", _never_called)
+    stats = possession.fetch_ir_documents(conn)
+    assert sum(stats.values()) > 0, (
+        f"the skipped document left no trace anywhere in {stats}")
