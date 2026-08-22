@@ -13,9 +13,17 @@ name: Daily ingest
 # the Market Index feed, whose scheduler is an Apps Script trigger living in
 # the owner's Google account rather than in this repo.
 #
-# Dormant until three secrets exist. It fails loudly rather than silently
-# doing nothing, because a feed that reports success while ingesting zero rows
-# is the failure mode the whole detection design exists to prevent.
+# Dormant until three secrets exist, and it says so rather than passing
+# quietly, because a feed that reports success while ingesting zero rows is
+# the failure mode the whole detection design exists to prevent.
+#
+# Where that alarm lives matters. It is NOT the detect step's exit code: a
+# non-zero exit there aborts possession, parsing and the monitor itself, so
+# one malformed line would cost the day's work for every announcement that
+# read perfectly, and would re-fire for as many days as the window is wide.
+# Detect reports what it saw and exits 0; the per-source SLOs in the Monitor
+# step (migration 0028) are what turn a silent or thin feed red, and they can
+# see one feed's silence behind the other feed's volume.
 
 on:
   schedule:

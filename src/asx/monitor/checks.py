@@ -40,13 +40,35 @@ def check_freshness_and_volume(conn: psycopg.Connection, now: datetime) -> list[
         slos = cur.fetchall()
         for slo in slos:
             class_filter = "AND doc_class = %(doc_class)s" if slo["doc_class"] else ""
+            source = slo.get("detection_source")
+            source_filter = ("AND detection_source = %(detection_source)s"
+                             if source else "")
             # Whitelisted by the feed_slos CHECK constraint, so safe to inline.
             tcol = slo["time_column"]
             params = {"doc_class": slo["doc_class"],
+                      "detection_source": source,
                       "cutoff": now - timedelta(days=slo["window_days"])}
+
+            # A feed that has NEVER delivered a document is unstarted, not
+            # broken, and the difference matters operationally: investorpa
+            # cannot run until someone completes an OAuth consent, so a
+            # zero-volume alarm on it would fire every day until then. A
+            # monitor that is always red is a monitor nobody reads, which
+            # would recreate the failure these per-source SLOs exist to catch.
+            #
+            # Silence becomes an alarm once a feed has shown it can speak. The
+            # first successful run arms its own alarm; nobody has to remember.
+            if source:
+                cur.execute(
+                    """SELECT count(*) AS n FROM documents
+                       WHERE detection_source = %(detection_source)s""",
+                    params)
+                if cur.fetchone()["n"] == 0:
+                    continue
             cur.execute(
                 f"""SELECT count(*) AS n, max({tcol}) AS latest
-                    FROM documents WHERE {tcol} >= %(cutoff)s {class_filter}""",
+                    FROM documents
+                    WHERE {tcol} >= %(cutoff)s {class_filter} {source_filter}""",
                 params,
             )
             row = cur.fetchone()
@@ -69,7 +91,8 @@ def check_freshness_and_volume(conn: psycopg.Connection, now: datetime) -> list[
             # market content ages.
             cur.execute(
                 f"""SELECT max(coalesce(lodged_at, {tcol})) AS latest
-                    FROM documents WHERE {tcol} IS NOT NULL {class_filter}""",
+                    FROM documents
+                    WHERE {tcol} IS NOT NULL {class_filter} {source_filter}""",
                 params,
             )
             latest = cur.fetchone()["latest"]

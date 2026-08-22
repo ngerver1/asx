@@ -173,11 +173,23 @@ def cmd_detect(args) -> None:
             # A missing grant is a setup step, not a stack trace.
             raise SystemExit(str(exc)) from None
         print(json.dumps(stats))
-        # An unreadable result line means the provider changed their output
-        # format, in which case every line since is being read wrongly. That
-        # is an alarm, not a statistic.
-        if stats["unreadable"]:
-            raise SystemExit(1)
+        # Exit 0 means THE FEED WAS READ, not that everything in it was
+        # perfect. Unreadable lines, lines the vendor counted and we never
+        # saw, and a possibly-truncated page are all reported in the stats
+        # above, recorded as review items, and visible to the per-source SLO
+        # in the monitor step.
+        #
+        # This used to exit 1 on any unreadable line, which was the wrong
+        # instrument. In the daily workflow a non-zero exit aborts Possess,
+        # Parse, Rebuild and Monitor, so one malformed line cost the day's
+        # possession and parsing for the forty announcements that read
+        # perfectly — and because the window is three days wide and
+        # detections are idempotent, the same line re-fired the abort on the
+        # next two runs. One bad line wedged the pipeline for three days.
+        #
+        # The feed being unreadable ALTOGETHER still exits non-zero: those
+        # paths raise (InvestorPAAuthError, InvestorPAProtocolError) and are
+        # not caught here.
         return
 
     if args.from_dir:
