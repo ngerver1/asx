@@ -41,9 +41,10 @@ import re
 import threading
 import time
 import urllib.robotparser
-from dataclasses import dataclass
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from dataclasses import dataclass, field
+from urllib.error import HTTPError
+from urllib.parse import urljoin, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 # Domains where automated retrieval is permitted ONLY for a specific,
 # already-known document. Matched on the registrable domain and all
@@ -169,9 +170,65 @@ _lock = threading.Lock()
 _robots_cache: dict[str, urllib.robotparser.RobotFileParser] = {}
 
 
+# How many hops an uncredentialed, bodyless GET may take. A redirect chain is
+# not a crawl, but it is a way to become one by accident.
+MAX_REDIRECTS = 3
+
+_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+
+
+class _NoAutomaticRedirects(HTTPRedirectHandler):
+    """urllib must never follow a redirect on this platform's behalf.
+
+    `HTTPRedirectHandler.redirect_request` copies every header except
+    content-length and content-type onto the target, with no same-origin
+    test — so a 302 replays the Authorization header to whatever host the
+    response names. It also issues that request itself, from inside
+    OpenerDirector, so `assert_fetchable`, `_robots_allows` and `_throttle`
+    are all skipped on the one request that actually leaves the network. The
+    chokepoint would be bypassed by the last hop of every fetch that had one.
+
+    And on 301/302/303 it re-issues a POST as a GET with the body dropped,
+    which would turn a JSON-RPC call into a bodyless GET whose answer parses
+    as "no results" — a silent zero, which is the failure this platform
+    treats as an alarm.
+
+    Returning None means no handler will follow it: urllib falls through to
+    HTTPDefaultErrorHandler and raises HTTPError carrying the code, the
+    Location header and the body. The redirect becomes data that fetch()
+    decides on, in the open, rather than an action taken on our behalf.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_opener = None
+
+
+def guarded_opener():
+    """The only opener this platform uses.
+
+    Shared rather than rebuilt so nothing acquires a redirect-following one by
+    reaching for `urlopen`. `build_opener` replaces its default redirect
+    handler when passed an instance of a subclass, so this is a substitution
+    and not an addition.
+    """
+    global _opener
+    with _lock:
+        if _opener is None:
+            _opener = build_opener(_NoAutomaticRedirects())
+        return _opener
+
+
 class ProhibitedSourceError(RuntimeError):
     """Raised when automated code attempts a source the access decision
     forbids it from touching."""
+
+
+class RedirectRefusedError(RuntimeError):
+    """Raised when a server tried to send a request somewhere this guard has
+    not cleared, or somewhere our credentials must not follow."""
 
 
 class RobotsDisallowedError(RuntimeError):
@@ -183,6 +240,15 @@ class FetchResult:
     url: str
     content: bytes
     content_type: str | None
+    status: int = 200
+    headers: dict[str, str] = field(default_factory=dict)
+
+    def header(self, name: str) -> str | None:
+        """Case-insensitive lookup. RFC 9110 field names are case-insensitive,
+        and a server answering 'mcp-session-id' must not read as no session."""
+        lowered = name.lower()
+        return next((v for k, v in self.headers.items()
+                     if k.lower() == lowered), None)
 
 
 def _host(url: str) -> str:
@@ -335,7 +401,8 @@ def _throttle(host: str) -> None:
 def fetch(url: str, *, opener=None, targeted_document: bool = False,
           terms_basis: str | None = None,
           post_json: dict | None = None,
-          bearer_token: str | None = None) -> FetchResult:
+          bearer_token: str | None = None,
+          allow_status: frozenset = frozenset()) -> FetchResult:
     """Politely fetch a URL. The only sanctioned automated-fetch path.
 
     `opener` is injectable so tests exercise the guard without network access.
@@ -354,27 +421,100 @@ def fetch(url: str, *, opener=None, targeted_document: bool = False,
     product IS a search endpoint is offering exactly that use, and calling it
     is the sanctioned thing rather than the evasion. Where that reasoning does
     not hold, the host does not belong in DECLARED_SOURCES.
-    """
-    assert_fetchable(url, targeted_document=targeted_document,
-                     terms_basis=terms_basis)
-    if not _robots_allows(url):
-        raise RobotsDisallowedError(
-            f"robots.txt disallows {url} for this user-agent; not fetching"
-        )
-    _throttle(_host(url))
 
-    headers = {"User-Agent": USER_AGENT}
-    if bearer_token:
-        headers["Authorization"] = f"Bearer {bearer_token}"
-    body = None
-    if post_json is not None:
-        body = json.dumps(post_json).encode("utf-8")
-        headers["Content-Type"] = "application/json"
-        # Streamable-HTTP MCP servers may answer either way.
-        headers["Accept"] = "application/json, text/event-stream"
-    request = Request(url, data=body, headers=headers)
-    do_open = opener or urlopen
-    with do_open(request, timeout=TIMEOUT_SECONDS) as response:
-        content = response.read()
-        content_type = response.headers.get("Content-Type")
-    return FetchResult(url, content, content_type)
+    `bearer_token` attaches a credential, and changes the redirect rule: a
+    credentialed request follows no redirect at all. See RedirectRefusedError
+    and _NoAutomaticRedirects — urllib would otherwise replay the header to
+    whatever host a 302 names, on a request that never re-enters this module.
+    An uncredentialed, bodyless GET may follow up to MAX_REDIRECTS hops, and
+    each hop re-enters every gate above rather than slipping past them.
+
+    `allow_status` names statuses the CALLER will read itself; everything else
+    outside 2xx still raises, so a failed fetch is never handed back as a thin
+    successful one.
+    """
+    credentialed = bool(bearer_token)
+    if credentialed and not url.lower().startswith("https://"):
+        raise ProhibitedSourceError(
+            f"Refusing to send a bearer token to {url}: not https. A "
+            f"credential on a plaintext hop is disclosed to every device on "
+            f"the path, and no terms basis makes that acceptable."
+        )
+
+    for hop in range(MAX_REDIRECTS + 1):
+        assert_fetchable(url, targeted_document=targeted_document,
+                         terms_basis=terms_basis)
+        if not _robots_allows(url):
+            raise RobotsDisallowedError(
+                f"robots.txt disallows {url} for this user-agent; not fetching"
+            )
+        _throttle(_host(url))
+
+        headers = {"User-Agent": USER_AGENT}
+        if bearer_token:
+            headers["Authorization"] = f"Bearer {bearer_token}"
+        body = None
+        if post_json is not None:
+            body = json.dumps(post_json).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+            # Streamable-HTTP MCP servers may answer either way.
+            headers["Accept"] = "application/json, text/event-stream"
+        request = Request(url, data=body, headers=headers)
+        do_open = opener or guarded_opener().open
+        try:
+            with do_open(request, timeout=TIMEOUT_SECONDS) as response:
+                return FetchResult(
+                    url, response.read(),
+                    response.headers.get("Content-Type"),
+                    status=getattr(response, "status", 200) or 200,
+                    headers={k: v for k, v in response.headers.items()},
+                )
+        except HTTPError as exc:
+            if exc.code in allow_status:
+                # A status the CALLER declared it will interpret itself. Never
+                # a blanket pass: anything not named still raises, so a failed
+                # fetch is never returned as a thin successful one.
+                return FetchResult(url, exc.read(),
+                                   exc.headers.get("Content-Type"),
+                                   status=exc.code,
+                                   headers={k: v for k, v in exc.headers.items()})
+            if exc.code not in _REDIRECT_CODES:
+                raise
+            target = exc.headers.get("Location")
+            if not target:
+                raise RedirectRefusedError(
+                    f"{url} answered {exc.code} with no Location header"
+                ) from exc
+            target = urljoin(url, target)
+
+            # A request carrying credentials or a body follows NOTHING, not
+            # even to the same origin. Three reasons, in order of weight:
+            # a credential must go only where we decided to send it; urllib
+            # cannot replay a POST body across 301/302/303 anyway, so
+            # "following" would mean silently re-POSTing on the endpoint's
+            # say-so; and these URLs are module constants, so a redirect on
+            # one means the vendor moved it or something is intercepting —
+            # both facts a human must see rather than route around.
+            if credentialed or post_json is not None:
+                raise RedirectRefusedError(
+                    f"{url} redirected to {target} ({exc.code}), and this "
+                    f"request carries "
+                    f"{'credentials' if credentialed else 'a body'}. Refusing "
+                    f"to follow: a redirect is the endpoint telling us it "
+                    f"moved, which is a decision for a human, not a hop to "
+                    f"take automatically."
+                ) from exc
+
+            if hop >= MAX_REDIRECTS:
+                raise RedirectRefusedError(
+                    f"more than {MAX_REDIRECTS} redirects starting at {url}"
+                ) from exc
+            # An uncredentialed, bodyless GET may follow — but through the
+            # front door. The loop re-enters assert_fetchable, robots and the
+            # throttle on the NEW url, so a hop onto an undeclared host is
+            # refused for want of a terms basis, and a restricted-host
+            # document that redirects to a login page now fails
+            # is_document_url instead of being stored as announcement bytes.
+            url = target
+
+    raise RedirectRefusedError(f"redirect loop starting at {url}")
