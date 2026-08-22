@@ -13,7 +13,7 @@ import ast
 import json
 import pathlib
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -355,13 +355,7 @@ def test_re_reading_the_same_window_records_nothing_twice(conn):
 
 # --- cross-feed coverage --------------------------------------------------
 
-def test_the_two_feeds_are_reconciled_on_the_lodgement_not_the_ticker(conn):
-    """Both feeds report the same ASX release timestamp, so (entity, minute)
-    identifies a lodgement across them. It cannot be asx_announcement_id:
-    investorpa exposes its own publication counter, not the exchange's number.
-    """
-    from asx.ingest.detection import Detection, record_detection
-
+def _entity_with_ticker(conn, ticker: str) -> int:
     with conn.cursor() as cur:
         cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
                     "RETURNING entity_id")
@@ -369,52 +363,79 @@ def test_the_two_feeds_are_reconciled_on_the_lodgement_not_the_ticker(conn):
         cur.execute(
             """INSERT INTO listings (entity_id, exchange, ticker,
                                      security_class, valid_from, source)
-               VALUES (%s, 'ASX', 'CPO', 'ORD', DATE '2020-01-01', 'manual')""",
-            (entity_id,))
+               VALUES (%s, 'ASX', %s, 'ORD', DATE '2020-01-01', 'manual')""",
+            (entity_id, ticker))
     conn.commit()
+    return entity_id
 
+
+def _coverage(conn) -> dict:
+    with conn.cursor() as cur:
+        cur.execute("SELECT doc_id, detection_source, coverage "
+                    "FROM detection_feed_coverage ORDER BY doc_id")
+        return {r["doc_id"]: r for r in cur.fetchall()}
+
+
+def test_one_lodgement_seen_by_both_feeds_is_two_rows_that_agree(conn):
+    """Both feeds report the same ASX release instant, but at different
+    precisions - Market Index to the minute, investorpa to the second - so a
+    partner is found within a tolerance rather than by bucketing. Bucketing to
+    the minute split a lodgement whose two observations straddled a boundary,
+    inflating the one number this view exists to produce."""
+    from asx.ingest.detection import Detection, record_detection
+
+    _entity_with_ticker(conn, "CPO")
     lodged = datetime.fromisoformat("2026-08-20T19:28:29+10:00")
-    # The same lodgement, seen by each feed, keyed differently by construction.
     record_detection(conn, Detection(
         detection_source="market_index_alert", source_ref="<mi@x>",
         ticker="CPO", title="Change of Director's Interest Notice",
-        lodged_at=lodged, announcement_id="2A1690462"))
+        lodged_at=lodged.replace(second=0), announcement_id="2A1690462"))
     record_detection(conn, Detection(
         detection_source="investorpa",
         source_ref="https://investorpa.com/announcement-pdf/20260820/330559.pdf",
         ticker="CPO", title="Change of Director's Interest Notice x 3",
-        lodged_at=lodged.replace(second=41), lodged_at_source="investorpa",
+        lodged_at=lodged, lodged_at_source="investorpa",
         document_urls=["https://investorpa.com/announcement-pdf/20260820/330559.pdf"]))
     conn.commit()
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT * FROM detection_feed_coverage")
-        rows = cur.fetchall()
+    rows = _coverage(conn)
+    assert len(rows) == 2, "one lodgement seen twice is two documents, not one"
+    assert {r["coverage"] for r in rows.values()} == {"both"}
 
-    assert len(rows) == 1, "one lodgement, seen twice, is one row"
-    row = rows[0]
-    assert row["coverage"] == "both"
-    assert sorted(row["feeds"]) == ["investorpa", "market_index_alert"]
-    # Named, not hidden: parsing both would double-count the purchase.
-    assert row["duplicate_rows"] is True
-    assert row["document_rows"] == 2
+
+def test_two_directors_filing_in_the_same_second_are_not_called_duplicates(conn):
+    """The failure that mattered most. Grouping by (entity, minute) merged two
+    DIFFERENT directors' notices into one row flagged as a duplicate - and a
+    company whose directors file together is exactly the batch-lodgement
+    pattern the cluster-buy screen exists to find. The view cried wolf on the
+    platform's best signal."""
+    from asx.ingest.detection import Detection, record_detection
+
+    _entity_with_ticker(conn, "TVL")
+    lodged = datetime.fromisoformat("2026-08-21T11:59:01+10:00")
+    for i, person in enumerate(("Poswell", "Jefferies")):
+        record_detection(conn, Detection(
+            detection_source="investorpa",
+            source_ref=f"https://investorpa.com/announcement-pdf/20260821/33{i}.pdf",
+            ticker="TVL",
+            title=f"Change of Director's Interest Notice - {person}",
+            lodged_at=lodged + timedelta(seconds=i),
+            lodged_at_source="investorpa"))
+    conn.commit()
+
+    rows = _coverage(conn)
+    assert len(rows) == 2, "two directors filing together are two announcements"
+    # Neither is 'both': the partner search excludes the same feed, so a
+    # sibling notice from the SAME source can never be mistaken for the other
+    # feed having seen it.
+    assert {r["coverage"] for r in rows.values()} == {"investorpa_only"}
 
 
 def test_a_watchlist_gap_shows_as_investorpa_only(conn):
     """The reason the second feed exists: a company nobody was watching."""
     from asx.ingest.detection import Detection, record_detection
 
-    with conn.cursor() as cur:
-        cur.execute("INSERT INTO entities (entity_kind) VALUES ('company') "
-                    "RETURNING entity_id")
-        entity_id = cur.fetchone()["entity_id"]
-        cur.execute(
-            """INSERT INTO listings (entity_id, exchange, ticker,
-                                     security_class, valid_from, source)
-               VALUES (%s, 'ASX', 'JDO', 'ORD', DATE '2020-01-01', 'manual')""",
-            (entity_id,))
-    conn.commit()
-
+    _entity_with_ticker(conn, "JDO")
     record_detection(conn, Detection(
         detection_source="investorpa",
         source_ref="https://investorpa.com/announcement-pdf/20260820/330416.pdf",
@@ -422,12 +443,28 @@ def test_a_watchlist_gap_shows_as_investorpa_only(conn):
         lodged_at=datetime.fromisoformat("2026-08-20T15:25:18+10:00"),
         lodged_at_source="investorpa"))
     conn.commit()
+    assert {r["coverage"] for r in _coverage(conn).values()} == {"investorpa_only"}
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT coverage, duplicate_rows FROM detection_feed_coverage")
-        row = cur.fetchone()
-    assert row["coverage"] == "investorpa_only"
-    assert row["duplicate_rows"] is False
+
+def test_an_unresolved_ticker_is_a_bucket_not_an_omission(conn):
+    """The old view filtered entity_id IS NOT NULL, dropping exactly the rows
+    most likely to BE a coverage gap and reporting perfect agreement over what
+    was left. Against a database whose listings are not loaded it returned
+    nothing at all and looked like a clean bill of health."""
+    from asx.ingest.detection import Detection, record_detection
+
+    # No listings row, so the ticker resolves to nothing.
+    record_detection(conn, Detection(
+        detection_source="investorpa",
+        source_ref="https://investorpa.com/announcement-pdf/20260820/999.pdf",
+        ticker="ZZZ", title="Change of Director's Interest Notice",
+        lodged_at=datetime.fromisoformat("2026-08-20T15:25:18+10:00"),
+        lodged_at_source="investorpa"))
+    conn.commit()
+
+    rows = _coverage(conn)
+    assert len(rows) == 1, "an unattributable announcement is still a fact"
+    assert next(iter(rows.values()))["coverage"] == "unresolved_entity"
 
 
 # --- possession -----------------------------------------------------------
@@ -807,3 +844,37 @@ def test_a_calibrated_sender_still_drops_its_tracking_furniture():
     noise = "https://www.marketindex.com.au/manage/unsubscribe?u=123"
     manual, candidates = partition_urls([noise], market_index)
     assert noise not in manual and noise not in candidates
+
+
+def test_the_pairing_tolerance_has_an_actual_boundary(conn):
+    """±90 seconds is 59s of precision difference between the two feeds plus
+    margin. It is a hypothesis, not a measurement — no lodgement has yet been
+    seen by both feeds — so the boundary is pinned here rather than left to a
+    comment, and anyone recalibrating it against the first real overlap will
+    find this test and have to change it deliberately."""
+    from asx.ingest.detection import Detection, record_detection
+
+    def _pair(ticker, gap_seconds):
+        _entity_with_ticker(conn, ticker)
+        base = datetime.fromisoformat("2026-08-20T11:59:00+10:00")
+        record_detection(conn, Detection(
+            detection_source="market_index_alert", source_ref=f"<mi-{ticker}>",
+            ticker=ticker, title="Change of Director's Interest Notice",
+            lodged_at=base, announcement_id=f"2A{ticker}"))
+        record_detection(conn, Detection(
+            detection_source="investorpa",
+            source_ref=f"https://investorpa.com/announcement-pdf/x/{ticker}.pdf",
+            ticker=ticker, title="Change of Director's Interest Notice",
+            lodged_at=base + timedelta(seconds=gap_seconds),
+            lodged_at_source="investorpa"))
+        conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("SELECT coverage FROM detection_feed_coverage v "
+                        "JOIN documents d ON d.doc_id = v.doc_id "
+                        "WHERE d.ticker_as_lodged = %s", (ticker,))
+            return {r["coverage"] for r in cur.fetchall()}
+
+    assert _pair("AAA", 89) == {"both"}, "inside the tolerance must pair"
+    assert _pair("BBB", 91) == {"market_index_only", "investorpa_only"}, (
+        "outside the tolerance must NOT pair — silently widening it would "
+        "start merging genuinely different lodgements")

@@ -85,8 +85,10 @@ number (`2A1690462`). It is therefore **not** written to
 `documents.asx_announcement_id`: that column means the exchange's identifier,
 and a vendor's counter in it would make rows from two feeds collide or diverge
 at random. The consequence is that the cross-feed dedupe built on that column
-does not apply here — two feeds reporting one lodgement produce two rows, and
-reconciling them is done on `(entity_id, lodged_at)` instead. See "Running
+does not apply here: two feeds reporting one lodgement produce two rows, and
+nothing can merge them on identity because they share no identifier. They are
+matched instead on entity, form and a tolerance around the lodgement instant —
+a weaker claim, made deliberately and with its limits recorded. See "Running
 both feeds" below.
 
 ## How it is used, and the limits that keep it defensible
@@ -165,34 +167,47 @@ Then:
 
 Market Index keeps running. `ACCEPTANCE.md` records that detection coverage is
 currently **unmeasured**, with acceptance criterion 0.5 unticked; two
-independent feeds are what make it measurable. The reconciliation joins on
-`(entity_id, date_trunc('minute', lodged_at))` — both feeds report the same
-ASX release timestamp, Market Index to the minute and InvestorPA to the second
-— and buckets each lodgement as *both / InvestorPA only / Market Index only*.
-A non-empty "Market Index only" bucket is the interesting one: it would mean
-InvestorPA is not a superset, which is the whole reason to keep both.
+independent feeds are what make it measurable.
 
-Built as the `detection_feed_coverage` view (migration 0027), which also
-names the consequence of the two feeds keying differently: one lodgement seen
-by both produces two `documents` rows, and its `duplicate_rows` column says
-so. That matters because parsing both would enter the same director purchase
-into `director_trades` twice and inflate the cluster signal. The view makes it
-visible before it happens; it does not prevent it, because deciding which row
-wins is a design question for the owner rather than something to settle
-silently in a migration.
+The `detection_feed_coverage` view (migration 0029) is **one row per
+detection, never a merge**, and asks of each one whether the other feed saw
+the same lodgement. Buckets: *both / investorpa_only / market_index_only /
+unresolved_entity*. A non-empty `market_index_only` bucket is the interesting
+one — it would mean InvestorPA is not the superset it is assumed to be, which
+is the whole reason to keep both feeds running.
+
+The first version of that view grouped on
+`(entity_id, date_trunc('minute', lodged_at))` and was wrong in both
+directions at once. Too coarse: two *different* directors of one company
+lodging a second apart collapsed into a single row flagged as a duplicate —
+and a company whose directors file together is precisely the batch-lodgement
+pattern the cluster-buy screen exists to detect, so the view cried wolf on the
+platform's best signal. Too fine: Market Index reports lodgement to the minute
+and InvestorPA to the second, so one lodgement seen by both could straddle a
+minute boundary and split into two rows, inflating the one number the view
+exists to produce.
+
+A partner is therefore found within a **±90 second tolerance** rather than by
+bucketing. That bound is 59 seconds of precision difference plus margin, and
+it is **uncalibrated**: no lodgement has yet been observed by both feeds,
+because InvestorPA has never run. The residual ambiguity is real — two
+directors of one company filing within 90 seconds, one seen by each feed,
+would pair wrongly — and it should be revisited against the first genuine
+overlap rather than trusted now.
+
+`unresolved_entity` is its own bucket rather than an exclusion. The old view
+filtered `entity_id IS NOT NULL`, which dropped exactly the rows most likely
+to *be* a coverage gap and reported perfect agreement over what was left.
+Against a database whose `listings` table has not been loaded it returned
+nothing whatsoever and looked like a clean bill of health.
+
+Two feeds still produce two `documents` rows for one lodgement, because they
+share no identifier — InvestorPA exposes only its own publication counter,
+never the ASX announcement number that `documents.asx_announcement_id` means.
+The view makes that visible; it does not resolve it. Deciding which row wins
+before `director_trades` is a design question for the owner, and parsing both
+would enter one director purchase twice and inflate the cluster signal.
 
 What is still an expectation rather than a measurement: the coverage numbers
-themselves. The view is empty of investorpa rows until the feed has run with
-credentials, and the "Market Index only" bucket is the one to read first.
-
-## Opportunity, not yet taken
-
-`framework.py` implements a dual-pass design where two independent readings
-must agree, and `rules_extractor` refuses to implement the second pass —
-correctly, since "a second call would return the same payload and be scored as
-two readings agreeing, which is exactly the false confidence the dual-pass
-design exists to prevent." InvestorPA's transcription is a genuinely
-independent reading of the same PDF, produced by someone else's extractor. It
-could supply the corroboration that 578 readings currently stranded in
-`uncorroborated_director_trades` are missing. That is a design question worth
-putting to the owner, not a change to slip in.
+themselves. Nothing has run with credentials, so `market_index_only` is the
+first number to read once something does.

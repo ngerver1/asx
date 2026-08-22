@@ -103,10 +103,16 @@ jobs:
         run: python -m asx.cli monitor
 
       - name: Cross-feed coverage
-        # Not a gate, a number worth seeing: the market_index_only bucket says
-        # whether investorpa is really the superset it is assumed to be.
+        # Not a gate, two numbers worth seeing. market_index_only says whether
+        # the whole-exchange feed is really the superset it is assumed to be —
+        # a non-empty bucket means it is not, which is the entire reason both
+        # feeds keep running. unresolved_entity says how much of the feed
+        # cannot be attributed to a company at all, which is a coverage
+        # question the old view hid by excluding those rows.
         if: always()
         run: |
           psql "$DATABASE_URL" -c \
-            "SELECT coverage, count(*), count(*) FILTER (WHERE duplicate_rows) AS dupes
-               FROM detection_feed_coverage GROUP BY coverage ORDER BY 2 DESC;"
+            "SELECT coverage, count(*) AS documents,
+                    count(DISTINCT entity_id) AS entities
+               FROM detection_feed_coverage
+              GROUP BY coverage ORDER BY 2 DESC;"
