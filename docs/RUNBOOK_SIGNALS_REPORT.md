@@ -19,9 +19,25 @@ The report is a **published Artifact** the owner already holds:
 
 **Redeploy to that URL. Do not publish a new one.** Pass it as `url` to the
 Artifact tool, or the owner gets a second link and the first goes stale
-without saying so. Keep the title `ASX Director Screens` and keep the favicon
-the same on every redeploy — the owner finds the tab by its icon, so a changed
-favicon reads as a different page.
+without saying so. These parameters are fixed — reuse them exactly:
+
+    url         https://claude.ai/code/artifact/228b70bf-0797-4c15-9f73-b473ebd818ba
+    favicon     📈
+    title       comes from the file's own <title>; do not override it
+    label       a short version name, e.g. 24-aug-refresh
+
+The favicon must not change between refreshes: the owner finds the tab by its
+icon, so a new emoji reads as a different page. `screen-html` emits the page
+with no `<!doctype>`, `<html>`, `<head>` or `<body>` wrapper, which is the
+shape the Artifact publisher expects — do not add one.
+
+Before publishing, confirm the render is sound: every CSS custom property used
+by the page is defined in the bare `:root` block (a token defined only inside
+a `@media` or `[data-theme]` block is invisible in the viewer's default
+"system" state, which is the classic unreadable-artifact bug), `body` sets an
+explicit background from a token, and the wide tables sit inside the
+`overflow-x:auto` container. The generated page satisfies all of these today;
+the check is for after someone edits `screen_html.py`.
 
 The page is **generated, never edited**. `src/asx/signals/screen_html.py`
 renders it from the database, which is the prime directive at work: derived
