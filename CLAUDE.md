@@ -19,6 +19,8 @@
 
 ## Current state
 - Read docs/HANDOVER.md first: what is built, what is blocked, and the decisions still open.
+- To refresh the published buy-signals screen, follow docs/RUNBOOK_SIGNALS_REPORT.md.
+  It is the verified command loop, the artifact URL to redeploy to, and the traps.
 
 ## Commands
 - make test          # includes gold-set regression for every parser

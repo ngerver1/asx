@@ -22,6 +22,12 @@ migrates — about 25 seconds, automatic. Then:
     asx fetch-quotes                     # 29 delayed quotes, ~3 min (5s/host throttle)
     asx screen-html --out screen.html    # the published page, generated
 
+**If the task is "update the buy signals report", stop here and read
+`docs/RUNBOOK_SIGNALS_REPORT.md` instead.** The four commands above restore
+and re-render what is already held; the runbook is the full loop — reading new
+alerts, capturing, parsing, checking the monitor, redeploying to the artifact
+the owner already holds, and snapshotting so the work survives the container.
+
 `DATABASE_URL` in the environment points at a Neon instance the sandbox cannot
 reach; the hook detects that and falls back to the local cluster, saying so.
 That is expected, not a fault.
