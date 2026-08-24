@@ -7,8 +7,15 @@ data/raw/
 data/parsed/
 .env
 
-# Universe exports are regenerable: `asx universe --as-of <date>`
+# Signal and universe exports are regenerable in seconds; the prime directive
+# keeps derived data out of the repository. Both spellings are ignored: the
+# date-stamped form, and the bare names the documented commands in README.md
+# and docs/HANDOVER.md actually emit (`--out conviction.csv`).
 asx_universe_*.csv
 asx_smallcaps_*.csv
 cluster_buys_*.csv
 conviction_buys_*.csv
+universe.csv
+smallcaps.csv
+cluster.csv
+conviction.csv
