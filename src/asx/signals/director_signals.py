@@ -34,6 +34,42 @@ WINDOW_DAYS = 30
 MIN_DIRECTORS = 2
 
 
+def record_first_seen(conn: psycopg.Connection, kind: str,
+                      keys: list[str], built_at) -> int:
+    """Stamp `built_at` on every key not already recorded. Returns how many
+    were genuinely new.
+
+    ON CONFLICT DO NOTHING is doing the real work: a key already present keeps
+    its original timestamp, so a row that has been on the screen for a month
+    does not re-announce itself every time the screen is rebuilt. The count
+    returned is therefore the size of the "new" table, and a rebuild against
+    unchanged trades correctly returns 0.
+    """
+    if not keys:
+        return 0
+    with conn.cursor() as cur:
+        cur.executemany(
+            """INSERT INTO signal_first_seen
+                 (signal_version, kind, natural_key, first_seen_at)
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT DO NOTHING""",
+            [(SIGNAL_VERSION, kind, k, built_at) for k in keys])
+        cur.execute(
+            """SELECT count(*) AS n FROM signal_first_seen
+                WHERE signal_version = %s AND kind = %s
+                  AND first_seen_at = %s""",
+            (SIGNAL_VERSION, kind, built_at))
+        return cur.fetchone()["n"]
+
+
+def cluster_natural_key(entity_id: int, window_start) -> str:
+    """Identity of a cluster across rebuilds: the company, and the buy it
+    began with. Deliberately excludes window_end and the member list — both
+    grow when another director joins, and a cluster gaining a third director
+    is the same cluster, not a new one."""
+    return f"{entity_id}:{window_start}"
+
+
 def build_cluster_buys(conn: psycopg.Connection) -> int:
     """Rebuild the cluster-buy signal table for SIGNAL_VERSION. Returns the
     number of clusters written."""
@@ -54,6 +90,7 @@ def build_cluster_buys(conn: psycopg.Connection) -> int:
         trades = cur.fetchall()
 
     clusters = 0
+    keys: list[str] = []
     by_entity: dict[int, list[dict]] = {}
     for t in trades:
         by_entity.setdefault(t["entity_id"], []).append(t)
@@ -95,11 +132,14 @@ def build_cluster_buys(conn: psycopg.Connection) -> int:
                          [t["trade_id"] for t in members], flags),
                     )
                     clusters += 1
+                    keys.append(cluster_natural_key(entity_id, start))
                     # Advance past this cluster to avoid emitting every
                     # overlapping sub-window as its own row.
                     i += len(members)
                 else:
                     i += 1
+        cur.execute("SELECT now() AS t")
+        record_first_seen(conn, "cluster", keys, cur.fetchone()["t"])
     conn.commit()
     return clusters
 
@@ -460,6 +500,7 @@ def build_conviction_buys(conn: psycopg.Connection) -> int:
         candidates = cur.fetchall()
 
     written = 0
+    keys: list[str] = []
     with conn.cursor() as cur:
         for t in candidates:
             increase = t["qty_acquired"] / t["held_before"]
@@ -488,7 +529,10 @@ def build_conviction_buys(conn: psycopg.Connection) -> int:
                  t["person_name_raw"], t["event_date"], t["knowable_at"],
                  t["consideration_aud"], t["qty_acquired"], t["held_before"],
                  increase, flags))
+            keys.append(str(t["trade_id"]))
             written += 1
+        cur.execute("SELECT now() AS t")
+        record_first_seen(conn, "conviction", keys, cur.fetchone()["t"])
     conn.commit()
     return written
 

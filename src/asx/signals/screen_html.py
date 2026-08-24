@@ -161,7 +161,34 @@ a:focus-visible,th:focus-visible,input:focus-visible{outline:2px solid var(--acc
   <div class="tile"><span class="n" id="t-clus">&mdash;</span><span class="k">Cluster buys</span></div>
   <div class="tile"><span class="n" id="t-spend">&mdash;</span><span class="k">Largest single buy</span></div>
   <div class="tile"><span class="n" id="t-max">&mdash;</span><span class="k">Largest stake rise</span></div>
+  <div class="tile"><span class="n" id="t-new">&mdash;</span><span class="k">New this week</span></div>
 </div>
+
+<section id="new-sec">
+  <div class="shead">
+    <div>
+      <h2>New since __NEW_CUTOFF__</h2>
+      <p class="lede">Rows that entered a screen in the last seven days, so a returning reader
+      can see what changed without re-reading both tables. Every row here also appears in its
+      own screen below &mdash; this is a view, not a third screen.</p>
+    </div>
+  </div>
+  <div id="new-empty" class="note" hidden></div>
+  <div class="scroll" id="new-wrap">
+    <table id="new">
+      <thead><tr>
+        <th class="sortable" data-k="added">Added <span class="car">&#9662;</span></th>
+        <th class="sortable" data-k="kind">Screen <span class="car">&#9662;</span></th>
+        <th class="sortable" data-k="ticker">Code <span class="car">&#9662;</span></th>
+        <th class="sortable" data-k="who">Who <span class="car">&#9662;</span></th>
+        <th>Why it qualified</th>
+        <th class="sortable num" data-k="spend" data-num>Total A$ <span class="car">&#9662;</span></th>
+        <th class="sortable" data-k="actionable">Actionable <span class="car">&#9662;</span></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
 
 <section>
   <div class="shead">
@@ -288,6 +315,34 @@ document.getElementById('t-clus').textContent = DATA.cluster.length;
 document.getElementById('t-spend').textContent = '$' +
   fmt(Math.max(...DATA.conviction.map(r => r.spend))/1000) + 'k';
 document.getElementById('t-max').textContent = fmt(maxPct) + '%';
+document.getElementById('t-new').textContent = DATA.new.length;
+
+// The empty state says WHEN nothing changed since, not just "nothing". A bare
+// "no new rows" is indistinguishable from a build that failed to run.
+function newRow(r){
+  const label = r.kind === 'conviction' ? 'Conviction' : 'Cluster';
+  return `<tr>
+    <td class="num">${shortDate(r.added)}</td>
+    <td><span class="chip">${label}</span></td>
+    <td class="tick">${r.ticker}<span class="co">${r.entity}</span></td>
+    <td class="who">${r.who}</td>
+    <td class="who">${r.detail}</td>
+    <td class="num">${r.spend === null ? '&mdash;' : '$' + fmt(r.spend)}</td>
+    <td class="num">${shortDate(r.actionable)}</td>
+  </tr>`;
+}
+if (!DATA.new.length) {
+  document.getElementById('new-wrap').hidden = true;
+  const box = document.getElementById('new-empty');
+  box.hidden = false;
+  box.innerHTML = DATA.lastAddition
+    ? `<b>Nothing new in the last seven days.</b> The most recent row to enter either
+       screen did so on ${shortDate(DATA.lastAddition)}; both screens below are unchanged
+       since then.`
+    : `<b>Nothing new in the last seven days.</b> ${DATA.untracked} row(s) were already on
+       the screens when arrival tracking began, so their arrival dates are unknown and they
+       are not reported here. Anything that enters from the next build onward will appear.`;
+}
 
 function coverage(flags){
   const out = [];
@@ -350,12 +405,15 @@ function clusRow(r){
     <td><div class="chips">${coverage(r.flags)}</div></td></tr>`;
 }
 
-const state = {conv:{k:'pct',dir:-1}, clus:{k:'spend',dir:-1}};
+const state = {conv:{k:'pct',dir:-1}, clus:{k:'spend',dir:-1},
+               new:{k:'added',dir:-1}};
+const SOURCE = {conv:'conviction', clus:'cluster', new:'new'};
+const ROW = {conv:convRow, clus:clusRow, new:newRow};
 
 function render(id){
   const isConv = id === 'conv';
-  const st = isConv ? state.conv : state.clus;
-  let rows = (isConv ? DATA.conviction : DATA.cluster).slice();
+  const st = state[id];
+  let rows = DATA[SOURCE[id]].slice();
   if (isConv && document.getElementById('hide-small').checked)
     rows = rows.filter(r => !r.flags.includes('small_absolute_spend'));
   rows.sort((a,b) => {
@@ -369,7 +427,7 @@ function render(id){
     return c * st.dir;
   });
   document.querySelector('#' + id + ' tbody').innerHTML =
-    rows.map(isConv ? convRow : clusRow).join('');
+    rows.map(ROW[id]).join('');
   document.querySelectorAll('#' + id + ' thead th').forEach(th => {
     if (th.dataset.k === st.k) th.setAttribute('aria-sort', st.dir === 1 ? 'ascending' : 'descending');
     else th.removeAttribute('aria-sort');
@@ -380,7 +438,7 @@ document.querySelectorAll('table').forEach(tbl => {
   tbl.querySelectorAll('th.sortable').forEach(th => {
     th.tabIndex = 0;
     const go = () => {
-      const st = tbl.id === 'conv' ? state.conv : state.clus;
+      const st = state[tbl.id];
       if (st.k === th.dataset.k) st.dir *= -1;
       else { st.k = th.dataset.k; st.dir = th.hasAttribute('data-num') ? -1 : 1; }
       render(tbl.id);
@@ -391,6 +449,7 @@ document.querySelectorAll('table').forEach(tbl => {
 });
 document.getElementById('hide-small').addEventListener('change', () => render('conv'));
 render('conv'); render('clus');
+if (DATA.new.length) render('new');
 </script>
 """
 
@@ -426,9 +485,14 @@ def build_data(conn: psycopg.Connection) -> dict:
             """SELECT l.ticker, n.name AS entity, s.entity_id, s.person_name_raw,
                       s.event_date, s.knowable_at, s.consideration_aud,
                       s.qty_acquired, s.held_before, s.stake_increase,
-                      t.price_per_unit, s.coverage_flags
+                      t.price_per_unit, s.coverage_flags,
+                      fs.first_seen_at, fs.backfilled
                  FROM signal_conviction_buys s
                  JOIN director_trades t ON t.trade_id = s.trade_id
+                 LEFT JOIN signal_first_seen fs
+                        ON fs.signal_version = s.signal_version
+                       AND fs.kind = 'conviction'
+                       AND fs.natural_key = s.trade_id::text
                  LEFT JOIN listings l
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
@@ -450,6 +514,8 @@ def build_data(conn: psycopg.Connection) -> dict:
                 "paid": paid,
                 "qty": _f(r["qty_acquired"]), "held": _f(r["held_before"]),
                 "pct": round(float(r["stake_increase"]) * 100, 1),
+                "added": (r["first_seen_at"].date().isoformat()
+                          if r["first_seen_at"] and not r["backfilled"] else None),
                 "flags": flags, **q})
 
         cur.execute(
@@ -462,7 +528,8 @@ def build_data(conn: psycopg.Connection) -> dict:
                       hold.n_holders,
                       (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
                          FROM director_trades t
-                        WHERE t.trade_id = ANY(s.trade_ids)) AS directors
+                        WHERE t.trade_id = ANY(s.trade_ids)) AS directors,
+                      fs.first_seen_at, fs.backfilled
                  FROM signal_cluster_buys s
                  CROSS JOIN LATERAL (""" + HOLDINGS_LATERAL + """) AS hold
                  CROSS JOIN LATERAL (
@@ -484,6 +551,10 @@ def build_data(conn: psycopg.Connection) -> dict:
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
                         ON n.entity_id = s.entity_id AND n.valid_to IS NULL
+                 LEFT JOIN signal_first_seen fs
+                        ON fs.signal_version = s.signal_version
+                       AND fs.kind = 'cluster'
+                       AND fs.natural_key = s.entity_id || ':' || s.window_start
                 ORDER BY s.knowable_at DESC, s.total_consideration_aud DESC""")
         for r in cur.fetchall():
             shares, spend = r["shares"], r["priced_consideration"]
@@ -510,11 +581,52 @@ def build_data(conn: psycopg.Connection) -> dict:
                 "actionable": r["knowable_at"].date().isoformat(),
                 "spend": _f(r["total_consideration_aud"]),
                 "shares": _f(shares), "paid": paid,
+                "added": (r["first_seen_at"].date().isoformat()
+                          if r["first_seen_at"] and not r["backfilled"] else None),
                 "flags": flags, **q})
 
     dates = [r["priceAsAt"] for r in conviction + cluster if r["priceAsAt"]]
     return {"conviction": conviction, "cluster": cluster,
-            "latestQuoteDate": max(dates) if dates else ""}
+            "latestQuoteDate": max(dates) if dates else "",
+            **_new_additions(conviction, cluster)}
+
+
+# How far back "new" reaches. A fixed window rather than "since the previous
+# build", because builds are not evenly spaced: three rebuilds in one
+# afternoon would leave two of them reporting nothing new and hide a genuine
+# addition from anyone who looked between them. Seven days covers a weekly
+# read, and the exact date is printed on the page so the reader never has to
+# infer what the window was.
+NEW_WINDOW_DAYS = 7
+
+
+def _new_additions(conviction: list[dict], cluster: list[dict]) -> dict:
+    """Rows that entered a screen within the window, newest first.
+
+    A row with no `added` date is one that predates signal_first_seen; it is
+    treated as old, never as new. Guessing the other way would announce the
+    whole screen once and teach the reader to distrust the table.
+    """
+    from datetime import timedelta
+    cutoff = (date.today() - timedelta(days=NEW_WINDOW_DAYS)).isoformat()
+    rows = []
+    for kind, src in (("conviction", conviction), ("cluster", cluster)):
+        for r in src:
+            if r["added"] and r["added"] > cutoff:
+                rows.append({
+                    "kind": kind, "ticker": r["ticker"], "entity": r["entity"],
+                    "who": r.get("director") or r.get("directors") or "",
+                    "spend": r["spend"], "actionable": r["actionable"],
+                    "added": r["added"],
+                    "detail": (f"{r['pct']}% stake increase" if kind == "conviction"
+                               else f"{r['n']} directors"),
+                })
+    rows.sort(key=lambda r: (r["added"], r["ticker"]), reverse=True)
+    seen = sorted({r["added"] for r in conviction + cluster if r["added"]})
+    untracked = sum(1 for r in conviction + cluster if not r["added"])
+    return {"new": rows, "newCutoff": cutoff,
+            "lastAddition": seen[-1] if seen else "",
+            "untracked": untracked}
 
 
 def render(conn: psycopg.Connection, built_on: date | None = None) -> str:
@@ -581,6 +693,7 @@ def render(conn: psycopg.Connection, built_on: date | None = None) -> str:
         ("__UNCHECKED__", str(len(unchecked))),
         ("__CONV_N__", str(len(data["conviction"]))),
         ("__CHECKED_TICKERS__", ", ".join(checked) if checked else "none"),
+        ("__NEW_CUTOFF__", pretty(data["newCutoff"])),
     ]:
         html = html.replace(token, value)
     return html

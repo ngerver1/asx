@@ -125,7 +125,31 @@ use. `fetch_guard` cannot enforce the distinction itself — a JSON-RPC method
 name lives in the request body, not the URL — so it is recorded here and in
 the guard's own docstring rather than left implicit.
 
-## Setup
+## Two routes, and only one of them is blocked
+
+This distinction cost four days, because the two were conflated and both
+reported as blocked.
+
+**The session route works today.** The InvestorPA MCP server can be connected
+to a Claude Code session directly, where its tools appear as
+`mcp__InvestorPA__*`. It needs no repository secret and no stored refresh
+token — the session holds the grant. On 24 Aug 2026 this route resolved all
+30 stranded detections in one pass: `search_announcements` for the tickers and
+dates already detected, the stated PDF URLs written onto those detections, and
+the platform's own guarded fetch doing the retrieval.
+`docs/RUNBOOK_SIGNALS_REPORT.md` has the procedure. This is also the use the
+vendor's published grant describes most directly — an AI harness asking about
+the ASX — so it needs less inference than the scheduled ingest below.
+
+**The unattended route is blocked.** `asx detect --source investorpa` runs in
+GitHub Actions with no session and no browser, so it needs
+`ASX_INVESTORPA_REFRESH_TOKEN` in the environment. That grant does not exist,
+for the reasons below. A cron cannot borrow a session's MCP connection.
+
+So: the daily sweep is dormant, and a human-driven session is not. Anyone
+reading "blocked on OAuth" should check which of the two is meant.
+
+## Setup for the unattended route
 
 The MCP endpoint is OAuth-protected (`mcp:read`, a read-only scope the server
 defines and enforces). It is a public client supporting Dynamic Client
@@ -175,8 +199,9 @@ lifecycle behaviour is unobservable from outside an authenticated session. The
 specification is the authority, not a guess about the beta — but the first
 authenticated run is the real test, and the error messages say so.
 
-Everything downstream is built and tested and waits on that one token. When it
-exists, the flow prints a refresh token once. Put it in the environment where the platform
+Everything downstream is built and tested. The **scheduled** sweep waits on
+that one token; a session with the MCP connected does not. When it exists, the
+flow prints a refresh token once. Put it in the environment where the platform
 runs — never in the repo, never in a chat:
 
     ASX_INVESTORPA_CLIENT_ID=...
@@ -237,5 +262,15 @@ before `director_trades` is a design question for the owner, and parsing both
 would enter one director purchase twice and inflate the cluster signal.
 
 What is still an expectation rather than a measurement: the coverage numbers
-themselves. Nothing has run with credentials, so `market_index_only` is the
-first number to read once something does.
+themselves. The view compares two *detection* feeds, and InvestorPA has still
+never run as a detection feed — the 24 Aug session used it for **possession**,
+against announcements Market Index had already detected. So every row in the
+corpus is still `market_index_only` and the view has nothing to reconcile yet.
+
+One measurement did fall out of that session, though, and it is the first
+evidence that the watchlist gap is real: searching the 22 companies already
+detected over 19–21 Aug returned **31** director-interest announcements where
+the mailbox had detected **30**. The extra was a fourth BCA Change of
+Director's Interest Notice on 19 Aug at 06:23:34 UTC that no alert ever
+carried. One miss is not a rate, but it is not zero either, and it is exactly
+the kind of hole `market_index_only` exists to count.

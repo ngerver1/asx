@@ -64,6 +64,14 @@ TABLES = [
     "persons",
     "director_trades",
     "review_items",
+    # Not derived data, despite sitting beside the signal tables. It records
+    # WHEN a signal row first appeared, which cannot be recomputed from the
+    # corpus at any later date. The signal tables themselves are deliberately
+    # absent from this list because they are regenerable; this is the one
+    # thing about them that is not, so losing it would make every restored
+    # container report its entire screen as new. No foreign keys, so ordering
+    # against the chain above does not matter.
+    "signal_first_seen",
 ]
 
 # Deliberately NOT snapshotted: `price_quotes`. A quote is only meaningful

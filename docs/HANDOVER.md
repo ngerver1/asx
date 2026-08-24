@@ -4,8 +4,16 @@
 branches: the price/holdings work, the director screens, the InvestorPA
 detection feed, and the 26 alert files that had been accumulating where
 nothing read them. Numbers below were re-measured on the merged tree, not
-carried over. The new material is "The second detection feed" and the last
-two entries under "Things that will bite".
+carried over.
+
+**Amended again, same day, after the possession gap was closed.** The
+InvestorPA MCP server is connected to a Claude Code session directly — that
+had been overlooked, and the OAuth blocker was reported as if it stopped
+everything when it only stops the unattended cron. Using it resolved all 30
+stranded detections in one pass. Three of the four monitor alarms cleared.
+Corpus and screen numbers throughout this document are the post-capture ones.
+**If the task is to refresh the report, `docs/RUNBOOK_SIGNALS_REPORT.md` is
+now the authority and this document is context.**
 
 Written at the end of the session that got the network. The price column that
 the previous handover was blocked on now exists. Read this first; it is the
@@ -105,15 +113,16 @@ genuinely unverified, not mis-parsed — the honest place for them.
 
 | | |
 |---|---|
-| documents | 1,124 (864 director notices: 781 3Y, 83 3Z) |
-| canonical trades | 421, of which 95 on-market cash buys |
+| documents | 1,152 (890 director notices: 804 3Y, 86 3Z) |
+| canonical trades | 435, of which 99 on-market cash buys |
 | unverified readings | **reads 0 after a restore** — the view is built on `parsed_records`, which is not snapshotted. Reprocess to repopulate it. |
-| cluster-buy signals | 12 |
-| conviction signals | 23 |
-| quotes held | 29 of 29 screen tickers |
-| open review items | 702 |
+| cluster-buy signals | 13 |
+| conviction signals | 24 |
+| quotes held | 31 of 31 screen tickers |
+| open review items | 717 |
 | alerts held | 157 `.eml.gz`, newest 21 Aug — 26 of them recovered by this merge |
-| tests | 448, no skips (`make test-all`; a skip looks like a pass) |
+| documents stranded at `detected` | **0** — was 30 before the 24 Aug MCP capture |
+| tests | 452, no skips (`make test-all`; a skip looks like a pass) |
 
 The published screen lives at
 **https://claude.ai/code/artifact/228b70bf-0797-4c15-9f73-b473ebd818ba**
@@ -261,6 +270,33 @@ never selected for parsing, and the stored corpus is unreclassified until a
 reprocess runs — all 122 still sit in `other` today. The decision below (a 3X
 needs its own table) is untouched.
 
+## The consideration field is not always a total
+
+Appendix 3Y's Value/Consideration box is filled inconsistently by issuers.
+Some print the total paid; some print the price per security. The parser takes
+it as a total either way, and nothing catches the difference.
+
+**26 trades across 12 entities** currently carry a per-unit price under
+$0.001 — below the ASX minimum tick, so it cannot be a total:
+
+    SELECT * FROM director_trades
+     WHERE price_per_unit > 0 AND price_per_unit < 0.001;
+
+One is on the published cluster screen. WRK totals `$11,100.077`: Paul
+Collins' $11,100 plus Trent Lund's 190,000 shares recorded as a 7.7-cent
+*total* rather than 7.7 cents *each*. The page divides that by 340,000 shares
+and shows 3.26c paid against a 7.7c market — **a ~136% gain that does not
+exist**. The true average is about 7.57c, or roughly flat.
+
+WRK's own quote is the proof: the market price is $0.077, the identical number
+the issuer printed in the consideration box.
+
+**Unfixed, and live on the published page.** The fix that matches this
+codebase's own rule — ambiguous → 'unknown', never a substantive default — is
+to flag the row and refuse to assert either the total or the price comparison.
+Not to recompute silently as `qty × price`, which would be inferring what the
+issuer meant. It changes signal semantics, so it is the owner's call.
+
 ## Decisions left with the owner
 
 Unchanged from the last handover except where noted.
@@ -346,7 +382,7 @@ Unchanged from the last handover except where noted.
 - **`state/` is 7.3 MB** against the 5 MB its own docstring assumes, and grows
   ~4.5 KB per document. A few thousand more and git is the wrong home.
 - **Run the suite with a database.** Without one, 44 tests skip and a skip
-  looks like a pass. `make test-all`, or check the count is 448.
+  looks like a pass. `make test-all`, or check the count is 452.
 - **The alert feed writes to a branch nobody merges.** The Apps Script's
   `GITHUB_BRANCH` property is set to `claude/go-is75md`, so every alert it
   has forwarded since 19 Aug landed there and nowhere else. The default

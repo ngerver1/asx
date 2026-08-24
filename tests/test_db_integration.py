@@ -25,6 +25,7 @@ from asx.parse.framework import resolve_review_item, run_parser_on_doc
 from asx.parse.llm import ExtractionPass
 from asx.parse.reprocess import reprocess
 from asx.raw.store import ingest_document, read_document
+from asx.signals.screen_html import build_data
 from asx.signals.director_signals import (
     ACTIONABLE_EARLY_FLAG,
     build_cluster_buys,
@@ -756,3 +757,110 @@ def test_actionable_date_is_flagged_when_it_came_from_pdf_creation(conn):
     assert build_cluster_buys(conn) == 1
     cluster = list(csv.DictReader(io.StringIO(cluster_buys_csv(conn))))[0]
     assert ACTIONABLE_EARLY_FLAG in cluster["coverage_flags"]
+
+
+# --- what is NEW on the screen ---------------------------------------------
+#
+# The screen answers "what qualifies". A reader coming back a week later needs
+# "what changed", and could not get it: every rebuild rewrote every row, so
+# nothing on the page distinguished a signal that had been there for a month
+# from one that arrived this morning.
+
+def _buy(conn, entity, person, day, qty, held_before, aud):
+    doc = _mk_doc(conn, f"3y {person} {day}".encode(), doc_class="app_3y",
+                  entity_id=entity, lodged=datetime(2026, 5, day, 10, 0, tzinfo=UTC))
+    apply_trades(conn, doc, [TradeRow(
+        entity_id=entity, person_name_raw=person, doc_id=doc,
+        event_date=date(2026, 5, day),
+        knowable_at=datetime(2026, 5, day, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_acquired=D(qty), consideration_aud=D(aud),
+        consideration_text="On-market purchase",
+        held_before=D(held_before), held_after=D(held_before + qty))])
+    return doc
+
+
+def _first_seen(conn, kind):
+    with conn.cursor() as cur:
+        cur.execute("""SELECT natural_key, first_seen_at, backfilled
+                         FROM signal_first_seen WHERE kind = %s""", (kind,))
+        return {r["natural_key"]: r for r in cur.fetchall()}
+
+
+def test_rebuilding_an_unchanged_screen_announces_nothing_as_new(conn):
+    """The whole table is worthless if a rebuild re-announces everything. A
+    fresh container rebuilds signals from an empty table, so this is the
+    normal case, not an edge one."""
+    entity = _mk_entity(conn, "Steady Holdings Limited")
+    _buy(conn, entity, "Ann Steady", 4, 40_000, 10_000, 60_000)
+    build_conviction_buys(conn)
+    first = _first_seen(conn, "conviction")
+    assert first, "nothing recorded on the first build"
+
+    build_conviction_buys(conn)
+    build_conviction_buys(conn)
+    again = _first_seen(conn, "conviction")
+    assert {k: r["first_seen_at"] for k, r in again.items()} == \
+           {k: r["first_seen_at"] for k, r in first.items()}, \
+        "a rebuild moved a first-seen timestamp, so every row would read as new"
+
+
+def test_a_signal_that_arrives_later_is_the_only_one_marked_new(conn):
+    entity_a = _mk_entity(conn, "Early Bird Limited")
+    entity_b = _mk_entity(conn, "Latecomer Limited")
+    _buy(conn, entity_a, "Ann Early", 4, 40_000, 10_000, 60_000)
+    build_conviction_buys(conn)
+    before = set(_first_seen(conn, "conviction"))
+
+    _buy(conn, entity_b, "Bob Late", 11, 50_000, 10_000, 70_000)
+    build_conviction_buys(conn)
+    after = _first_seen(conn, "conviction")
+
+    arrived = set(after) - before
+    assert len(arrived) == 1, f"expected exactly one new row, got {arrived}"
+    new_key = arrived.pop()
+    assert after[new_key]["first_seen_at"] > max(
+        after[k]["first_seen_at"] for k in before), \
+        "the new row must be stamped later than the rows that preceded it"
+    assert not after[new_key]["backfilled"], \
+        "a row built after tracking began has a known arrival date"
+
+
+def test_a_cluster_gaining_a_third_director_does_not_re_announce_itself(conn):
+    """The cluster's identity is the company and the buy it began with. If it
+    keyed on the member list or window_end instead, every new director would
+    make the whole cluster look brand new to a reader tracking changes."""
+    entity = _mk_entity(conn, "Boardroom Limited")
+    _buy(conn, entity, "Ann Chair", 4, 40_000, 10_000, 60_000)
+    _buy(conn, entity, "Bob Deputy", 6, 30_000, 10_000, 50_000)
+    build_cluster_buys(conn)
+    before = _first_seen(conn, "cluster")
+    assert len(before) == 1, before
+
+    _buy(conn, entity, "Cec Director", 9, 20_000, 10_000, 40_000)
+    build_cluster_buys(conn)
+    after = _first_seen(conn, "cluster")
+
+    assert set(after) == set(before), \
+        "the cluster changed identity when it grew, so it re-announced itself"
+    assert after == before, "an existing cluster's first-seen timestamp moved"
+    with conn.cursor() as cur:
+        cur.execute("SELECT n_directors FROM signal_cluster_buys")
+        assert cur.fetchone()["n_directors"] == 3, "the third director was not counted"
+
+
+def test_rows_predating_the_table_are_reported_as_unknown_not_as_new(conn):
+    """Backfilled rows carry a timestamp only because the column is NOT NULL.
+    It is the migration's clock, not the row's arrival, and the screen must
+    never present it as an arrival date."""
+    entity = _mk_entity(conn, "Grandfathered Limited")
+    _buy(conn, entity, "Ann Old", 4, 40_000, 10_000, 60_000)
+    build_conviction_buys(conn)
+    with conn.cursor() as cur:
+        cur.execute("UPDATE signal_first_seen SET backfilled = true")
+
+    data = build_data(conn)
+    assert data["conviction"], "fixture built no conviction row"
+    assert all(r["added"] is None for r in data["conviction"]), \
+        "a backfilled row was given an arrival date it does not have"
+    assert data["new"] == [], "a backfilled row was announced as new"
+    assert data["untracked"] == len(data["conviction"])

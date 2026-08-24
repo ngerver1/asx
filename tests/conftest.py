@@ -40,7 +40,15 @@ _ALL_TABLES = [
     "asic_registry", "reference_loads", "index_membership", "manual_share_counts",
     # Both signal tables and the display quotes keyed off them: a signal row
     # surviving into the next test is a false pass waiting to happen.
-    "signal_cluster_buys", "signal_conviction_buys", "price_quotes",
+    #
+    # signal_first_seen belongs here for the same reason and was missed when
+    # it was added: it is NOT emptied by build-signals (that is the point of
+    # it — an existing row keeps its original arrival date), so without an
+    # explicit truncate it is the one table that accumulates across the whole
+    # session. Two arrival-tracking tests passed alone and failed in the full
+    # suite, which is how it surfaced.
+    "signal_cluster_buys", "signal_conviction_buys", "signal_first_seen",
+    "price_quotes",
     "float_series", "monitor_runs", "hypothesis_log",
     "share_reconciliations", "director_trades", "substantial_holdings",
     "holder_snapshots", "escrow_parcels", "share_events", "share_anchors",

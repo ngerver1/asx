@@ -61,7 +61,9 @@ python -m asx.cli snapshot --dir state --restore
 # 2. Read the alert emails the Apps Script has committed since last time.
 python -m asx.cli detect --from-dir alerts
 
-# 3. Turn detections into held documents, where a URL exists to fetch.
+# 3. Get the documents. See "Closing the possession gap" — this is the step
+#    that decides whether the report actually moves.
+python -m asx.cli capture --capture-dir captures --investorpa
 python -m asx.cli capture --capture-dir captures --asx
 
 # 4. Read the held documents. --parser is required; a bare `parse` exits 2.
@@ -70,7 +72,7 @@ python -m asx.cli parse --parser app3y
 # 5. Rebuild the signal tables.
 python -m asx.cli build-signals
 
-# 6. Refresh the display quotes. ~3 minutes: 29 tickers at 5s/host.
+# 6. Refresh the display quotes. ~3 minutes: ~30 tickers at 5s/host.
 python -m asx.cli fetch-quotes
 
 # 7. Check whether the feed is healthy BEFORE you publish. See below.
@@ -80,7 +82,7 @@ python -m asx.cli monitor
 python -m asx.cli screen-html --out screen.html
 ```
 
-Everything except step 6 finishes in seconds. Budget five minutes for the run.
+Everything except step 6 finishes in seconds. Budget ten minutes for the run.
 
 Then publish `screen.html` to the URL above, and persist your work:
 
@@ -92,89 +94,138 @@ git add state && git commit && git push -u origin <your-branch>
 **Step 8 is not the end.** The container is reclaimed when the session ends.
 A run that renders a beautiful page and never snapshots has thrown away every
 document it fetched, and the next session starts from the same place you did.
+It also throws away the arrival dates behind the "New since" table, which is
+the one thing on the page that cannot be recomputed later.
 
 ---
 
-## What each step actually told us on 24 Aug
+## Closing the possession gap — use the MCP
 
-| Step | Output | Read it as |
-|---|---|---|
-| `detect --from-dir alerts` | `{"new_detections": 27, "already_known": 130, "failed": 0}` | 27 announcements the platform had never heard of. Re-reading is free — detections are idempotent on the ASX announcement number |
-| `capture --asx` | `{"asx": {"eligible": 1, "retrieved": 1, "no_url": 30}}` | **This is the whole story.** 30 of 31 open detections carry no URL, so nothing could be fetched for them |
-| `parse --parser app3y` | `doc 143: validated (confidence 1.00)` | The one retrieved document read cleanly |
-| `build-signals` | `built 12 cluster-buy and 23 conviction-buy signal rows` | **Unchanged.** 27 new detections moved the screen by nothing |
-| `fetch-quotes` | `ok=29` | Every screen row priced |
-| `screen-html` | `wrote screen.html (33,016 bytes)` | Stamp reads `Built 24 Aug 2026 / Signal definition v2 / 1,152 documents held` |
+This is the step that was missed for four days, so it gets its own section.
 
-### The thing that will confuse you: detection is not possession
+**Detection is not possession.** An alert email says an announcement exists;
+it does not carry the PDF. I checked one: the only links in it are Market
+Index's website, their social accounts, and an unsubscribe link — no `.pdf`
+anywhere. A detected document sits at `parse_status='detected'`: recorded,
+visible, and unreadable. It produces no trade and therefore no signal.
 
-They are separate facts, deliberately. An alert email says an announcement
-exists; it does not carry the PDF. A detected document sits at
-`parse_status='detected'` — recorded, visible, and **not yet readable**.
+**The InvestorPA MCP server is connected to your session.** Its tools appear
+as `mcp__InvestorPA__*`. This is easy to miss, because a separate thing with
+a similar name is genuinely blocked: `asx detect --source investorpa` needs
+`ASX_INVESTORPA_REFRESH_TOKEN` in the environment for the unattended GitHub
+Actions run, and that OAuth grant does not exist. **That blocks the cron, not
+you.** A session with the MCP connected can retrieve documents today.
 
-So the ordinary outcome of a sweep is: new detections, no new signals. That is
-the pipeline working. It is not a failure, and it is not something to fix by
-loosening a parser or inventing a URL.
+The vendor advertises exactly this use — "connects ASX announcements directly
+to any MCP-compatible AI harnesses... Works with Claude Desktop & Mobile,
+ChatGPT Desktop & Mobile, Claude Code, Codex" — which is the Invariant 11
+basis recorded in `docs/SOURCE_INVESTORPA.md`.
 
-Right now the numbers are:
+The procedure, which resolved 30 of 30 stranded documents on 24 Aug:
 
-```
-review         483     detected        30   (27 app_3y, 3 app_3z)
-validated      377     of those, with a document URL:  0
-not_applicable 262
-```
+1. List what is stranded, with ticker and lodgement time:
 
-Zero. Every open detection on the board right now is un-fetchable by any
-route the access decision permits, until a human supplies a URL or the
-InvestorPA grant lands.
-
-**Nothing may construct a URL to close that gap.** Identifiers are sequential,
-so `announcement-pdf/{YYYYMMDD}/{id}.pdf` can always be *built* — which is
-exactly why nothing builds one. `docs/ACCESS_DECISION.md` permits targeted
-retrieval from a URL already held and forbids discovery. The three legitimate
-ways to close it:
-
-1. `python -m asx.cli worklist --parseable-only` lists what is waiting and
-   prints a Market Index link for each one:
-
-   ```
-   1736  CTM  app_3y  2026-08-21 08:34  Change of Director's Interest Notice
-       open: https://www.marketindex.com.au/asx/ctm/announcements/...
+   ```sql
+   SELECT d.doc_id, l.ticker, d.lodged_at, d.title
+     FROM documents d
+     LEFT JOIN listings l ON l.entity_id=d.entity_id AND l.valid_to IS NULL
+    WHERE d.parse_status='detected' ORDER BY d.lodged_at;
    ```
 
-   A human opens each link, downloads the PDF, and drops it in `captures/`.
-   The next `capture` attaches it to the detection by filename, sidecar, or
-   the ABN printed in the document.
-2. `asx set-doc-url --announcement-id <id> --url <url>` records a URL a human
-   found, after which `capture --asx` can fetch it. Note it keys on the **ASX
-   announcement number**, not the internal doc id. This is the bottleneck the
-   access decision meant by "targeted retrieval does not scale on its own".
-3. The InvestorPA feed, which returns the document URL directly — built,
-   tested, and **blocked on one OAuth token**. See `docs/SOURCE_INVESTORPA.md`.
+2. Call `mcp__InvestorPA__search_announcements` with **exactly those tickers
+   and exactly that date range**. Proportionality is the point: ask for the
+   companies you already detected, not the whole exchange.
+
+3. Match on ticker + lodgement time + title. The DB stores UTC; the feed
+   returns +10:00 (AEST). Market Index truncates to the minute and InvestorPA
+   reports to the second, so the feed timestamp runs **0–60 seconds later**
+   than ours for the same lodgement. A ±120s tolerance with the title as
+   tie-breaker matched 30/30, 29 of them on title *and* time. Where several
+   identical titles fall inside the window (three BCA notices minutes apart),
+   assign nearest-first and let each feed row be used once.
+
+4. **Copy the stated URL. Never build one.** Their ids are sequential at
+   ~400/day, so `announcement-pdf/{YYYYMMDD}/{id}.pdf` can always be
+   constructed — which is exactly why nothing may construct it. A test
+   asserts no source file does. Take the URL verbatim from the search result.
+
+5. Write the URLs onto the detections and let the platform's own guarded,
+   throttled fetch do the retrieval, so provenance records honestly as
+   `possession_source='investorpa'`:
+
+   ```sql
+   UPDATE documents SET fetch_candidate_urls =
+       (SELECT array_agg(DISTINCT u)
+          FROM unnest(coalesce(fetch_candidate_urls,'{}') || ARRAY[:url]) u)
+    WHERE doc_id = :doc_id;
+   ```
+
+   Then `asx capture --capture-dir captures --investorpa`. It handles **25 per
+   run** (`fetch_investorpa_documents(conn, limit=25)`), so run it twice if
+   more are waiting.
+
+Do not skip the guard and fetch the PDF yourself. Going through `capture` is
+what applies the throttle, records the source, hashes the original bytes, and
+refuses an HTML login wall instead of storing it as a document.
+
+### What "captured but not parseable" looks like
+
+Some documents will close as `not_applicable` rather than `unparsed`. On
+24 Aug three BCA notices did: their bytes were already held under another
+doc_id, so `attach_document` closed them as duplicates rather than
+double-storing. That is correct — double-storing enters one director purchase
+twice and inflates the cluster signal. Check `source_ref` for the
+`[duplicate of doc N]` marker before treating it as a failure.
+
+---
+
+## The "New since" table
+
+The page opens with a **New since &lt;date&gt;** table listing rows that
+entered either screen in the last seven days, so a returning reader can see
+what changed without re-reading both screens. It is a view over the two
+screens below, not a third screen.
+
+It is driven by `signal_first_seen`, and there are three things to know:
+
+- **A rebuild announces nothing.** The signal tables are DELETEd and rewritten
+  every build, so arrival dates cannot live on them; `signal_first_seen` keys
+  on something stable (`entity_id:window_start` for a cluster, `trade_id` for
+  a conviction row) and an existing key keeps its original timestamp.
+- **It is snapshotted, and it must be.** The signal tables deliberately are
+  not — they are regenerable — but arrival dates are not recomputable from
+  the corpus at any later date. If you skip the closing snapshot, the next
+  container has no arrival history and reports nothing as new.
+- **Rows predating the table say so.** 37 rows were on the screens when
+  tracking began on 24 Aug 2026; they carry `backfilled = true`, have no
+  arrival date, and are never reported as new. The empty state says this out
+  loud rather than showing a bare "nothing new", which is indistinguishable
+  from a build that failed to run.
 
 ---
 
 ## Read the monitor before you publish
 
-`asx monitor` is the alarm the whole detection design exists to raise. On
-24 Aug it fired four:
+`asx monitor` is the alarm the whole detection design exists to raise. Before
+the 24 Aug capture it fired four; afterwards, one:
 
 ```
-ALARM [freshness]    app_3y: newest document fetched 2026-08-20 exceeds 96h SLO
-ALARM [freshness]    detections_all: newest 2026-08-21 exceeds 72h SLO
-ALARM [capture_gap]  14 parseable announcements detected but never captured
-ALARM [capture_rate] only 19% of parseable detections captured over 14d (7/37)
-                     — below the 90% floor
+ALARM [freshness] detections_all: newest document fetched 2026-08-21T08:34:00+00:00
+                  exceeds staleness SLO of 72h
 ```
 
-**These are true, and they are not yours to silence.** Publish the page
-anyway — but say so when you hand it over. A screen built on a feed that is
-four days stale is still the best available view; a screen presented as
-current when it is not is a lie the reader cannot detect.
+The three that cleared — `capture_gap`, `capture_rate` at 19% against a 90%
+floor, and `app_3y` freshness — cleared because the documents were actually
+obtained. **If you see them again, the possession step above is what fixes
+them**, not a tolerance adjustment.
 
-`capture_rate` at 19% against a 90% floor is a **review trigger** under access
-decision §5, not a number to note and move past. If it is still there, say
-that the manual sweep is not keeping pace.
+The survivor is genuine: no alert has arrived since Friday evening. That is
+the Apps Script's schedule (about 18:05 AEST daily), not an outage.
+
+**Alarms are not yours to silence.** Publish the page anyway — a screen built
+on a stale feed is still the best available view — but say so when you hand it
+over. A screen presented as current when it is not is a lie the reader cannot
+detect.
 
 Zero lodgements in a trading period is a pipeline alarm until a human says
 otherwise (CLAUDE.md). If `detect` returns `new_detections: 0` on a weekday,
@@ -183,6 +234,26 @@ check the alert feed before assuming a quiet market.
 ---
 
 ## Things that will bite
+
+- **A per-security price in the Value/Consideration box.** Appendix 3Y's
+  consideration field is filled inconsistently by issuers: some print a total,
+  some print a price per security. The parser takes it as a total either way.
+  **26 trades across 12 entities** currently carry an arithmetically
+  impossible per-unit price — under $0.001, below the ASX minimum tick, so it
+  cannot be a total. One of them is on the published cluster screen: WRK's
+  cluster totals `$11,100.077`, where the `.077` is Trent Lund's 190,000
+  shares recorded as a 7.7-cent *total* rather than 7.7 cents *each*. The page
+  therefore shows an average paid of 3.26c against a 7.7c market — a ~136%
+  gain that does not exist. **Known, unfixed, and live.** The fix that matches
+  the codebase's own rule (ambiguous → 'unknown', never a substantive default)
+  is to flag the row and refuse to assert the total or the price comparison,
+  not to silently recompute as `qty × price`, which would be inferring what
+  the issuer meant. Find them with:
+
+  ```sql
+  SELECT * FROM director_trades
+   WHERE price_per_unit > 0 AND price_per_unit < 0.001;
+  ```
 
 - **The alert feed writes to a branch nothing merges.** The Apps Script's
   `GITHUB_BRANCH` is set to `claude/go-is75md`. If `alerts/` looks frozen,
@@ -203,15 +274,14 @@ check the alert feed before assuming a quiet market.
 - **`captures/README.md` gets filed as a document.** The capture scanner does
   not skip it, so it lands as `doc_class='other'` and
   `parse_status='not_applicable'`, and pypdf prints
-  `invalid pdf header: b'# cap'` on the way past. Harmless —
-  never parsed, never signalled — but it inflates the "documents held" count
-  on the page by one. Known; not yet fixed.
+  `invalid pdf header: b'# cap'` on the way past. It is filed once and
+  deduplicates by SHA-256 on later runs. Harmless — never parsed, never
+  signalled — but it inflates the "documents held" count by one.
 - **`state/` is 7.3 MB** and grows ~4.5 KB per document. A few thousand more
   and git is the wrong home for it.
 - **The DD note covers a screen that has moved on.** `docs/DD_2026-08-20.md`
-  was written against 19 conviction rows; the current screen builds 23. BSA,
-  SPZ and AGC are still on it, CBE is not. Four rows have never been through
-  due diligence. Do not present the DD as covering the current page.
+  was written against 19 conviction rows. Do not present it as covering the
+  current page; check which of its subjects are still on the screen.
 
 ---
 
@@ -221,14 +291,16 @@ These are invariants, not preferences. A shortcut that conflicts with one is
 wrong even if the page renders and the tests pass.
 
 - **Never join on ticker.** `ALU` is Altium before August 2024 and Alurion
-  Resources after. Entity resolution goes through `listings`, which is
-  effective-dated.
+  Resources after — and InvestorPA's own `search_stocks` resolves it to
+  Alurion. Entity resolution goes through `listings`, which is
+  effective-dated. A test asserts no source file names `search_stocks` as a
+  callable tool.
+- **Never construct a document URL.** Copy stated ones only.
 - **Never hand-edit a canonical table or the rendered HTML.** Fix the parser
   or the SQL and reprocess — `make reprocess` is the only path for systematic
   parse errors.
 - **Never drop a row to make the screen look clean.** Flag it and leave it
   visible. A silent exclusion does not let the owner disagree with you.
-- **Never construct a document URL**, and never fetch outside `fetch_guard`.
 - **Delisted entities stay in every universe.** A screen that quietly drops
   them is survivorship-shaped and worthless for anything historical.
 
@@ -236,11 +308,14 @@ wrong even if the page renders and the tests pass.
 
 ## Verifying you did it right
 
-1. `make test-all` — 448 tests, no skips. A skip looks like a pass in the
+1. `make test-all` — 452 tests, no skips. A skip looks like a pass in the
    summary line, which is how two green local runs shipped two red CI runs.
-2. The stamp under the headline shows today's date, the document count, and
+2. `SELECT count(*) FROM documents WHERE parse_status='detected'` returns 0,
+   or you know why each survivor could not be retrieved.
+3. The stamp under the headline shows today's date, the document count, and
    the price as-at range. If the as-at is old, `fetch-quotes` did not run.
-3. `build-signals` printed a count. If it printed 0 and the corpus is not
+4. `build-signals` printed a count. If it printed 0 and the corpus is not
    empty, something is wrong — do not publish an empty screen quietly.
-4. `git status` is clean after the snapshot commit, and `state/` moved. If it
-   did not, nothing you fetched this session survives.
+5. `git status` is clean after the snapshot commit, and `state/` moved —
+   including `state/signal_first_seen.csv`. If it did not, nothing you
+   fetched this session survives and the next reader sees no arrivals.
