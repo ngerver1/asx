@@ -168,3 +168,41 @@ def test_export_counts_rows_not_lines(conn, tmp_path):
     rows = list(csv.DictReader((tmp_path / "documents.csv").open()))
     assert len(rows) == 1
     assert rows[0]["document_text"] == text
+
+
+def test_the_size_proxy_survives_a_restore(conn):
+    """The ASX 300 membership snapshot must be in the committed state.
+
+    It was not, until 20 Aug 2026, and the way that failed is the reason this
+    test is specific rather than generic. A restored container simply had no
+    membership rows, so `is_index_member` could only answer "unknown", every
+    signal row gained `membership_unknown`, and the size ceiling stopped being
+    applied at all. Nothing raised: the screens kept building, and the flag
+    that exists to report a gap made the gap look handled. The published
+    screen said 18 of 19 rows were unchecked; a rebuild from the documented
+    restore path said 19 of 19, and only a hand-comparison caught it.
+
+    The round-trip tests above cannot see this, because they export whatever
+    TABLES lists and then import the same thing — a table missing from TABLES
+    is missing from both sides and the counts agree.
+    """
+    snapshot = Path(__file__).resolve().parents[1] / "state"
+    import_state(conn, snapshot)
+    conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) AS n FROM index_membership")
+        assert cur.fetchone()["n"] > 0, (
+            "index_membership came back empty: the size ceiling silently "
+            "degrades to 'unknown' on every row after a restore")
+
+
+def test_price_quotes_are_deliberately_not_snapshotted():
+    """A restored quote is a stale quote wearing a current label.
+
+    Quotes are regenerable (`asx fetch-quotes`), and the honest state after a
+    restore is "no prices yet" — which the screen reports — rather than last
+    week's number sitting in a column headed by today's date.
+    """
+    from asx.state.snapshot import TABLES
+    assert "price_quotes" not in TABLES

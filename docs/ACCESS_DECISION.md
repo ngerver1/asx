@@ -2,6 +2,7 @@
 
 **Status: ACCEPTED — Tier 0 composite (no paid feed).**
 **AMENDED 20 August 2026: targeted ASX document retrieval permitted.**
+**AMENDED 20 August 2026: display-only quotes permitted (stockanalysis.com).**
 Decided by the owner, August 2026. This satisfies the SPEC §5.1 gate and unblocks Phase 0/1
 implementation. It is a deliberately labour-priced, zero-cost configuration
 with stated consequences, not a stopgap that ignores them.
@@ -69,6 +70,64 @@ say so on every row.
 
 Live forward screens are unaffected by all of the above.
 
+### Amendment, 20 August 2026 — display quotes are permitted; a price vendor is still not
+
+**Decided by the owner: stockanalysis.com is declared as a display-only quote
+source.** The screens may now show what a share trades at beside what the
+director paid for it. Everything else in §3 stands unchanged — there is still
+no price vendor, and backtesting is still out of scope.
+
+That is not a contradiction, because the two are different inputs to different
+questions:
+
+| | Backtest price source | Display quote |
+|---|---|---|
+| Question | "what would this strategy have returned?" | "what is this worth today?" |
+| Needs delisted companies | **Yes** — Invariant 4; without them a study measures survivors and flatters itself | No — a delisted company has no current price, and saying so is a correct answer |
+| Consequence if wrong | A believable, unfalsifiable, wrong number | An empty cell on a screen, flagged |
+| Status | Still none. `BacktestUnavailableError` still raised | Declared, display only |
+
+Because the distinction is the whole basis of the amendment, it is enforced
+structurally rather than by intention. `StockAnalysisQuotes` does **not**
+implement the `PriceSource` protocol — it has no `eod_bars` and no
+`shares_outstanding` — the backtest harness contains no reference to
+`price_quotes` or `quote_source`, and tests assert all three. Wiring a display
+source into a backtest is a one-line mistake whose result is silent, so the
+line is held by the test suite rather than by memory.
+
+**Terms basis.** Read at declaration time rather than recalled:
+
+- `robots.txt` (read 20 Aug 2026) disallows only `/e/` and `/p/` for `*`;
+  `/quote/` is permitted.
+- The Terms of Use (last updated 12 June 2025) contain **no** prohibition on
+  automated access — no clause on scraping, crawling, bots, APIs, data mining,
+  or commercial use. The single content restriction is republication: *"not
+  allowed to republish our content in full"*, while snippets are permitted
+  *"as long as you do not modify the content and clearly state where you got
+  it from"*. One price per company, shown unmodified with the source named on
+  the row, is that snippet case.
+- The site states its ASX quotes are delayed and that accuracy is not
+  guaranteed. Quotes are therefore stored with the source's own as-at
+  timestamp and labelled **"price as at <date>"**, never "latest".
+
+**What this does not extend to.** The declaration covers retrieving the quote
+page for a code already on a screen. The site's screener, search and stock-list
+pages are discovery endpoints and remain refused by `fetch_guard` — the same
+line the ASX amendment draws, applied to a source that happens to be easier to
+reach. No other price source is declared by this amendment.
+
+**A guard bug this exposed.** `fetch_guard` read `robots.txt` through
+`RobotFileParser.read()`, which fetches under urllib's default user-agent
+rather than the platform's own. That is wrong twice over: robots rules are
+keyed *by* user-agent, and some CDNs reject the default agent outright —
+stockanalysis.com returns 403 to `Python-urllib/3.11` and 200 to this
+platform's declared agent. Every quote was refused for a rule its robots.txt
+does not contain, and the log said "robots.txt disallows this" about a file
+nobody had managed to read. The guard now asks under the same honest,
+unrotated identity it acts under, which is the opposite of the evasion
+Invariant 11 prohibits. The bug was not specific to this source: any IR site
+behind a CDN would have been silently unfetchable on the same false ground.
+
 ## 4. Budget
 
 Data: **$0**. Anthropic API usage for extraction and the classification
@@ -96,6 +155,7 @@ pursued at this time**. Reopen this decision if any of the following occur:
 | ETF issuer holdings files | Weekly download of published holdings CSVs | Published by issuers for investors; per-site terms | Display/derive only; no redistribution |
 | ASIC Offer Notice Board | Manual weekly check (from Phase 2) | Public regulator notice board | No automated polling unless terms permit |
 | investorpa.com | Search for Appendix 3Y/3Z across the exchange via the vendor's MCP API; retrieve the announcement PDFs those results state | The vendor's published `/features/` offer of a Remote MCP Server for "MCP-compatible AI harnesses", naming Claude Code. No terms page exists; robots.txt absent (404), unrestricted per RFC 9309 | No enumeration of announcement identifiers; no URL constructed rather than stated; never their stock master as an entity resolver |
+| stockanalysis.com | Fetch the quote page for a code already on a screen; store one delayed price with its as-at | robots.txt permits `/quote/`; Terms of Use of 12 Jun 2025 carry no automated-access clause and permit unmodified, attributed snippets (§3 amendment, 20 Aug 2026) | Display only — never a backtest input; no screener, search or stock-list page; no other price source implied |
 
 ### Amendment, 20 August 2026 — targeted retrieval from asx.com.au
 
@@ -190,6 +250,7 @@ measure of it.
 |---|---|---|
 | investorpa.com | **Declared and adopted, 20 Aug 2026** — see `docs/SOURCE_INVESTORPA.md` | Re-assessed the same day against its MCP API rather than its alert emails. The blocking question was "terms unreadable from this network"; the host is now reachable, there is no terms page at all, and what exists instead is a published product offer of a Remote MCP Server for AI harnesses. Adopted as a SECOND detection feed alongside Market Index, not a replacement: two feeds are what make coverage measurable. |
 | hotcopper.com.au | Declined for automated use | Third-party forum; terms unreadable; the described use is discovery, not retrieval. |
+| stockanalysis.com | **Declared — display quotes only** (§3 amendment) | Terms readable and carry no automated-access prohibition; robots.txt permits `/quote/`. Retrieval of a page for a code we already hold, not discovery. Drops delisted securities, so it is barred from the backtest path by construction. |
 
 ### Searching a source whose product is a search API
 
@@ -261,6 +322,7 @@ makes no network request at all.
 | Budget | $0 data; Anthropic API only | Aug 2026 | §4 |
 | **ASX access** | **Amended: targeted document retrieval permitted, discovery still prohibited** | **20 Aug 2026** | **Owner's legal advice; enforced per §6 amendment** |
 | **investorpa.com** | **Declared: search for 3Y/3Z and retrieve stated document URLs** | **20 Aug 2026** | **Vendor's published `/features/` MCP offer; §6 table and `docs/SOURCE_INVESTORPA.md`** |
+| **Display quotes** | **Amended: stockanalysis.com declared, display only; still no price vendor and no backtesting** | **20 Aug 2026** | **Terms and robots.txt read at declaration; enforced per §3 amendment** |
 
 Per-site terms spot-checks for IR websites are the owner's standing
 responsibility as new companies enter the watchlist; a site whose terms

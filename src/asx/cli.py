@@ -510,6 +510,39 @@ def cmd_signals(args) -> None:
         print(out, end="")
 
 
+def cmd_fetch_quotes(_args) -> None:
+    """Refresh the display quote beside each screen row.
+
+    Not a price feed (ACCESS_DECISION §3 stands): a delayed, attributed quote
+    for companies that are listed today, so a reader can see what a director
+    paid against what the market asks now.
+    """
+    from asx.ingest.quote_source import refresh_screen_quotes
+
+    def show(ticker, status):
+        print(f"  {ticker or '(no listing)':<12} {status}", flush=True)
+
+    with db.connect() as conn:
+        tally = refresh_screen_quotes(conn, progress=show)
+    print(", ".join(f"{k}={v}" for k, v in tally.items() if v))
+    if tally["ok"] == 0:
+        print("no quotes stored — screens will show no price column")
+
+
+def cmd_screen_html(args) -> None:
+    """Render the published director screen from the database.
+
+    The page used to be maintained by hand, which let it drift from the tables
+    it reports. Regenerating it is the only supported way to change it.
+    """
+    from asx.signals.screen_html import render
+
+    with db.connect() as conn:
+        html = render(conn)
+    Path(args.out).write_text(html)
+    print(f"wrote {args.out} ({len(html):,} bytes)")
+
+
 def cmd_build_signals(_args) -> None:
     from asx.signals.director_signals import (build_cluster_buys,
                                               build_conviction_buys)
@@ -676,6 +709,16 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=cmd_signals)
 
     sub.add_parser("build-signals").set_defaults(fn=cmd_build_signals)
+
+    p = sub.add_parser("screen-html",
+                       help="render the published director screen as HTML")
+    p.add_argument("--out", default="screen.html")
+    p.set_defaults(fn=cmd_screen_html)
+
+    sub.add_parser("fetch-quotes",
+                   help="refresh the display quote beside each screen row "
+                        "(delayed, attributed; not a price feed)"
+                   ).set_defaults(fn=cmd_fetch_quotes)
 
     args = ap.parse_args(argv)
     args.fn(args)

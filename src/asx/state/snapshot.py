@@ -54,10 +54,23 @@ TABLES = [
     "listings",
     "listing_snapshots",
     "universe_membership",
+    # The ASX 300 size proxy. Absent from this list until 20 Aug 2026, which
+    # made a restored container quietly different from the one that produced
+    # the published screen: with no membership rows, `is_index_member` can
+    # only answer "unknown", so every signal row gained `membership_unknown`
+    # and the size ceiling silently stopped being applied at all. The failure
+    # looked like a coverage flag doing its job, which is why it survived.
+    "index_membership",
     "persons",
     "director_trades",
     "review_items",
 ]
+
+# Deliberately NOT snapshotted: `price_quotes`. A quote is only meaningful
+# beside its as-at, and restoring last week's price into a fresh container
+# would put a stale number on a screen that reads as current. Quotes are
+# regenerable by definition — `asx fetch-quotes` — so the correct state after
+# a restore is "no prices yet", which the screen reports rather than hides.
 
 
 def _key_columns(conn: psycopg.Connection, table: str) -> list[str]:

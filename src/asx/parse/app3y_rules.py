@@ -815,6 +815,118 @@ def parse_holdings(
 
 
 # --------------------------------------------------------------------------
+# The holding in the class that actually changed
+#
+# `parse_holdings` above answers for ORDINARY shares, and a third of the
+# corpus reports a change in options or performance rights while stating the
+# ordinary holding unchanged beside it. Pairing an unchanged ordinary parcel
+# with an options movement produces arithmetic like
+# "1,412,912 - 6,000,000 = -4,587,088", so those holdings were nulled — which
+# stopped the false reconciliation but left the notice permanently
+# unverifiable, and on this corpus that was 342 of 499 lodgements in review.
+#
+# The holding worth reading is the one in the class that MOVED. Two ways it is
+# stated, both accepted only where the issuer's own printed movement confirms
+# them:
+#
+#   1. one parcel of that class each side, whose difference is the movement;
+#   2. several parcels of that class — direct and indirect, or two family
+#      trusts — whose TOTAL moves by the movement.
+#
+# Summing in (2) is within one class, which is not the blending Invariant 8
+# prohibits: that rule is about security classes, and a director's relevant
+# interest genuinely spans their holder vehicles. Shares are still never added
+# to options.
+#
+# The safety property is that nothing leaves here uncorroborated. A reading
+# that does not satisfy the printed arithmetic is not returned at all, so a
+# wrong parcel cannot become a validated row — it becomes review, which is
+# what it was already.
+
+_NIL_CELL = re.compile(r"^\W*nil\W*$", re.I)
+
+
+def _cell_is_nil(cell: str | None) -> bool:
+    """True when the cell states a holding of nothing and nothing else."""
+    return bool(cell and _NIL_CELL.match(cell.strip()))
+
+
+def holdings_for_changed_class(
+    held_before: str | None,
+    held_after: str | None,
+    *,
+    security_class: str | None,
+    acquired: str | None = None,
+    disposed: str | None = None,
+    interest: str | None = None,
+) -> tuple[str, int, int] | None:
+    """(class, before, after) for the class the notice says changed, or None.
+
+    None means the form does not settle it. That is a real answer here — the
+    notice goes to review as unverified rather than carrying the first
+    plausible number on the page (Invariant 8).
+    """
+    ordinary = security_is_ordinary(security_class)
+    klass = "ordinary" if ordinary else "other"
+
+    # No printed movement means nothing to check a reading against, and an
+    # unchecked reading is exactly what this function exists not to produce.
+    got = quantity_of_class(acquired, ordinary=ordinary)
+    lost = quantity_of_class(disposed, ordinary=ordinary)
+    if got is None and lost is None:
+        return None
+    move = (got or 0) - (lost or 0)
+
+    def of_class(cell: str | None) -> list[Parcel]:
+        parcels = scan_parcels(cell)
+        if ordinary:
+            return _ordinary(parcels)
+        return [p for p in parcels if p.security == "other"]
+
+    before, after = of_class(held_before), of_class(held_after)
+
+    # "Nil" is the issuer stating a holding of nothing, not failing to state
+    # one, and reading the word is reading the page. It applies only when the
+    # cell is nothing else: "Direct Nil Indirect 5,901,982" states two parcels
+    # of which one is empty, and zeroing the whole cell there would erase a
+    # real indirect holding because the direct parcel happens to be empty.
+    if not before and _cell_is_nil(held_before):
+        before = [Parcel(0, klass, None, 0)]
+    if not after and _cell_is_nil(held_after):
+        after = [Parcel(0, klass, None, 0)]
+
+    if not before or not after:
+        # The changed class is not stated in one of the cells. Whether it is
+        # absent because the holding went to zero or because the issuer simply
+        # stopped listing it is not something the form says, and guessing zero
+        # would manufacture a disposal.
+        return None
+
+    fits = [(b, a) for b in before for a in after
+            if a.quantity - b.quantity == move]
+    if len(fits) == 1:
+        return klass, fits[0][0].quantity, fits[0][1].quantity
+
+    # The sum rule is for ORDINARY only, and the reason is not caution — it is
+    # Invariant 8. "Ordinary" is one class, so adding a director's direct and
+    # indirect parcels of it gives their real interest in that class.
+    # "Other" is not a class: it is everything that is not ordinary, and on
+    # this corpus a single cell routinely holds Performance Rights and Listed
+    # Options side by side. Their total moves by exactly the printed movement
+    # whenever the untouched class cancels out of the difference, so the
+    # arithmetic looks like corroboration while the LEVELS describe the
+    # holding of nothing. Feeding such a number to conviction sizing would put
+    # a fabricated denominator under a real ratio.
+    if ordinary and (len(before) > 1 or len(after) > 1):
+        total_before = sum(p.quantity for p in before)
+        total_after = sum(p.quantity for p in after)
+        if total_after - total_before == move:
+            return klass, total_before, total_after
+
+    return None
+
+
+# --------------------------------------------------------------------------
 # Enumerated cells
 #
 # FMR Resources' notice reads:

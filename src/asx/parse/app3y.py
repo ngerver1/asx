@@ -169,7 +169,18 @@ class App3YParser:
     # v3: a "Date of change" box may state several dates. They are kept, and a
     #     date close enough to estimate between is estimated and labelled
     #     (migration 0022); month abbreviations and dotted dates now read.
-    version = 3
+    # v4: holdings are read for the class that CHANGED, not only for ordinary
+    #     shares. A third of the corpus reports an options or performance-
+    #     rights change beside an unchanged ordinary parcel; those notices had
+    #     their holdings nulled, so nothing could check them and they sat in
+    #     review permanently. The bump matters operationally as well as for
+    #     the record: reprocess re-extracts only where no record exists at the
+    #     current version, so without it the fix would never reach a database
+    #     that already holds v3 readings.
+    # v5: a holdings cell reading only "Nil" is the issuer stating a holding of
+    #     nothing, and is read as zero. Only when the cell is nothing else —
+    #     "Direct Nil Indirect 5,901,982" states two parcels, one empty.
+    version = 5
     doc_classes = {"app_3y", "app_3z"}
     schema = SCHEMA
     task_prompt = TASK_PROMPT
@@ -251,6 +262,33 @@ class App3YParser:
         # the holdings are left null and the notice goes to review as
         # unverified — which is what it is, not what it was being called.
         changed_ordinary = rules.security_is_ordinary(security_class)
+
+        # Read the holding in the class that actually MOVED, where the form's
+        # own arithmetic confirms it. This is what rescues the third of the
+        # corpus that reports an options or performance-rights change beside
+        # an unchanged ordinary parcel: those notices had their holdings
+        # nulled and could never be verified against anything, so they sat in
+        # review permanently. Nothing uncorroborated comes back from here — it
+        # returns None rather than a figure the printed movement does not
+        # support, and None lands exactly where the notice already was.
+        changed = rules.holdings_for_changed_class(
+            form.get("held_before"),
+            form.get("held_at_ceasing") if form.form == "app_3z" else form.get("held_after"),
+            security_class=security_class,
+            acquired=form.get("qty_acquired"),
+            disposed=form.get("qty_disposed"),
+            interest=form.get("interest_nature"),
+        )
+        # Two separate questions, and conflating them reads the wrong quantity.
+        # `changed_ordinary` decides WHICH CLASS's numbers to pull out of the
+        # acquired/disposed cells, and stays exactly what the form says.
+        # `holdings_known` decides only whether the before/after pair may be
+        # reported — true when the class-aware read succeeded, whatever class
+        # that was.
+        holdings_known = changed_ordinary
+        if changed is not None:
+            _, held_before, held_after = changed
+            holdings_known = True
         return {
             "director_name": form.get("director_name"),
             "date_of_change": change_date,
@@ -266,8 +304,8 @@ class App3YParser:
                     disposed, ordinary=changed_ordinary),
                 "consideration_text": form.get("nature_of_change") or consideration,
                 "consideration_aud": rules.parse_money(consideration),
-                "held_before": held_before if changed_ordinary else None,
-                "held_after": held_after if changed_ordinary else None,
+                "held_before": held_before if holdings_known else None,
+                "held_after": held_after if holdings_known else None,
             }],
         }
 

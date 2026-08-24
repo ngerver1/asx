@@ -104,6 +104,94 @@ def build_cluster_buys(conn: psycopg.Connection) -> int:
     return clusters
 
 
+# ---------------------------------------------------------------------------
+# The display price, beside what the director paid
+# ---------------------------------------------------------------------------
+#
+# What a director paid is traced to a specific lodgement. What the market asks
+# today is not — it is a delayed third-party quote (ACCESS_DECISION §3,
+# display-quote amendment). Putting them in adjacent columns is useful and
+# slightly dangerous, so three rules apply to every screen that does it:
+#
+#   1. The quote carries its OWN as-at date, per row. Not one date in the
+#      header: these are sub-index companies, and a thin explorer's last trade
+#      can be days older than a large cap's. A single header date would assert
+#      same-day pricing for rows that do not have it.
+#   2. A missing quote is a flag, never a blank. `price_unavailable` says we
+#      looked and could not price it — a delisted company keeps its row
+#      (Invariant 4), it does not quietly vanish or show an empty cell that
+#      reads as zero.
+#   3. The source is named on the row. An unattributed number next to
+#      lodgement-traced figures is the weakest thing on the page.
+
+def _price_columns(quote: dict | None, paid) -> list:
+    """The four price cells for one row: price, as-at, move vs paid, source."""
+    if not quote or quote["status"] != "ok" or quote["price"] is None:
+        return ["", "", "", ""]
+    price = float(quote["price"])
+    move = ""
+    if paid is not None and float(paid) > 0:
+        # Against what the director actually paid, not against yesterday's
+        # close. The screen exists to ask whether the market has since agreed
+        # with them.
+        move = round((price / float(paid) - 1) * 100, 1)
+    return [price, quote["as_at_date"], move, quote["source_name"]]
+
+
+PRICE_HEADERS = ["price_aud", "price_as_at", "price_vs_paid_pct", "price_source"]
+
+
+# What the participating directors hold between them, after buying.
+#
+# `sum(held_after)` over the cluster's trades is wrong, and wrong in the
+# flattering direction. A director may lodge twice inside the 30-day window —
+# on the current corpus Michael Addison does, at CBE, reporting 7,000,000 held
+# on 4 August and 7,100,000 on 5 August. Those are two states of ONE holding,
+# not two holdings: summing them reports 29,923,551 shares against a real
+# 22,923,551, overstating the board's stake by 31%.
+#
+# So the holding is resolved per person first — their most recent notice in
+# the window — and only then added up. `held_after`, not `held_before`,
+# because the question the column answers is what they hold now that they have
+# bought.
+#
+# Split by security class as well as person, because a director holding both
+# ordinary shares and options has two holdings that must not be added into one
+# number (Invariant 8: categories never blend). When that happens the row is
+# flagged rather than silently totalled — the sum is still shown, because a
+# reader who knows it mixes classes can use it, and one who is not told cannot.
+HOLDINGS_LATERAL = """
+  SELECT sum(h.held_after)                          AS total_held,
+         count(*)                                   AS n_holdings,
+         count(*) FILTER (WHERE h.held_after IS NULL) AS n_held_missing,
+         count(DISTINCT h.person_key)               AS n_holders
+    FROM (
+      SELECT DISTINCT ON (COALESCE(t2.person_id::text, t2.person_name_raw),
+                          t2.security_class)
+             COALESCE(t2.person_id::text, t2.person_name_raw) AS person_key,
+             t2.security_class, t2.held_after
+        FROM director_trades t2
+       WHERE t2.trade_id = ANY(s.trade_ids)
+       ORDER BY COALESCE(t2.person_id::text, t2.person_name_raw),
+                t2.security_class, t2.event_date DESC, t2.knowable_at DESC
+    ) h
+"""
+
+
+def _holding_flags(row: dict) -> list[str]:
+    """Coverage flags for the total-held figure."""
+    flags = []
+    if row["n_held_missing"]:
+        # Some participant's notice states no closing holding, so the total is
+        # a floor rather than a total.
+        flags.append("held_partial")
+    if row["n_holdings"] > row["n_holders"]:
+        # At least one director holds more than one security class, so the sum
+        # spans classes. Reported, not hidden, and not silently split.
+        flags.append("held_mixed_classes")
+    return flags
+
+
 def cluster_buys_csv(conn: psycopg.Connection) -> str:
     """The cluster-buy screen as CSV — the deliverable of Phase 1 (SPEC §15).
 
@@ -135,17 +223,25 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
     import csv
     import io
 
+    from asx.ingest.quote_source import latest_quotes
+
+    quotes = latest_quotes(conn)
+
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT l.ticker, n.name AS entity, s.window_start, s.window_end,
+            """SELECT l.ticker, n.name AS entity, s.entity_id,
+                      s.window_start, s.window_end,
                       s.n_directors, s.total_consideration_aud,
                       s.knowable_at, s.coverage_flags, s.signal_version,
                       p.shares, p.priced_consideration,
                       p.n_trades, p.n_priced,
+                      hold.total_held, hold.n_holdings, hold.n_held_missing,
+                      hold.n_holders,
                       (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
                          FROM director_trades t
                         WHERE t.trade_id = ANY(s.trade_ids)) AS directors
                  FROM signal_cluster_buys s
+                 CROSS JOIN LATERAL (""" + HOLDINGS_LATERAL + """) AS hold
                  CROSS JOIN LATERAL (
                    SELECT count(*) AS n_trades,
                           count(*) FILTER (WHERE t.qty_acquired IS NOT NULL
@@ -173,6 +269,8 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
     w.writerow(["ticker", "entity", "directors", "n_directors",
                 "first_buy", "last_buy", "actionable_from",
                 "total_consideration_aud", "total_shares", "avg_price_aud",
+                *PRICE_HEADERS,
+                "total_held", "held_value_aud",
                 "coverage_flags", "signal_version"])
     for r in rows:
         shares, spend = r["shares"], r["priced_consideration"]
@@ -180,6 +278,20 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
         flags = list(r["coverage_flags"] or [])
         if r["n_priced"] < r["n_trades"]:
             flags.append("partial_price_coverage")
+        quote = quotes.get(r["entity_id"])
+        price_cells = _price_columns(quote, avg_price)
+        if price_cells[0] == "":
+            # Looked and could not price it. Said out loud, because a blank
+            # cell is indistinguishable from a company nobody checked.
+            flags.append("price_unavailable")
+        flags.extend(_holding_flags(r))
+        held = r["total_held"]
+        # What the whole holding is worth at the current quote — the buy sized
+        # against the position it went into. Only computable with both, so it
+        # is blank rather than approximated when either is missing.
+        held_value = ""
+        if held is not None and price_cells[0] != "":
+            held_value = round(float(held) * float(price_cells[0]), 2)
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["directors"] or "",
             r["n_directors"], r["window_start"], r["window_end"],
@@ -188,6 +300,8 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
             r["knowable_at"].date(), r["total_consideration_aud"],
             shares if shares is not None else "",
             avg_price if avg_price is not None else "",
+            *price_cells,
+            held if held is not None else "", held_value,
             "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()
@@ -268,9 +382,13 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
     import csv
     import io
 
+    from asx.ingest.quote_source import latest_quotes
+
+    quotes = latest_quotes(conn)
+
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT l.ticker, n.name AS entity, s.person_name_raw,
+            """SELECT l.ticker, n.name AS entity, s.entity_id, s.person_name_raw,
                       s.event_date, s.knowable_at, s.consideration_aud,
                       s.qty_acquired, s.held_before, s.stake_increase,
                       t.price_per_unit, s.coverage_flags, s.signal_version
@@ -287,18 +405,25 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
     w = csv.writer(buf, lineterminator="\n")
     w.writerow(["ticker", "entity", "director", "event_date", "actionable_from",
                 "consideration_aud", "price_paid_aud", "qty_acquired",
-                "held_before", "stake_increase_pct", "coverage_flags",
-                "signal_version"])
+                "held_before", "stake_increase_pct",
+                *PRICE_HEADERS,
+                "coverage_flags", "signal_version"])
     for r in rows:
+        # 4dp: enough for a sub-cent explorer, and the raw quotient is a
+        # 28-digit repeating decimal that reads as false precision.
+        paid = (round(float(r["price_per_unit"]), 4)
+                if r["price_per_unit"] is not None else None)
+        flags = list(r["coverage_flags"] or [])
+        price_cells = _price_columns(quotes.get(r["entity_id"]), paid)
+        if price_cells[0] == "":
+            flags.append("price_unavailable")
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["person_name_raw"],
             r["event_date"], r["knowable_at"].date(), r["consideration_aud"],
-            # 4dp: enough for a sub-cent explorer, and the raw quotient is a
-            # 28-digit repeating decimal that reads as false precision.
-            round(float(r["price_per_unit"]), 4)
-            if r["price_per_unit"] is not None else "",
+            paid if paid is not None else "",
             r["qty_acquired"], r["held_before"],
             round(float(r["stake_increase"]) * 100, 1),
-            "|".join(r["coverage_flags"] or []), r["signal_version"],
+            *price_cells,
+            "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()
