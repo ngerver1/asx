@@ -218,6 +218,11 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
     partial_price_coverage — a price drawn from part of a cluster is usable
     only if the reader knows that is what it is.
 
+    counter_evidence is what the insiders of the same company were doing in
+    the 90 days before the cluster formed, restricted to what was knowable
+    when the cluster was (see counter_evidence()). Empty means nothing
+    contradicting was knowable by then — not that nothing has happened since.
+
     Ordered by actionable date, newest first: the screen is read forwards.
     """
     import csv
@@ -234,7 +239,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                       s.n_directors, s.total_consideration_aud,
                       s.knowable_at, s.coverage_flags, s.signal_version,
                       p.shares, p.priced_consideration,
-                      p.n_trades, p.n_priced,
+                      p.n_trades, p.n_priced, p.lodged_sources,
                       hold.total_held, hold.n_holdings, hold.n_held_missing,
                       hold.n_holders,
                       (SELECT string_agg(DISTINCT t.person_name_raw, '; ')
@@ -247,6 +252,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                           count(*) FILTER (WHERE t.qty_acquired IS NOT NULL
                                              AND t.consideration_aud IS NOT NULL)
                             AS n_priced,
+                          array_agg(DISTINCT dd.lodged_at_source) AS lodged_sources,
                           sum(t.qty_acquired) FILTER (
                             WHERE t.qty_acquired IS NOT NULL
                               AND t.consideration_aud IS NOT NULL) AS shares,
@@ -255,6 +261,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                               AND t.consideration_aud IS NOT NULL)
                             AS priced_consideration
                      FROM director_trades t
+                     JOIN documents dd ON dd.doc_id = t.doc_id
                     WHERE t.trade_id = ANY(s.trade_ids)
                  ) AS p
                  LEFT JOIN listings l
@@ -271,7 +278,7 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
                 "total_consideration_aud", "total_shares", "avg_price_aud",
                 *PRICE_HEADERS,
                 "total_held", "held_value_aud",
-                "coverage_flags", "signal_version"])
+                "counter_evidence", "coverage_flags", "signal_version"])
     for r in rows:
         shares, spend = r["shares"], r["priced_consideration"]
         avg_price = round(spend / shares, 4) if shares else None
@@ -292,6 +299,18 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
         held_value = ""
         if held is not None and price_cells[0] != "":
             held_value = round(float(held) * float(price_cells[0]), 2)
+        # The cluster is knowable only once its LAST notice is public, so any
+        # soft timestamp among its members can push the whole row early.
+        if any(src in SOFT_LODGEMENT_SOURCES
+               for src in (r["lodged_sources"] or [])):
+            flags.append(ACTIONABLE_EARLY_FLAG)
+        # Windowed on the cluster's FIRST buy: the question is what insiders
+        # were doing in the run-up to the cluster forming, and dating it from
+        # the last member would let a long cluster shorten its own lookback.
+        against = counter_evidence(conn, r["entity_id"], r["window_start"],
+                                   r["knowable_at"])
+        if against:
+            flags.append("counter_evidence")
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["directors"] or "",
             r["n_directors"], r["window_start"], r["window_end"],
@@ -302,9 +321,112 @@ def cluster_buys_csv(conn: psycopg.Connection) -> str:
             avg_price if avg_price is not None else "",
             *price_cells,
             held if held is not None else "", held_value,
-            "|".join(flags), r["signal_version"],
+            against, "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()
+
+
+# --- counter-evidence ---------------------------------------------------
+#
+# Both screens answer "a director bought"; neither answered "what else were
+# the insiders of this company doing at the time". They are not the same
+# question, and the second one can reverse the first: ALQ reaches the
+# conviction screen on a $57,178 buy taken 14 days after a fellow director
+# sold $1,285,097 on-market. A screen that shows the buy and not the sell is
+# not neutral about the omission — it reads as an endorsement.
+#
+# So contradicting activity already sitting in canonical data is reported on
+# the row, not left one join away. Two kinds, kept distinct because they mean
+# different things:
+#
+#   onmkt_sell  an insider sold. Evidence against, on the same footing as the
+#               buy that raised the row.
+#   unknown     activity the classifier refused to call (Invariant 8). NOT
+#               evidence against — evidence that the row is incomplete. AGC
+#               carries $979,637 of it beside a $15,237 buy, which is the
+#               reader's cue that the screen is showing the small parcel and
+#               not the story.
+#
+# Invariant 2 governs the window as strictly here as anywhere: only trades
+# already knowable when the signal became knowable are counted. Counting a
+# later sell would make today's screen unreproducible tomorrow and would put
+# look-ahead into the one column whose job is to argue with the row.
+# The consequence is stated rather than hidden: a sell lodged AFTER the
+# signal is not here, and is not claimed to be absent.
+COUNTER_EVIDENCE_LOOKBACK_DAYS = 90
+
+# Correlated to the signal row by :entity_id/:event_date/:knowable_at, which
+# both screens supply from their own anchor columns.
+_COUNTER_EVIDENCE_SQL = """
+  SELECT ce.classification, count(*) AS n, sum(ce.consideration_aud) AS aud
+    FROM director_trades ce
+   WHERE ce.entity_id = %(ce_entity)s
+     AND NOT ce.superseded
+     AND ce.classification IN ('onmkt_sell', 'unknown')
+     AND ce.knowable_at <= %(ce_knowable)s
+     AND ce.event_date >= %(ce_event)s::date - %(ce_lookback)s
+   GROUP BY ce.classification
+"""
+
+_COUNTER_EVIDENCE_LABEL = {"onmkt_sell": "onmkt_sell", "unknown": "unclassified"}
+
+
+def counter_evidence(conn: psycopg.Connection, entity_id: int, event_date,
+                     knowable_at) -> str:
+    """Contradicting insider activity knowable when this signal became
+    knowable, as `kind:count:aud` parts joined by '|' — the same pipe-
+    delimited shape the screens already use for coverage flags.
+
+    Consideration is summed only over the trades that state one; a count
+    larger than the amount implies is the reader's signal that some notice in
+    there disclosed no value, which is commoner on disposals than on buys.
+    """
+    with conn.cursor() as cur:
+        cur.execute(_COUNTER_EVIDENCE_SQL, {
+            "ce_entity": entity_id,
+            "ce_knowable": knowable_at,
+            "ce_event": event_date,
+            "ce_lookback": timedelta(days=COUNTER_EVIDENCE_LOOKBACK_DAYS),
+        })
+        rows = cur.fetchall()
+    parts = []
+    for r in sorted(rows, key=lambda r: r["classification"]):
+        label = _COUNTER_EVIDENCE_LABEL[r["classification"]]
+        aud = r["aud"]
+        parts.append(f"{label}:{r['n']}:{int(aud)}" if aud is not None
+                     else f"{label}:{r['n']}:unstated")
+    return "|".join(parts)
+
+
+# --- soft actionable dates ----------------------------------------------
+#
+# actionable_from is knowable_at's date, and knowable_at is documents.lodged_at.
+# For 971 of the 1,109 dated documents held (88%) that timestamp came from the
+# PDF's creation time, because the alert that detected the announcement did not
+# carry a lodgement time. Creation is when the company MADE the notice, not
+# when ASX released it, and the two differ by the overnight gap:
+#
+#   SPZ doc 557/558   created 19 Aug 2026 20:20 AEST
+#                     released by ASX 20 Aug 2026 08:00 AEST   (11h40m later)
+#
+# So the screen said those rows were actionable on the 19th when nobody could
+# have acted before the 20th. Checked against five BSA notices the same skew
+# runs from 2 minutes to nearly 3 days, always in the same direction, and lands
+# on the wrong calendar day whenever the notice was prepared after the close or
+# over a weekend — which is most of them.
+#
+# That is look-ahead bias in the column whose entire job is to prevent it, and
+# it currently applies to every signal row on both screens. It cannot be fixed
+# here: the true release time is not in the data, and the source that has it is
+# not a declared source (Invariant 11, docs/SOURCE_INVESTORPA.md). What CAN be
+# done is stop the screen asserting a date it cannot support, so the flag says
+# the date may be early rather than the column quietly pretending otherwise.
+#
+# Fixing it properly means capturing a release timestamp at detection. Until
+# then, read a flagged actionable_from as "this date, or the next trading
+# morning".
+ACTIONABLE_EARLY_FLAG = "actionable_from_may_be_early"
+SOFT_LODGEMENT_SOURCES = ("pdf_creation",)
 
 
 # Conviction sizing (SPEC §7). The bar is the top quartile of the stake
@@ -378,6 +500,14 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
     recomputation: director_trades derives it only where it is safely
     computable, and rederiving here would quietly disagree with canonical on
     the rows where it refused.
+
+    counter_evidence carries the sells and unclassified activity by insiders
+    of the same company in the 90 days before the trade, knowable by the time
+    the trade was (see counter_evidence()). It is the column that stops a
+    large stake_increase_pct being read on its own: the biggest increases here
+    belong to the smallest prior holdings, and a director who quadruples 8,490
+    shares while a colleague sells $1.28m has not told you what the screen
+    ordering implies.
     """
     import csv
     import io
@@ -391,9 +521,11 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
             """SELECT l.ticker, n.name AS entity, s.entity_id, s.person_name_raw,
                       s.event_date, s.knowable_at, s.consideration_aud,
                       s.qty_acquired, s.held_before, s.stake_increase,
-                      t.price_per_unit, s.coverage_flags, s.signal_version
+                      t.price_per_unit, s.coverage_flags, s.signal_version,
+                      d.lodged_at_source
                  FROM signal_conviction_buys s
                  JOIN director_trades t ON t.trade_id = s.trade_id
+                 JOIN documents d ON d.doc_id = t.doc_id
                  LEFT JOIN listings l
                         ON l.entity_id = s.entity_id AND l.valid_to IS NULL
                  LEFT JOIN entity_names n
@@ -407,7 +539,7 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
                 "consideration_aud", "price_paid_aud", "qty_acquired",
                 "held_before", "stake_increase_pct",
                 *PRICE_HEADERS,
-                "coverage_flags", "signal_version"])
+                "counter_evidence", "coverage_flags", "signal_version"])
     for r in rows:
         # 4dp: enough for a sub-cent explorer, and the raw quotient is a
         # 28-digit repeating decimal that reads as false precision.
@@ -417,6 +549,12 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
         price_cells = _price_columns(quotes.get(r["entity_id"]), paid)
         if price_cells[0] == "":
             flags.append("price_unavailable")
+        if r["lodged_at_source"] in SOFT_LODGEMENT_SOURCES:
+            flags.append(ACTIONABLE_EARLY_FLAG)
+        against = counter_evidence(conn, r["entity_id"], r["event_date"],
+                                   r["knowable_at"])
+        if against:
+            flags.append("counter_evidence")
         w.writerow([
             r["ticker"] or "", r["entity"] or "", r["person_name_raw"],
             r["event_date"], r["knowable_at"].date(), r["consideration_aud"],
@@ -424,6 +562,6 @@ def conviction_buys_csv(conn: psycopg.Connection) -> str:
             r["qty_acquired"], r["held_before"],
             round(float(r["stake_increase"]) * 100, 1),
             *price_cells,
-            "|".join(flags), r["signal_version"],
+            against, "|".join(flags), r["signal_version"],
         ])
     return buf.getvalue()

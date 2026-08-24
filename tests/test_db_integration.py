@@ -1,6 +1,8 @@
 """Integration tests against live PostgreSQL. The `conn` fixture provides a
 migrated, empty asx_test database and a tmp raw zone."""
 
+import csv
+import io
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
@@ -23,7 +25,14 @@ from asx.parse.framework import resolve_review_item, run_parser_on_doc
 from asx.parse.llm import ExtractionPass
 from asx.parse.reprocess import reprocess
 from asx.raw.store import ingest_document, read_document
-from asx.signals.director_signals import build_cluster_buys
+from asx.signals.director_signals import (
+    ACTIONABLE_EARLY_FLAG,
+    build_cluster_buys,
+    build_conviction_buys,
+    cluster_buys_csv,
+    conviction_buys_csv,
+    counter_evidence,
+)
 
 D = Decimal
 UTC = timezone.utc
@@ -608,3 +617,142 @@ def test_routing_to_review_removes_rows_an_earlier_version_wrote(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) AS n FROM director_trades WHERE doc_id = %s", (doc_id,))
         assert cur.fetchone()["n"] == 0, "stale rows survived the move to review"
+
+
+def test_counter_evidence_reports_prior_sells_but_never_later_ones(conn):
+    """A buy screened without the sells around it reads as an endorsement of
+    an omission. The column reports them — under Invariant 2, so a sell that
+    lodged after the signal did cannot leak backwards into it."""
+    entity = _mk_entity(conn, "Counter Co Limited")
+
+    def doc(day):
+        return _mk_doc(conn, f"3y {day}".encode(), doc_class="app_3y",
+                       entity_id=entity,
+                       lodged=datetime(2026, 3, day, 10, 0, tzinfo=UTC))
+
+    def sell(doc_id, day, aud):
+        apply_trades(conn, doc_id, [TradeRow(
+            entity_id=entity, person_name_raw=f"Seller {day}", doc_id=doc_id,
+            event_date=date(2026, 3, day),
+            knowable_at=datetime(2026, 3, day, 10, 0, tzinfo=UTC),
+            security_class="ORD", qty_disposed=D(1000),
+            consideration_text="On-market sale", consideration_aud=D(aud),
+            held_before=D(5000), held_after=D(4000))])
+
+    stale, prior, buy_doc, later = doc(1), doc(9), doc(12), doc(20)
+    # Outside the 90-day lookback, so out of scope however large.
+    apply_trades(conn, stale, [TradeRow(
+        entity_id=entity, person_name_raw="Ancient Seller", doc_id=stale,
+        event_date=date(2025, 6, 1),
+        knowable_at=datetime(2025, 6, 1, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_disposed=D(1000),
+        consideration_text="On-market sale", consideration_aud=D(999999),
+        held_before=D(5000), held_after=D(4000))])
+    sell(prior, 9, 250000)
+    apply_trades(conn, buy_doc, [TradeRow(
+        entity_id=entity, person_name_raw="Jane Citizen", doc_id=buy_doc,
+        event_date=date(2026, 3, 12),
+        knowable_at=datetime(2026, 3, 12, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_acquired=D(10000),
+        consideration_text="On-market purchase $5,000",
+        consideration_aud=D(5000), held_before=D(1000), held_after=D(11000))])
+    sell(later, 20, 400000)
+    conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT classification, count(*) FROM director_trades GROUP BY 1")
+        by_class = {r["classification"]: r["count"] for r in cur.fetchall()}
+    assert by_class["onmkt_sell"] == 3 and by_class["onmkt_buy_cash"] == 1
+
+    against = counter_evidence(
+        conn, entity, date(2026, 3, 12), datetime(2026, 3, 12, 10, 0, tzinfo=UTC))
+    # The 9 March sell only. Not the 20 March one — it was not knowable when
+    # the signal was, and including it would make this screen unreproducible.
+    # Not the 2025 one — outside the lookback.
+    assert against == "onmkt_sell:1:250000"
+
+    # An entity with nothing against it says so with an empty string, which is
+    # distinguishable from "not checked" only because every row is checked.
+    assert counter_evidence(
+        conn, _mk_entity(conn, "Clean Co Limited"), date(2026, 3, 12),
+        datetime(2026, 3, 12, 10, 0, tzinfo=UTC)) == ""
+
+
+def test_conviction_screen_carries_counter_evidence_column(conn):
+    """The column has to reach the CSV: the defect it fixes was a screen that
+    computed the right rows and printed them without their context."""
+    entity = _mk_entity(conn, "Screened Co Limited")
+    sell_doc = _mk_doc(conn, b"3y sell", doc_class="app_3y", entity_id=entity,
+                       lodged=datetime(2026, 3, 9, 10, 0, tzinfo=UTC))
+    buy_doc = _mk_doc(conn, b"3y buy", doc_class="app_3y", entity_id=entity,
+                      lodged=datetime(2026, 3, 12, 10, 0, tzinfo=UTC))
+    apply_trades(conn, sell_doc, [TradeRow(
+        entity_id=entity, person_name_raw="Bob Seller", doc_id=sell_doc,
+        event_date=date(2026, 3, 9),
+        knowable_at=datetime(2026, 3, 9, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_disposed=D(900000),
+        consideration_text="On-market sale", consideration_aud=D(1285097),
+        held_before=D(1000000), held_after=D(100000))])
+    apply_trades(conn, buy_doc, [TradeRow(
+        entity_id=entity, person_name_raw="Jane Citizen", doc_id=buy_doc,
+        event_date=date(2026, 3, 12),
+        knowable_at=datetime(2026, 3, 12, 10, 0, tzinfo=UTC),
+        security_class="ORD", qty_acquired=D(10000),
+        consideration_text="On-market purchase $50,000",
+        consideration_aud=D(50000), held_before=D(1000), held_after=D(11000))])
+    conn.commit()
+
+    assert build_conviction_buys(conn) == 1
+    rows = list(csv.DictReader(io.StringIO(conviction_buys_csv(conn))))
+    assert len(rows) == 1
+    assert rows[0]["counter_evidence"] == "onmkt_sell:1:1285097"
+    # Also in the flags, so a reader filtering on flags alone cannot miss it.
+    assert "counter_evidence" in rows[0]["coverage_flags"]
+
+
+def test_actionable_date_is_flagged_when_it_came_from_pdf_creation(conn):
+    """actionable_from is only as good as lodged_at. Where lodged_at is the
+    PDF's creation time it precedes the ASX release — proven at 11h40m on the
+    SPZ notices, enough to land on the wrong calendar day — so the screen says
+    the date may be early instead of asserting it."""
+    entity = _mk_entity(conn, "Soft Date Limited")
+
+    def buy(doc_id, name, lodged):
+        apply_trades(conn, doc_id, [TradeRow(
+            entity_id=entity, person_name_raw=name, doc_id=doc_id,
+            event_date=date(2026, 3, 2), knowable_at=lodged,
+            security_class="ORD", qty_acquired=D(10000),
+            consideration_text="On-market purchase $5,000",
+            consideration_aud=D(5000), held_before=D(1000), held_after=D(11000))])
+
+    lodged = datetime(2026, 3, 5, 10, 0, tzinfo=UTC)
+    hard = _mk_doc(conn, b"3y hard", doc_class="app_3y", entity_id=entity,
+                   lodged=lodged)
+    soft = _mk_doc(conn, b"3y soft", doc_class="app_3y", entity_id=entity,
+                   lodged=lodged)
+    with conn.cursor() as cur:
+        cur.execute("UPDATE documents SET lodged_at_source='market_index_alert'"
+                    " WHERE doc_id=%s", (hard,))
+        cur.execute("UPDATE documents SET lodged_at_source='pdf_creation'"
+                    " WHERE doc_id=%s", (soft,))
+    buy(hard, "Jane Citizen", lodged)
+    conn.commit()
+
+    def conviction_flags():
+        build_conviction_buys(conn)
+        rows = list(csv.DictReader(io.StringIO(conviction_buys_csv(conn))))
+        return {r["ticker"] or r["entity"]: r["coverage_flags"] for r in rows}
+
+    # A hard lodgement timestamp asserts its date without qualification.
+    assert ACTIONABLE_EARLY_FLAG not in conviction_flags()["Soft Date Limited"]
+
+    # A second director, dated from PDF creation, makes the cluster's
+    # actionable_from soft — the cluster is knowable only once its LAST notice
+    # is public, so one soft member is enough to qualify the whole row.
+    buy(soft, "John Smith", lodged)
+    conn.commit()
+    assert ACTIONABLE_EARLY_FLAG in conviction_flags()["Soft Date Limited"]
+
+    assert build_cluster_buys(conn) == 1
+    cluster = list(csv.DictReader(io.StringIO(cluster_buys_csv(conn))))[0]
+    assert ACTIONABLE_EARLY_FLAG in cluster["coverage_flags"]
