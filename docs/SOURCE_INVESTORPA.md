@@ -189,9 +189,13 @@ Then:
 
 ## Running both feeds
 
-Market Index keeps running. `ACCEPTANCE.md` records that detection coverage is
-currently **unmeasured**, with acceptance criterion 0.5 unticked; two
-independent feeds are what make it measurable.
+Market Index keeps running. `ACCEPTANCE.md` criterion **0.8** — a weekly
+ten-ticker manual completeness spot-check — is unticked, and detection
+coverage is therefore unmeasured. Two independent feeds are what make it
+measurable, and by a stronger instrument than 0.8 names: every lodgement
+compared rather than ten sampled tickers. That is a criterion to propose
+amending, not one to tick on this evidence — 0.8 as written asks for a
+manual check.
 
 The `detection_feed_coverage` view (migration 0029) is **one row per
 detection, never a merge**, and asks of each one whether the other feed saw

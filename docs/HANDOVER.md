@@ -1,4 +1,11 @@
-# Handover — 20 August 2026 (evening)
+# Handover — 20 August 2026 (evening), amended 24 August
+
+**Amended 24 August 2026.** This branch is the merge of all four live
+branches: the price/holdings work, the director screens, the InvestorPA
+detection feed, and the 26 alert files that had been accumulating where
+nothing read them. Numbers below were re-measured on the merged tree, not
+carried over. The new material is "The second detection feed" and the last
+two entries under "Things that will bite".
 
 Written at the end of the session that got the network. The price column that
 the previous handover was blocked on now exists. Read this first; it is the
@@ -99,7 +106,8 @@ genuinely unverified, not mis-parsed — the honest place for them.
 | conviction signals | 23 |
 | quotes held | 29 of 29 screen tickers |
 | open review items | 702 |
-| tests | 389, no skips (`make test-all`; a skip looks like a pass) |
+| alerts held | 157 `.eml.gz`, newest 21 Aug — 26 of them recovered by this merge |
+| tests | 448, no skips (`make test-all`; a skip looks like a pass) |
 
 The published screen lives at
 **https://claude.ai/code/artifact/228b70bf-0797-4c15-9f73-b473ebd818ba**
@@ -115,9 +123,20 @@ misread. Republishing is a small job and has not been done.
 
 ## Read docs/DD_2026-08-20.md before trusting a screen row
 
-Three of the 19 conviction rows do not mean what the ordering implies, and the
-worst of them cannot be seen from a 3Y at all. BSA — the largest
-single-director accumulation on the corpus — was funded by a $2,000,000 loan
+Three of the conviction rows do not mean what the ordering implies, and the
+worst of them cannot be seen from a 3Y at all. **The DD was done against a
+19-row screen; the merged tree builds 23**, and the two are not the same set.
+Checked 24 Aug: BSA, SPZ and AGC are still on it, **CBE is no longer on it**.
+The conviction bar is a fixed 25% stake increase, so nothing about it moved;
+what moved is CBE's denominator. The holdings fix reads the parcel of the
+class that changed, and against those `held_before` figures Michael Addison's
+and Martin Holland's buys are increases of 5.7%, 2.4% and 1.4% — nowhere near
+the bar. The row it replaced was an artefact of the wrong denominator. So the
+DD still covers most of the current screen, its CBE findings now describe a
+row nobody sees, and the four rows the fix added have not been through it.
+
+BSA — the largest single-director accumulation on the corpus — was funded
+by a $2,000,000 loan
 **from the company to its own Chair**, whose only permitted purpose is buying
 BSA shares (announced 9 June, drawn in Q4 FY26, on the Appendix 4C as
 "Director's loan to acquire BSA shares"). Meanwhile BSA revenue fell 89% to
@@ -167,6 +186,75 @@ Two of 28 rows carry it, and both change how the row reads:
 Neither was dropped. Both are on the screen with the reason visible, which is
 the point — a silent exclusion would not let the owner disagree.
 
+## The second detection feed (InvestorPA)
+
+Built 22–24 August, after the body of this handover was written. Fully
+tested, **and it has never run**. It waits on one
+OAuth token. `docs/SOURCE_INVESTORPA.md` is the full assessment; this is what
+a reader of this handover needs.
+
+**What it is for.** Market Index alerts are watchlist-bounded — the pipeline
+only ever sees announcements for codes someone thought to add. InvestorPA's
+search is cross-market, so it answers a question the current feed cannot: how
+much is being missed. `ACCEPTANCE.md` criterion 0.8 — a weekly ten-ticker
+manual completeness spot-check — is unticked, and a second whole-exchange
+feed is a stronger instrument than the one the criterion names: it compares
+every lodgement rather than ten sampled tickers. **That is a criterion to
+amend, not to quietly tick**: 0.8 as written specifies a manual check, so
+claiming it satisfied by an automated comparison would be changing the
+standard rather than meeting it.
+
+**What is verified rather than assumed:** its coverage floor is 2024-06-15,
+confirmed at the boundary; delisted entities are fully retained (CSR, MRM,
+APM, ALU each checked individually, including their removal notices), which
+matters because Invariant 4 forbids a survivorship-shaped universe; and its
+search returns ~15–20 director-interest notices a day across the exchange.
+
+**Three limits worth knowing before trusting it.**
+
+1. *Its announcement id is not the exchange's.* It publishes its own counter,
+   so nothing may be written to `documents.asx_announcement_id`. The
+   consequence is that the cross-feed dedupe built on that column does not
+   apply: two feeds seeing one lodgement produce two `documents` rows and
+   nothing can merge them on identity. The `detection_feed_coverage` view
+   pairs them within ±90 seconds instead — a weaker claim, and an
+   **uncalibrated** one, because no lodgement has yet been seen by both.
+2. *Its stock master is a ticker trap.* `search_stocks("ALU")` returns
+   Alurion Resources, not Altium, and every pre-August-2024 ALU announcement
+   is Altium's. Nothing resolves an entity through it (Invariant 1); a test
+   asserts no source file names it as a callable tool.
+3. *The transport has never spoken to the live endpoint.* Every test injects
+   a stand-in. The stand-in now enforces the specification's MUSTs and
+   rejects a request that omits them, which is stronger than the canned
+   responder it replaced, but the first authenticated run is still the real
+   test.
+
+**The blocker, precisely.** `/oauth/register/` returns 201, then the
+authorize endpoint rejects that `client_id` with a bare 400 naming no reason,
+across four parameter combinations, and it validates nothing before login so
+it cannot be diagnosed from outside a session. `claude mcp login` succeeds
+against the same server using no DCR client at all — its `client_id` is the
+URL `https://claude.ai/oauth/claude-code-client-metadata`, the Client ID
+Metadata Document flow the server advertises. The likely reading is that the
+beta implements CIMD and not the clients its own registration endpoint
+issues. Publishing a metadata document and passing its URL as `client_id` is
+the untried next step.
+
+**To run it once a grant exists:** three repository secrets (`DATABASE_URL`,
+`ASX_INVESTORPA_CLIENT_ID`, `ASX_INVESTORPA_REFRESH_TOKEN`), then the daily
+workflow in `.github/workflows/ingest.yml` runs itself at 09:00 UTC, with a
+`workflow_dispatch` button for a manual sweep. It has to be Actions and not a
+scheduled session: this sandbox has HTTPS/443 egress only and Postgres needs
+raw TCP on 5432, so a session run would write to a container-local database
+that is then discarded.
+
+**Appendix 3X moved, slightly.** The classifier now names `app_3x` as itself
+instead of dropping it in the `other` catch-all. That is a visibility change
+and nothing more: `App3YParser.doc_classes` is `{app_3y, app_3z}`, so a 3X is
+never selected for parsing, and the stored corpus is unreclassified until a
+reprocess runs — all 122 still sit in `other` today. The decision below (a 3X
+needs its own table) is untouched.
+
 ## Decisions left with the owner
 
 Unchanged from the last handover except where noted.
@@ -180,11 +268,12 @@ Unchanged from the last handover except where noted.
   pasted, not downloaded, so `source_url` records
   `owner-supplied:pasted-into-session-2026-08-20` instead of an address. It
   needs the real URL. See `reference/README.md`.
-- **Backdating the index snapshot.** 18 of 19 conviction rows and all 9
-  clusters carry `membership_unknown`: the size ceiling cannot be applied
-  because the only snapshot postdates them. Backdating it to the June
-  rebalance would filter them, at the cost of asserting a membership we have
-  not verified. Still undecided.
+- **Backdating the index snapshot.** 22 of 23 conviction rows and 11 of 12
+  clusters carry `membership_unknown` (re-measured 24 Aug on the merged
+  tree; the previous 18-of-19-and-all-9 predates the holdings fix): the size
+  ceiling cannot be applied because the only snapshot postdates them.
+  Backdating it to the June rebalance would filter them, at the cost of
+  asserting a membership we have not verified. Still undecided.
 - **Appendix 3X — bigger than previously recorded.** The last handover said
   17 held documents are Initial Director's Interest Notices. Counted against
   the corpus this session it is **122** (documents whose text opens
@@ -251,9 +340,27 @@ Unchanged from the last handover except where noted.
 - **`state/` is 7.3 MB** against the 5 MB its own docstring assumes, and grows
   ~4.5 KB per document. A few thousand more and git is the wrong home.
 - **Run the suite with a database.** Without one, 44 tests skip and a skip
-  looks like a pass. `make test-all`, or check the count is 389.
+  looks like a pass. `make test-all`, or check the count is 448.
+- **The alert feed writes to a branch nobody merges.** The Apps Script's
+  `GITHUB_BRANCH` property is set to `claude/go-is75md`, so every alert it
+  has forwarded since 19 Aug landed there and nowhere else. The default
+  branch held 131 alerts, newest 19 Aug 23:10Z; `go-is75md` held 157, newest
+  21 Aug 08:37Z. This merge recovers those 26 — but the script is still
+  pointed at that branch, so the next one lands in the same place. Repoint
+  `GITHUB_BRANCH` (Apps Script → Project Settings → Script Properties)
+  before relying on the feed. Note the property's default is `main`, and
+  **this repository has no `main`** — its default branch is
+  `claude/database-env-vars-h63r7v` — so clearing the property breaks the
+  script rather than fixing it. The trigger runs about 18:05 AEST daily;
+  a gap between then and the next evening is the schedule, not an outage.
+- **The screens carry no prices after a restore, and say so.** Quotes are
+  deliberately not snapshotted, so a fresh restore flags `price_unavailable`
+  on all 12 cluster and all 23 conviction rows until `asx fetch-quotes`
+  runs. That is the design working; do not read it as a pricing failure.
 
 ## Commands added this session
 
     asx fetch-quotes                   # refresh display quotes for screen rows
     asx screen-html --out screen.html  # render the published screen from the db
+    asx detect --source investorpa --since-days 3   # second feed (needs a grant)
+    asx capture --capture-dir captures --investorpa # possession from stated URLs
