@@ -36,3 +36,4 @@ signal_version,kind,natural_key,first_seen_at,backfilled
 2,conviction,1461,2026-08-24 12:07:55.031507+00,t
 2,conviction,1464,2026-08-24 12:07:55.031507+00,t
 2,conviction,1471,2026-08-24 12:07:55.031507+00,f
+2,conviction,1483,2026-08-25 22:15:22.799188+00,f
