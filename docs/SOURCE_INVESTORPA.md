@@ -2,7 +2,16 @@
 
 Assessed 20 Aug 2026 and **declined**. Re-assessed the same day against the
 vendor's MCP API and **adopted**, as a second detection feed running alongside
-Market Index. This document records what changed and what it does not change.
+Market Index. **Promoted to the PRIMARY detection feed on 26 Aug 2026**, with
+the alert mailbox as the secondary. This document records what changed and
+what it does not change.
+
+The promotion was a measurement, not a preference. Over 25–26 Aug — the first
+window both feeds covered — `detection_feed_coverage` reports
+`market_index_only` = **0** against `investorpa_only` = **30**: the watchlist
+found nothing the whole-exchange sweep missed, and missed 30 documents across
+21 companies that the sweep found. The mailbox saw roughly 30% of the
+lodgements in the window. `asx detect` now defaults to `--source investorpa`.
 
 ## What it is
 
@@ -94,7 +103,15 @@ both feeds" below.
 ## How it is used, and the limits that keep it defensible
 
 - **Appendix 3Y/3Z only.** The exchange publishes ~400 announcements a day;
-  this asks for the tens the platform parses, by title keyword.
+  this asks for the tens the platform parses, by title keyword — around 40–46
+  a day, measured.
+- **Three keyword searches, not one.** Issuers do not agree on what to call
+  the form and the API filters on title only, so `Director's Interest Notice`
+  alone returned 33 of 46 on 24 Aug: everything titled `Appendix 3Y - <name>`
+  or bare `Appendix 3Z` was invisible. The union is taken on the stated PDF
+  URL, which is also the detection key, so a notice matching two keywords is
+  one detection. `missing` on each page is what will say if a fourth spelling
+  appears.
 - **Their search, never our enumeration.** Identifiers are sequential at
   ~400/day, so `announcement-pdf/{YYYYMMDD}/{id}.pdf` can always be *built* —
   which is why nothing builds one. This was named in the first assessment as a
@@ -261,16 +278,28 @@ The view makes that visible; it does not resolve it. Deciding which row wins
 before `director_trades` is a design question for the owner, and parsing both
 would enter one director purchase twice and inflate the cluster signal.
 
-What is still an expectation rather than a measurement: the coverage numbers
-themselves. The view compares two *detection* feeds, and InvestorPA has still
-never run as a detection feed — the 24 Aug session used it for **possession**,
-against announcements Market Index had already detected. So every row in the
-corpus is still `market_index_only` and the view has nothing to reconcile yet.
+The coverage numbers are now measured rather than expected. Over 25–26 Aug,
+the first window both feeds ran as *detection* feeds:
 
-One measurement did fall out of that session, though, and it is the first
-evidence that the watchlist gap is real: searching the 22 companies already
-detected over 19–21 Aug returned **31** director-interest announcements where
-the mailbox had detected **30**. The extra was a fourth BCA Change of
-Director's Interest Notice on 19 Aug at 06:23:34 UTC that no alert ever
-carried. One miss is not a rate, but it is not zero either, and it is exactly
-the kind of hole `market_index_only` exists to count.
+| Bucket | Documents | Tickers |
+|---|---|---|
+| `investorpa_only` | 30 | 21 |
+| `both` | 26 | 9 |
+| **`market_index_only`** | **0** | **0** |
+| `unresolved_entity` | 3 | 3 |
+
+`market_index_only` = 0 is the result the view exists to produce. It says the
+watchlist is a strict subset in this window, which is why the default flipped.
+
+Two cautions on reading it. One clean window is not a rate — a single day when
+every watchlist company happened to also match a keyword would look identical.
+And the sweep marking its own homework is exactly the failure the second feed
+prevents, so the mailbox keeps running: if the keyword list ever goes short,
+`market_index_only` going non-zero is the only thing that will say so.
+
+The duplicate-row problem resolves itself at possession rather than needing a
+rule. Two feeds produce two `documents` rows for one lodgement because they
+share no identifier, but the second row to be fetched finds its bytes already
+held under the first doc_id and closes as `not_applicable` with
+`[duplicate of doc N]`. On 26 Aug that was 38 attempted, 26 captured, 12
+duplicates — and no director purchase entered `director_trades` twice.

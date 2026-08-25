@@ -58,31 +58,39 @@ automatic. It does **not** load any data. Then:
 # 1. Get the database back. The container has nothing until you do this.
 python -m asx.cli snapshot --dir state --restore
 
-# 2. Read the alert emails the Apps Script has committed since last time.
-python -m asx.cli detect --from-dir alerts
+# 2. PRIMARY FEED — the whole exchange. See "The whole-exchange sweep":
+#    run the three MCP searches, save each response to its own file, then
+python -m asx.cli detect --since-days 3 --from-search sweep/*.txt
 
-# 3. Get the documents. See "Closing the possession gap" — this is the step
-#    that decides whether the report actually moves.
+# 3. SECONDARY FEED — the alert mailbox. Watchlist-bounded, and measured
+#    against the sweep it adds nothing; it runs because two independent
+#    feeds are what make coverage a measurement (ACCEPTANCE 0.8).
+python -m asx.cli detect --source mailbox --from-dir alerts
+
+# 4. Get the documents. Sweep detections already carry their PDF URL, so
+#    this needs no matching step. 25 per run — repeat until attempted is 0.
 python -m asx.cli capture --capture-dir captures --investorpa
 python -m asx.cli capture --capture-dir captures --asx
 
-# 4. Read the held documents. --parser is required; a bare `parse` exits 2.
+# 5. Read the held documents. --parser is required; a bare `parse` exits 2.
 python -m asx.cli parse --parser app3y
 
-# 5. Rebuild the signal tables.
+# 6. Rebuild the signal tables.
 python -m asx.cli build-signals
 
-# 6. Refresh the display quotes. ~3 minutes: ~30 tickers at 5s/host.
+# 7. Refresh the display quotes. ~3 minutes: ~35 tickers at 5s/host.
 python -m asx.cli fetch-quotes
 
-# 7. Check whether the feed is healthy BEFORE you publish. See below.
+# 8. Check whether the feed is healthy BEFORE you publish. See below.
 python -m asx.cli monitor
 
-# 8. Render.
+# 9. Render.
 python -m asx.cli screen-html --out screen.html
 ```
 
-Everything except step 6 finishes in seconds. Budget ten minutes for the run.
+Everything except step 7 finishes in seconds. Budget fifteen minutes for the
+run: the capture throttle is one request per five seconds per host, and a
+whole-exchange day is ~45 documents.
 
 Then publish `screen.html` to the URL above, and persist your work:
 
@@ -91,7 +99,7 @@ python -m asx.cli snapshot --dir state      # export, overwrites state/*.csv
 git add state && git commit && git push -u origin <your-branch>
 ```
 
-**Step 8 is not the end.** The container is reclaimed when the session ends.
+**Step 9 is not the end.** The container is reclaimed when the session ends.
 A run that renders a beautiful page and never snapshots has thrown away every
 document it fetched, and the next session starts from the same place you did.
 It also throws away the arrival dates behind the "New since" table, which is
@@ -99,85 +107,116 @@ the one thing on the page that cannot be recomputed later.
 
 ---
 
-## Closing the possession gap — use the MCP
+## The whole-exchange sweep
 
-This is the step that was missed for four days, so it gets its own section.
+This is the primary feed and the step that decides what the report can see.
 
 **Detection is not possession.** An alert email says an announcement exists;
-it does not carry the PDF. I checked one: the only links in it are Market
-Index's website, their social accounts, and an unsubscribe link — no `.pdf`
-anywhere. A detected document sits at `parse_status='detected'`: recorded,
-visible, and unreadable. It produces no trade and therefore no signal.
+it does not carry the PDF. A detected document sits at
+`parse_status='detected'`: recorded, visible, and unreadable. It produces no
+trade and therefore no signal.
 
 **The InvestorPA MCP server is connected to your session.** Its tools appear
-as `mcp__InvestorPA__*`. This is easy to miss, because a separate thing with
-a similar name is genuinely blocked: `asx detect --source investorpa` needs
-`ASX_INVESTORPA_REFRESH_TOKEN` in the environment for the unattended GitHub
-Actions run, and that OAuth grant does not exist. **That blocks the cron, not
-you.** A session with the MCP connected can retrieve documents today.
+as `mcp__InvestorPA__*`. This is easy to miss, because a separate thing with a
+similar name is genuinely blocked: an unattended GitHub Actions run needs
+`ASX_INVESTORPA_REFRESH_TOKEN`, and that OAuth grant does not exist. **That
+blocks the cron, not you.**
 
 The vendor advertises exactly this use — "connects ASX announcements directly
 to any MCP-compatible AI harnesses... Works with Claude Desktop & Mobile,
 ChatGPT Desktop & Mobile, Claude Code, Codex" — which is the Invariant 11
 basis recorded in `docs/SOURCE_INVESTORPA.md`.
 
-The procedure, which resolved 30 of 30 stranded documents on 24 Aug:
+### Run it
 
-1. List what is stranded, with ticker and lodgement time:
+**Three searches, not one.** `DIRECTOR_INTEREST_KEYWORDS` holds three
+spellings because issuers do not agree on what to call the form, and the API
+filters on title only. Measured on 24 Aug, one keyword returned 33 of 46.
 
-   ```sql
-   SELECT d.doc_id, l.ticker, d.lodged_at, d.title
-     FROM documents d
-     LEFT JOIN listings l ON l.entity_id=d.entity_id AND l.valid_to IS NULL
-    WHERE d.parse_status='detected' ORDER BY d.lodged_at;
-   ```
+For each of `Director's Interest Notice`, `Appendix 3Y`, `Appendix 3Z`, and
+for **each day** in the window, call:
 
-2. Call `mcp__InvestorPA__search_announcements` with **exactly those tickers
-   and exactly that date range**. Proportionality is the point: ask for the
-   companies you already detected, not the whole exchange.
+```
+mcp__InvestorPA__search_announcements(
+    keywords="Appendix 3Y", date_from="2026-08-25", date_to="2026-08-25",
+    limit=500)
+```
 
-3. Match on ticker + lodgement time + title. The DB stores UTC; the feed
-   returns +10:00 (AEST). Market Index truncates to the minute and InvestorPA
-   reports to the second, so the feed timestamp runs **0–60 seconds later**
-   than ours for the same lodgement. A ±120s tolerance with the title as
-   tie-breaker matched 30/30, 29 of them on title *and* time. Where several
-   identical titles fall inside the window (three BCA notices minutes apart),
-   assign nearest-first and let each feed row be used once.
+One day at a time, because the response carries a single `Found N
+announcements` header and the parser reads the first one — concatenating two
+days into one file silently understates the vendor's own count and defeats
+the `missing` check. Save each response verbatim to its own file, then:
 
-4. **Copy the stated URL. Never build one.** Their ids are sequential at
-   ~400/day, so `announcement-pdf/{YYYYMMDD}/{id}.pdf` can always be
-   constructed — which is exactly why nothing may construct it. A test
-   asserts no source file does. Take the URL verbatim from the search result.
+```bash
+python -m asx.cli detect --since-days 3 --from-search sweep/*.txt
+```
 
-5. Write the URLs onto the detections and let the platform's own guarded,
-   throttled fetch do the retrieval, so provenance records honestly as
-   `possession_source='investorpa'`:
+`--from-search` takes the same code path as the HTTP client from
+`detections_from_text` onward: same parser, same keyword union, same audit
+counts. Only the transport differs. It exists as real code
+(`PastedSearchClient`) rather than a script pasted into a session, so nobody
+re-invents the matching and gets it subtly wrong.
 
-   ```sql
-   UPDATE documents SET fetch_candidate_urls =
-       (SELECT array_agg(DISTINCT u)
-          FROM unnest(coalesce(fetch_candidate_urls,'{}') || ARRAY[:url]) u)
-    WHERE doc_id = :doc_id;
-   ```
+**Cover the window you declare.** `--since-days N` records a window in its
+stats; paste searches for every day in it. The floor is 2024-06-15 and the
+client refuses anything earlier rather than returning a short answer that
+looks complete.
 
-   Then `asx capture --capture-dir captures --investorpa`. It handles **25 per
-   run** (`fetch_investorpa_documents(conn, limit=25)`), so run it twice if
-   more are waiting.
+**Read the audit line.** `{"found": 46, "new": 46, "missing": 0, "truncated":
+false}` — `missing` is lines the vendor counted that the parser never
+recognised, and it is the check that catches a transcription slip or a
+changed output format. Non-zero means a hole; `truncated: true` means the
+window was under-reported and needs splitting.
 
-Do not skip the guard and fetch the PDF yourself. Going through `capture` is
-what applies the throttle, records the source, hashes the original bytes, and
-refuses an HTML login wall instead of storing it as a document.
+### Then possession needs no matching
 
-### What "captured but not parseable" looks like
+Sweep detections already carry the stated PDF URL in `fetch_candidate_urls`,
+because `record_detection` writes `Detection.document_urls` there. So:
 
-Some documents will close as `not_applicable` rather than `unparsed`. On
-24 Aug three BCA notices did: their bytes were already held under another
-doc_id, so `attach_document` closed them as duplicates rather than
-double-storing. That is correct — double-storing enters one director purchase
-twice and inflates the cluster signal. Check `source_ref` for the
-`[duplicate of doc N]` marker before treating it as a failure.
+```bash
+python -m asx.cli capture --capture-dir captures --investorpa
+```
 
----
+is the whole of it — 25 documents per run, so repeat until `attempted` is 0.
+
+**This is only true when the sweep did the detecting.** A mailbox detection
+carries no URL, and reconciling one against the vendor's search by ticker,
+lodgement time and title is the manual dance this runbook used to describe.
+It is no longer the main path; it is only needed for the alert feed's own
+rows, and the coverage numbers below say those are a subset anyway.
+
+### Two feeds, one lodgement
+
+Each feed keys detections differently — InvestorPA on the stated PDF URL, the
+mailbox on the email Message-ID — so a lodgement seen by both produces **two
+`documents` rows** and `duplicate: 0` in the detect stats. That is expected;
+they share no identifier.
+
+It resolves at possession: the second row to be fetched finds its bytes
+already held under the first doc_id and closes as `not_applicable` with
+`[duplicate of doc N]` in `source_ref`, rather than double-storing. On 26 Aug,
+38 attempted gave 26 captured and 12 duplicates. Check `source_ref` before
+treating a `not_applicable` as a failure.
+
+### What the coverage actually is
+
+Measured 26 Aug over 25–26 Aug, the first window both feeds covered:
+
+| Bucket | Documents | Tickers |
+|---|---|---|
+| `investorpa_only` | 30 | 21 |
+| `both` | 26 | 9 |
+| **`market_index_only`** | **0** | **0** |
+| `unresolved_entity` | 3 | 3 |
+
+`market_index_only` is the number the view was built to produce, and it is
+zero: the watchlist found nothing the whole-exchange sweep missed, while the
+sweep found 30 documents the watchlist never saw. The mailbox caught roughly
+30% of the lodgements in the window.
+
+Keep running it anyway. It has the shorter latency, it is the independent
+check that makes these numbers a measurement rather than InvestorPA marking
+its own homework, and one clean window is not a rate.
 
 ## The "New since" table
 
@@ -206,21 +245,21 @@ It is driven by `signal_first_seen`, and there are three things to know:
 
 ## Read the monitor before you publish
 
-`asx monitor` is the alarm the whole detection design exists to raise. Before
-the 24 Aug capture it fired four; afterwards, one:
+`asx monitor` is the alarm the whole detection design exists to raise. On
+24 Aug it fired four; on 26 Aug, after the sweep, it reports:
 
 ```
-ALARM [freshness] detections_all: newest document fetched 2026-08-21T08:34:00+00:00
-                  exceeds staleness SLO of 72h
+ok: no alarms
 ```
 
-The three that cleared — `capture_gap`, `capture_rate` at 19% against a 90%
-floor, and `app_3y` freshness — cleared because the documents were actually
-obtained. **If you see them again, the possession step above is what fixes
-them**, not a tolerance adjustment.
+The four that cleared — `capture_gap`, `capture_rate` at 19% against a 90%
+floor, and freshness on both `app_3y` and `detections_all` — cleared because
+the documents were actually obtained and the feed caught up. **If you see them
+again, the sweep above is what fixes them**, not a tolerance adjustment.
 
-The survivor is genuine: no alert has arrived since Friday evening. That is
-the Apps Script's schedule (about 18:05 AEST daily), not an outage.
+A green monitor is not proof of coverage. It says every document we KNOW about
+was fetched in time; it cannot see a lodgement nothing detected. That is what
+`detection_feed_coverage` is for, and why the mailbox keeps running.
 
 **Alarms are not yours to silence.** Publish the page anyway — a screen built
 on a stale feed is still the best available view — but say so when you hand it
@@ -257,7 +296,10 @@ check the alert feed before assuming a quiet market.
 
 - **The alert feed writes to a branch nothing merges.** The Apps Script's
   `GITHUB_BRANCH` is set to `claude/go-is75md`. If `alerts/` looks frozen,
-  fetch that branch and merge it before concluding the feed died. Its default
+  fetch that branch and merge it before concluding the feed died. This matters
+  less now that the mailbox is the secondary feed, but a stale alert feed
+  makes `detection_feed_coverage` meaningless — it would report the sweep as a
+  perfect superset of a feed that simply stopped. Its default
   is `main`, and **this repository has no `main`** (the default branch is
   `claude/database-env-vars-h63r7v`), so clearing the property breaks it.
   The trigger runs about 18:05 AEST daily; a gap until the next evening is
@@ -265,7 +307,7 @@ check the alert feed before assuming a quiet market.
 - **Quotes are not snapshotted, on purpose.** A restored week-old price under
   a column headed today's date is the exact lie the as-at exists to prevent.
   A fresh restore therefore flags `price_unavailable` on every row until
-  `fetch-quotes` runs. Do not skip step 6 and do not read those flags as a
+  `fetch-quotes` runs. Do not skip step 7 and do not read those flags as a
   pricing failure.
 - **Neon is unreachable from the sandbox and allowlisting will not fix it.**
   Egress is HTTPS/443 only; the Postgres wire protocol needs raw TCP on 5432.
@@ -290,6 +332,11 @@ check the alert feed before assuming a quiet market.
 These are invariants, not preferences. A shortcut that conflicts with one is
 wrong even if the page renders and the tests pass.
 
+- **The sweep is the default; do not quietly narrow it.** `asx detect` with no
+  `--source` searches the whole exchange. Passing `stock_codes` to the MCP
+  search — the way the 24 Aug run did — turns it back into a possession tool
+  for whatever the watchlist already knew, which is how coverage sat at ~30%
+  without anyone noticing.
 - **Never join on ticker.** `ALU` is Altium before August 2024 and Alurion
   Resources after — and InvestorPA's own `search_stocks` resolves it to
   Alurion. Entity resolution goes through `listings`, which is
@@ -308,14 +355,20 @@ wrong even if the page renders and the tests pass.
 
 ## Verifying you did it right
 
-1. `make test-all` — 452 tests, no skips. A skip looks like a pass in the
-   summary line, which is how two green local runs shipped two red CI runs.
-2. `SELECT count(*) FROM documents WHERE parse_status='detected'` returns 0,
+1. `make test-all` — no skips. A skip looks like a pass in the summary line,
+   which is how two green local runs shipped two red CI runs.
+2. The detect stats show `missing: 0` and `truncated: false`. A non-zero
+   `missing` means lines the vendor counted that the parser never saw.
+3. `SELECT count(*) FROM documents WHERE parse_status='detected'` returns 0,
    or you know why each survivor could not be retrieved.
-3. The stamp under the headline shows today's date, the document count, and
+4. `SELECT coverage, count(*) FROM detection_feed_coverage WHERE lodged_at >=
+   <window start> GROUP BY 1` — a non-empty `market_index_only` bucket means
+   the sweep missed something the watchlist caught, which would be the first
+   evidence that the keyword list is short.
+5. The stamp under the headline shows today's date, the document count, and
    the price as-at range. If the as-at is old, `fetch-quotes` did not run.
-4. `build-signals` printed a count. If it printed 0 and the corpus is not
+6. `build-signals` printed a count. If it printed 0 and the corpus is not
    empty, something is wrong — do not publish an empty screen quietly.
-5. `git status` is clean after the snapshot commit, and `state/` moved —
+7. `git status` is clean after the snapshot commit, and `state/` moved —
    including `state/signal_first_seen.csv`. If it did not, nothing you
    fetched this session survives and the next reader sees no arrivals.

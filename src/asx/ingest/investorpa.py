@@ -95,7 +95,27 @@ MCP_PROTOCOL_VERSION = "2025-06-18"
 # The forms this platform parses. Searched by title because that is the only
 # filter the API offers, and kept to the two the registry actually handles —
 # asking for more would be collecting documents nothing reads.
-DIRECTOR_INTEREST_KEYWORDS = "Director's Interest Notice"
+#
+# THREE searches, not one, because issuers do not agree on what to call the
+# form. This was a single keyword until 26 Aug 2026, and measured against one
+# day of the exchange it found 33 of 46: every notice titled "Appendix 3Y -
+# <name>" or bare "Appendix 3Z" was invisible to it, including five the
+# watchlist feed had already caught. A whole-exchange sweep that quietly
+# returns two thirds of the exchange is worse than one that returns a tenth
+# and says so.
+#
+# The union is taken on the stated PDF URL, which is also record_detection's
+# detection key for this source, so a notice matching two keywords is one
+# detection either way — the union is for the audit counts, not for
+# correctness.
+#
+# This list is a claim about issuer naming, not a closed set. `missing` on
+# each page is what will say if a fourth spelling appears.
+DIRECTOR_INTEREST_KEYWORDS = (
+    "Director's Interest Notice",
+    "Appendix 3Y",
+    "Appendix 3Z",
+)
 
 # Coverage floor, stated by the API's own tool descriptions. Anything earlier
 # is not absent from the exchange, only from this vendor, and a backfill that
@@ -129,11 +149,21 @@ class InvestorPACredentials:
                    if not os.environ.get(v)]
         if missing:
             raise InvestorPAAuthError(
-                f"missing {', '.join(missing)}. Run "
-                f"`python -m asx.ingest.investorpa_consent` once to obtain "
-                f"them, then set them as environment variables on the cloud "
-                f"environment (not in the repo, not in chat) — see "
-                f"docs/SOURCE_INVESTORPA.md."
+                f"missing {', '.join(missing)}.\n"
+                f"\n"
+                f"These are needed only for an UNATTENDED run (GitHub "
+                f"Actions), which has no session to borrow a grant from. "
+                f"Obtain them with `python -m asx.ingest.investorpa_consent` "
+                f"and set them as environment variables on the cloud "
+                f"environment — never in the repo, never in chat.\n"
+                f"\n"
+                f"IN A CLAUDE CODE SESSION you do not need them. The "
+                f"InvestorPA MCP server is connected there (its tools appear "
+                f"as mcp__InvestorPA__*): run search_announcements for the "
+                f"window, save each response to a file, and pass them with\n"
+                f"    asx detect --from-search FILE [FILE ...]\n"
+                f"See docs/SOURCE_INVESTORPA.md and "
+                f"docs/RUNBOOK_SIGNALS_REPORT.md."
             )
         return cls(os.environ["ASX_INVESTORPA_CLIENT_ID"],
                    os.environ["ASX_INVESTORPA_REFRESH_TOKEN"])
@@ -220,6 +250,39 @@ class SearchPage:
     @property
     def complete(self) -> bool:
         return self.stated is not None and self.missing == 0
+
+
+def merge_pages(pages: list[SearchPage]) -> SearchPage:
+    """One page from several keyword searches over the same window.
+
+    Deduplicated on the stated document URL, which is this source's
+    Detection.key() — the same key record_detection deduplicates on, so the
+    merged page counts each announcement once however many keywords matched
+    it.
+
+    `stated` and `recognised` are summed rather than deduplicated, on purpose.
+    They exist to answer "did we read every line the vendor sent us", which is
+    a question about the responses, not about the exchange. Deduplicating them
+    would let a line vanish from one page and be hidden by an overlap with
+    another. `missing` therefore stays comparable across the union.
+
+    truncated is sticky: one truncated page means the window is under-reported
+    however complete the others look.
+    """
+    seen: dict[str, Detection] = {}
+    stated = recognised = 0
+    truncated = False
+    for page in pages:
+        for detection in page.detections:
+            seen.setdefault(detection.key(), detection)
+        recognised += page.recognised
+        if page.stated is not None:
+            stated += page.stated
+        truncated = truncated or page.truncated
+    return SearchPage(detections=list(seen.values()),
+                      stated=stated if any(p.stated is not None for p in pages)
+                      else None,
+                      recognised=recognised, truncated=truncated)
 
 
 def page_looks_truncated(*, returned: int, limit: int) -> bool:
@@ -464,21 +527,26 @@ class InvestorPAClient:
                 f"{date_from} would return a short answer that looks complete. "
                 f"Documents before that date come from the manual route."
             )
-        text = self.call_tool("search_announcements", {
-            "keywords": DIRECTOR_INTEREST_KEYWORDS,
-            "date_from": date_from,
-            "date_to": date_to,
-            "limit": limit,
-        })
-        page = detections_from_text(text)
-        # Truncation is judged on the vendor's OWN count of what it returned,
-        # not on what we managed to recognise. If a line vanished, recognised
-        # is short of the page's real length, and using it would hide a full
-        # page — two silent failures compounding into one invisible gap.
-        page.truncated = page_looks_truncated(
-            returned=page.stated if page.stated is not None else page.recognised,
-            limit=limit)
-        return page
+        pages = []
+        for keyword in DIRECTOR_INTEREST_KEYWORDS:
+            text = self.call_tool("search_announcements", {
+                "keywords": keyword,
+                "date_from": date_from,
+                "date_to": date_to,
+                "limit": limit,
+            })
+            page = detections_from_text(text)
+            # Truncation is judged on the vendor's OWN count of what it
+            # returned, not on what we managed to recognise. If a line
+            # vanished, recognised is short of the page's real length, and
+            # using it would hide a full page — two silent failures
+            # compounding into one invisible gap.
+            page.truncated = page_looks_truncated(
+                returned=(page.stated if page.stated is not None
+                          else page.recognised),
+                limit=limit)
+            pages.append(page)
+        return merge_pages(pages)
 
 
 def _jsonrpc_messages(raw: bytes) -> list[dict]:
@@ -543,6 +611,61 @@ def _tool_text(raw: bytes, request_id: int) -> str:
 # --------------------------------------------------------------------------
 # Ingestion
 # --------------------------------------------------------------------------
+class PastedSearchClient:
+    """A client whose search results come from a file, not from the network.
+
+    The MCP server is reachable from a Claude Code session (its tools appear
+    as mcp__InvestorPA__*), and it emits exactly the text InvestorPAClient
+    would receive — same bullet lines, same "Found N announcements" header,
+    because detections_from_text was written against that output. What a
+    session does NOT have is a stored refresh token, which is what the HTTP
+    client needs and what GitHub Actions is still waiting on.
+
+    So this class is the bridge, and it exists as real code rather than as a
+    script pasted into a session for one reason: without it, every future
+    session reinvents the matching by hand, and the one that gets it slightly
+    wrong attaches a director's notice to the wrong company.
+
+    It takes the SAME path as the live client from detections_from_text
+    onward, so the parser, the truncation check, the keyword union and the
+    audit counts are the tested ones. Only the transport differs.
+
+    Usage: save each search response to its own file, then
+        asx detect --source investorpa --from-search results/*.txt
+    """
+
+    def __init__(self, texts: list[str], *, limit: int = MAX_RESULTS_PER_CALL):
+        self._texts = texts
+        self._limit = limit
+
+    def director_interest_notices(self, *, date_from: str, date_to: str,
+                                  limit: int = MAX_RESULTS_PER_CALL,
+                                  ) -> SearchPage:
+        # The window is enforced here as it is on the live client. A session
+        # that pasted the wrong dates gets the same refusal a bad API call
+        # would, rather than silently recording a window it did not read.
+        if date_from < COVERAGE_STARTS:
+            raise ValueError(
+                f"investorpa coverage begins {COVERAGE_STARTS}; asking for "
+                f"{date_from} would return a short answer that looks complete."
+            )
+        if not self._texts:
+            raise ValueError(
+                "no search results supplied. --from-search needs at least one "
+                "file holding an MCP search_announcements response; an empty "
+                "run would record zero detections and look like a quiet day."
+            )
+        pages = []
+        for text in self._texts:
+            page = detections_from_text(text)
+            page.truncated = page_looks_truncated(
+                returned=(page.stated if page.stated is not None
+                          else page.recognised),
+                limit=self._limit)
+            pages.append(page)
+        return merge_pages(pages)
+
+
 def ingest(conn, *, since_days: int = 3, client: InvestorPAClient | None = None,
            llm_classifier=None, today: datetime | None = None) -> dict:
     """Record every Appendix 3Y/3Z lodged in the window as a detection.

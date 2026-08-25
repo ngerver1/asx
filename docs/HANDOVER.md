@@ -6,7 +6,22 @@ detection feed, and the 26 alert files that had been accumulating where
 nothing read them. Numbers below were re-measured on the merged tree, not
 carried over.
 
-**Amended again, same day, after the possession gap was closed.** The
+**Amended 26 August: InvestorPA is now the PRIMARY detection feed.** `asx
+detect` defaults to `--source investorpa` and searches the whole exchange; the
+alert mailbox is secondary. The trigger was a measurement, not a preference —
+over 25–26 Aug, the first window both feeds ran, `detection_feed_coverage`
+reports `market_index_only` = **0** against `investorpa_only` = **30**. The
+watchlist found nothing the sweep missed and missed 30 documents across 21
+companies. It had been seeing roughly 30% of the exchange's director notices,
+and because that shortfall was at DETECTION, no later step could recover it.
+
+Also fixed the same day: the sweep searched **one** keyword, which returned 33
+of 46 on a measured day. It now searches three, because issuers title the same
+form "Change of Director's Interest Notice", "Appendix 3Y - <name>" and bare
+"Appendix 3Z". A whole-exchange sweep that quietly returns two thirds is worse
+than a watchlist that returns a fifth and says so.
+
+**Amended 24 August, after the possession gap was closed.** The
 InvestorPA MCP server is connected to a Claude Code session directly — that
 had been overlooked, and the OAuth blocker was reported as if it stopped
 everything when it only stops the unattended cron. Using it resolved all 30
@@ -113,16 +128,16 @@ genuinely unverified, not mis-parsed — the honest place for them.
 
 | | |
 |---|---|
-| documents | 1,152 (890 director notices: 804 3Y, 86 3Z) |
-| canonical trades | 435, of which 99 on-market cash buys |
+| documents | 1,221 (measured 26 Aug, after the first whole-exchange sweep) |
+| canonical trades | 472, of which 114 on-market cash buys |
 | unverified readings | **reads 0 after a restore** — the view is built on `parsed_records`, which is not snapshotted. Reprocess to repopulate it. |
 | cluster-buy signals | 13 |
-| conviction signals | 24 |
-| quotes held | 31 of 31 screen tickers |
-| open review items | 717 |
+| conviction signals | 26 |
+| detection coverage (25-26 Aug) | investorpa_only 30, both 26, **market_index_only 0** |
+| open review items | 739 |
 | alerts held | 157 `.eml.gz`, newest 21 Aug — 26 of them recovered by this merge |
 | documents stranded at `detected` | **0** — was 30 before the 24 Aug MCP capture |
-| tests | 452, no skips (`make test-all`; a skip looks like a pass) |
+| tests | 459, no skips (`make test-all`; a skip looks like a pass) |
 
 The published screen lives at
 **https://claude.ai/code/artifact/228b70bf-0797-4c15-9f73-b473ebd818ba**
@@ -382,7 +397,7 @@ Unchanged from the last handover except where noted.
 - **`state/` is 7.3 MB** against the 5 MB its own docstring assumes, and grows
   ~4.5 KB per document. A few thousand more and git is the wrong home.
 - **Run the suite with a database.** Without one, 44 tests skip and a skip
-  looks like a pass. `make test-all`, or check the count is 452.
+  looks like a pass. `make test-all`, or check the count is 459.
 - **The alert feed writes to a branch nobody merges.** The Apps Script's
   `GITHUB_BRANCH` property is set to `claude/go-is75md`, so every alert it
   has forwarded since 19 Aug landed there and nowhere else. The default

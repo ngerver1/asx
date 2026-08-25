@@ -21,6 +21,7 @@ import pytest
 from asx.ingest.classifier import classify
 from asx.ingest.investorpa import (
     COVERAGE_STARTS,
+    DIRECTOR_INTEREST_KEYWORDS,
     InvestorPACredentials,
     InvestorPAClient,
     InvestorPAProtocolError,
@@ -335,13 +336,17 @@ def test_the_tool_call_goes_through_the_guard_as_a_post():
                                                      date_to="2026-08-20")
     assert len(page.detections) == 4
 
-    call, headers = server.requests[-1]
-    assert call["params"]["name"] == "search_announcements"
-    # Only the forms the platform parses, not the whole feed.
-    assert "Director's Interest Notice" in call["params"]["arguments"]["keywords"]
-    assert headers["Authorization"] == "Bearer at"
-    # Honest identification, never a browser string (Invariant 11).
-    assert "asx-structural-alpha" in headers["User-agent"]
+    calls = [(b, h) for b, h in server.requests if b.get("method") == "tools/call"]
+    # One search per spelling of the form: the union is what makes the sweep
+    # whole-exchange rather than whole-exchange-if-titled-our-way.
+    assert [c["params"]["arguments"]["keywords"] for c, _ in calls] == \
+        list(DIRECTOR_INTEREST_KEYWORDS)
+    for call, headers in calls:
+        assert call["params"]["name"] == "search_announcements"
+        # Only the forms the platform parses, not the whole feed.
+        assert headers["Authorization"] == "Bearer at"
+        # Honest identification, never a browser string (Invariant 11).
+        assert "asx-structural-alpha" in headers["User-agent"]
 
 
 def test_the_handshake_happens_before_any_tool_is_called():
@@ -353,7 +358,10 @@ def test_the_handshake_happens_before_any_tool_is_called():
     _client(server).director_interest_notices(date_from="2026-08-19",
                                               date_to="2026-08-20")
     methods = [body.get("method") for body, _ in server.requests]
-    assert methods == ["initialize", "notifications/initialized", "tools/call"]
+    assert methods == ["initialize", "notifications/initialized"] + \
+        ["tools/call"] * len(DIRECTOR_INTEREST_KEYWORDS)
+    # The handshake happens ONCE for the whole sweep, not per keyword.
+    assert methods.count("initialize") == 1
 
 
 def test_the_session_id_and_protocol_version_travel_on_every_later_request():
@@ -1026,3 +1034,124 @@ def test_the_pairing_tolerance_has_an_actual_boundary(conn):
     assert _pair("BBB", 91) == {"market_index_only", "investorpa_only"}, (
         "outside the tolerance must NOT pair — silently widening it would "
         "start merging genuinely different lodgements")
+
+
+# --- the whole exchange, and the keyword union -----------------------------
+#
+# The sweep searched ONE keyword until 26 Aug 2026. Measured against a single
+# day of the exchange it returned 33 announcements where three keywords
+# returned 46, and the 13 it missed were not exotic: they were titled
+# "Appendix 3Y - <name>" or bare "Appendix 3Z".
+
+def _page(*lines, stated=None):
+    head = f"Found {stated if stated is not None else len(lines)} announcements\n"
+    return head + "\n".join(lines)
+
+
+def _line(when, ticker, title, pdf):
+    return (f"• {when} | {ticker} - {title} | "
+            f"[PDF](https://investorpa.com/announcement-pdf/{pdf}.pdf) | "
+            f"[View Details](https://investorpa.com/announcement/{pdf}/)")
+
+
+def test_the_sweep_asks_for_every_spelling_of_the_form():
+    """Not a style check. A title-only filter means the keyword list IS the
+    coverage, so a form the list does not name is invisible at detection and
+    no later step can recover it."""
+    from asx.ingest.investorpa import DIRECTOR_INTEREST_KEYWORDS
+
+    assert not isinstance(DIRECTOR_INTEREST_KEYWORDS, str), \
+        "a single keyword misses every notice titled 'Appendix 3Y - <name>'"
+    lowered = [k.lower() for k in DIRECTOR_INTEREST_KEYWORDS]
+    assert any("3y" in k for k in lowered), "nothing would find a bare Appendix 3Y"
+    assert any("3z" in k for k in lowered), "nothing would find a bare Appendix 3Z"
+    assert any("director" in k for k in lowered), \
+        "nothing would find 'Change of Director's Interest Notice'"
+
+
+def test_the_same_notice_found_by_two_keywords_is_one_detection():
+    """AOV's 24 Aug notice is titled "Appendix 3Y - Change of Director's
+    Interest Notice" and answers to both searches. Counting it twice would
+    inflate the coverage numbers the whole exercise exists to produce."""
+    from asx.ingest.investorpa import detections_from_text, merge_pages
+
+    both = _line("2026-08-24T16:40:01+10:00", "AOV",
+                 "Appendix 3Y - Change of Director's Interest Notice", "20260824/331797")
+    only_3y = _line("2026-08-24T19:03:47+10:00", "SUN",
+                    "Appendix 3Y - Steve Johnston", "20260824/331896")
+    merged = merge_pages([detections_from_text(_page(both)),
+                          detections_from_text(_page(both, only_3y))])
+
+    keys = [d.key() for d in merged.detections]
+    assert len(keys) == len(set(keys)) == 2, keys
+    assert {d.ticker for d in merged.detections} == {"AOV", "SUN"}
+
+
+def test_merging_keeps_the_audit_counts_comparable():
+    """stated and recognised answer "did we read every line the vendor sent",
+    which is a question about the RESPONSES. Deduplicating them would let a
+    line vanish from one page and be hidden by an overlap with another."""
+    from asx.ingest.investorpa import detections_from_text, merge_pages
+
+    good = detections_from_text(_page(
+        _line("2026-08-24T19:03:47+10:00", "SUN", "Appendix 3Y", "20260824/331896")))
+    # The vendor says three, one line is readable, one is recognisable but
+    # unparseable, one never arrived at all.
+    lossy = detections_from_text(_page(
+        _line("2026-08-24T16:40:01+10:00", "AOV", "Appendix 3Y", "20260824/331797"),
+        "• 2026-08-24T09:00:00+10:00 | mangled beyond recognition",
+        stated=3))
+
+    merged = merge_pages([good, lossy])
+    assert merged.stated == 4, "a vendor count was dropped by the union"
+    assert merged.recognised == 3
+    assert merged.missing == 1, "the line that never arrived stopped being visible"
+    assert not merged.complete
+
+
+def test_one_truncated_page_truncates_the_union():
+    """A window under-reported by any one search is under-reported, however
+    complete the other searches look."""
+    from asx.ingest.investorpa import SearchPage, merge_pages
+
+    full = SearchPage(detections=[], stated=1, recognised=1, truncated=True)
+    fine = SearchPage(detections=[], stated=1, recognised=1, truncated=False)
+    assert merge_pages([fine, full]).truncated
+    assert merge_pages([fine, fine]).truncated is False
+
+
+def test_pasted_results_take_the_same_path_as_the_live_client():
+    """The session bridge must not be a second parser. If it drifts from
+    detections_from_text, a session and the cron disagree about the same
+    window and nothing says which is right."""
+    from asx.ingest.investorpa import PastedSearchClient
+
+    text = _page(_line("2026-08-24T18:59:37+10:00", "SLM",
+                       "Change of Director's Interest Notice CG CE KW",
+                       "20260824/331895"))
+    page = PastedSearchClient([text]).director_interest_notices(
+        date_from="2026-08-24", date_to="2026-08-24")
+
+    assert [d.ticker for d in page.detections] == ["SLM"]
+    assert page.detections[0].document_urls == [
+        "https://investorpa.com/announcement-pdf/20260824/331895.pdf"]
+    assert page.complete
+
+
+def test_pasted_results_refuse_a_window_before_the_coverage_floor():
+    from asx.ingest.investorpa import COVERAGE_STARTS, PastedSearchClient
+
+    with pytest.raises(ValueError, match=COVERAGE_STARTS):
+        PastedSearchClient(["Found 0 announcements"]).director_interest_notices(
+            date_from="2024-01-01", date_to="2024-01-02")
+
+
+def test_an_empty_paste_is_refused_rather_than_read_as_a_quiet_day():
+    """Zero lodgements is a pipeline alarm until a human says otherwise
+    (CLAUDE.md). A run given no files at all must not produce that alarm's
+    evidence."""
+    from asx.ingest.investorpa import PastedSearchClient
+
+    with pytest.raises(ValueError, match="at least one file"):
+        PastedSearchClient([]).director_interest_notices(
+            date_from="2026-08-24", date_to="2026-08-24")

@@ -150,25 +150,61 @@ def cmd_review(args) -> None:
 
 
 def cmd_detect(args) -> None:
-    """Record detections: from the alert mailbox, or from the investorpa API.
+    """Record detections. The whole exchange by default; the mailbox second.
 
-    Two feeds run in parallel by decision (20 Aug 2026). The mailbox is
-    watchlist-bounded at ~200 codes; investorpa searches the whole exchange.
-    Keeping both is what makes detection coverage measurable rather than
-    asserted — docs/ACCEPTANCE.md records that it is currently unmeasured.
+    Two feeds run in parallel by decision (20 Aug 2026), but they are not
+    equals and the default said otherwise until 26 Aug. The mailbox is
+    watchlist-bounded at ~200 codes, and measured against one day of the
+    exchange it saw 10 director-interest notices out of 46 — roughly a fifth.
+    Every company nobody thought to add to the watchlist was invisible to the
+    entire pipeline, at detection, so no later step could recover it.
+
+    So investorpa is the default and the mailbox is the secondary feed: it
+    still runs, it still has the shorter latency, and it is what makes
+    detection_feed_coverage a measurement rather than an assertion
+    (docs/ACCEPTANCE.md criterion 0.8).
     """
     import os
 
     from asx.ingest.detection import record_detection
     from asx.ingest.mailbox import EmlDirectory, IMAPMailbox, detection_from_email
 
+    # Flipping the default to investorpa put a trap under `detect --from-dir
+    # alerts`, which alerts/README.md and the runbook both give as the way to
+    # read the committed alert files: it would have taken the investorpa path
+    # and ignored --from-dir entirely, reporting a successful run that never
+    # opened the directory. So a mailbox-only flag selects the mailbox, and
+    # asking for both is refused rather than silently resolved.
+    mailbox_only = [name for name, given in
+                    (("--from-dir", args.from_dir), ("--gmail-api", args.gmail_api),
+                     ("--unseen-only", args.unseen_only)) if given]
+    if args.source is None:
+        args.source = "mailbox" if mailbox_only else "investorpa"
+    elif args.source == "investorpa" and mailbox_only:
+        raise SystemExit(
+            f"--source investorpa does not read the mailbox, but "
+            f"{', '.join(mailbox_only)} was given. Run them as two commands: "
+            f"`asx detect` for the whole exchange, then `asx detect "
+            f"--source mailbox {' '.join(mailbox_only)}` for the alert feed."
+        )
+    if args.source == "mailbox" and args.from_search:
+        raise SystemExit("--from-search holds investorpa search results and "
+                         "means nothing to the mailbox reader.")
+
     if args.source == "investorpa":
         from asx.ingest.investorpa import InvestorPAAuthError
         from asx.ingest.investorpa import ingest as investorpa_ingest
 
+        client = None
+        if args.from_search:
+            from asx.ingest.investorpa import PastedSearchClient
+            client = PastedSearchClient(
+                [Path(f).read_text(encoding="utf-8") for f in args.from_search])
+
         try:
             with db.connect() as conn:
-                stats = investorpa_ingest(conn, since_days=args.since_days)
+                stats = investorpa_ingest(conn, since_days=args.since_days,
+                                          client=client)
         except InvestorPAAuthError as exc:
             # A missing grant is a setup step, not a stack trace.
             raise SystemExit(str(exc)) from None
@@ -598,11 +634,17 @@ def main(argv: list[str] | None = None) -> None:
     p.set_defaults(fn=cmd_review)
 
     p = sub.add_parser("detect", help="record newly announced documents")
-    p.add_argument("--source", choices=("mailbox", "investorpa"), default="mailbox",
-                   help="where to detect from. 'mailbox' reads the alert "
-                        "mailbox (watchlist-bounded); 'investorpa' searches "
-                        "the whole exchange via the vendor's MCP API and "
-                        "needs ASX_INVESTORPA_REFRESH_TOKEN")
+    p.add_argument("--source", choices=("investorpa", "mailbox"), default=None,
+                   help="where to detect from. 'investorpa' (the default) "
+                        "searches the WHOLE EXCHANGE; 'mailbox' reads the "
+                        "alert mailbox, which is watchlist-bounded at ~200 "
+                        "codes and is the secondary feed")
+    p.add_argument("--from-search", nargs="+", metavar="FILE",
+                   help="files holding MCP search_announcements responses, "
+                        "for a session that has the InvestorPA MCP server "
+                        "connected but no stored refresh token. Bypasses the "
+                        "HTTP transport only — parsing, the keyword union and "
+                        "the audit counts are the same code path")
     p.add_argument("--peek", action="store_true",
                    help="deprecated: reads never mark messages seen")
     p.add_argument("--since-days", type=int, default=7,
