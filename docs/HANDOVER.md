@@ -15,6 +15,13 @@ watchlist found nothing the sweep missed and missed 30 documents across 21
 companies. It had been seeing roughly 30% of the exchange's director notices,
 and because that shortfall was at DETECTION, no later step could recover it.
 
+**Three provenances, and only one is a feed.** 853 director notices came from
+a bulk file drop (`detection_source IS NULL`, back to 2021) whose completeness
+nothing has measured; 59 from the Market Index alert feed, which begins
+18 Aug 2026 and no earlier; the rest from the InvestorPA sweep. Any statement
+about what "the alert feed" was catching before 18 Aug is a statement about
+the file drop instead — a mistake made and corrected on 26 Aug.
+
 Also fixed the same day: the sweep searched **one** keyword, which returned 33
 of 46 on a measured day. It now searches three, because issuers title the same
 form "Change of Director's Interest Notice", "Appendix 3Y - <name>" and bare
@@ -128,13 +135,13 @@ genuinely unverified, not mis-parsed — the honest place for them.
 
 | | |
 |---|---|
-| documents | 1,221 (measured 26 Aug, after the first whole-exchange sweep) |
-| canonical trades | 472, of which 114 on-market cash buys |
+| documents | 1,537 (26 Aug, after the whole-exchange backfill to 11 Aug) |
+| canonical trades | 512 |
 | unverified readings | **reads 0 after a restore** — the view is built on `parsed_records`, which is not snapshotted. Reprocess to repopulate it. |
-| cluster-buy signals | 13 |
-| conviction signals | 26 |
-| detection coverage (25-26 Aug) | investorpa_only 30, both 26, **market_index_only 0** |
-| open review items | 739 |
+| cluster-buy signals | 14 |
+| conviction signals | 28 |
+| detection coverage (11-25 Aug, 3Y/3Z only) | **market_index_only 0 every day** |
+| open review items | 804 |
 | alerts held | 157 `.eml.gz`, newest 21 Aug — 26 of them recovered by this merge |
 | documents stranded at `detected` | **0** — was 30 before the 24 Aug MCP capture |
 | tests | 459, no skips (`make test-all`; a skip looks like a pass) |

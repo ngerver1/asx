@@ -278,22 +278,46 @@ The view makes that visible; it does not resolve it. Deciding which row wins
 before `director_trades` is a design question for the owner, and parsing both
 would enter one director purchase twice and inflate the cluster signal.
 
-The coverage numbers are now measured rather than expected. Over 25–26 Aug,
-the first window both feeds ran as *detection* feeds:
+The coverage numbers are now measured rather than expected. Backfilled to
+11 Aug on 26 Aug 2026, **restricted to `app_3y`/`app_3z`**:
 
-| Bucket | Documents | Tickers |
-|---|---|---|
-| `investorpa_only` | 30 | 21 |
-| `both` | 26 | 9 |
-| **`market_index_only`** | **0** | **0** |
-| `unresolved_entity` | 3 | 3 |
+| AEST day | both | investorpa_only | market_index_only |
+|---|---|---|---|
+| 11 Aug | 0 | 13 | 0 |
+| 12 Aug | 0 | 32 | 0 |
+| 13 Aug | 0 | 20 | 0 |
+| 14 Aug | 0 | 31 | 0 |
+| 17 Aug | 0 | 25 | 0 |
+| 18 Aug | 2 | 18 | 0 |
+| 19 Aug | 20 | 18 | 0 |
+| 20 Aug | 20 | 32 | 0 |
+| 21 Aug | 32 | 26 | 0 |
+| 24 Aug | 20 | 26 | 0 |
+| 25 Aug | 24 | 21 | 0 |
 
-`market_index_only` = 0 is the result the view exists to produce. It says the
-watchlist is a strict subset in this window, which is why the default flipped.
+`market_index_only` is **zero on every day**, which is the result the view
+exists to produce: the mailbox is a strict subset of the sweep wherever both
+ran. From 19 Aug, when the mailbox is working normally, it sees roughly half
+the director notices the sweep does.
 
-Two cautions on reading it. One clean window is not a rate — a single day when
-every watchlist company happened to also match a keyword would look identical.
-And the sweep marking its own homework is exactly the failure the second feed
+**Restricting to 3Y/3Z is not optional, and the unrestricted view is
+misleading.** Across all document classes, 19 Aug shows `market_index_only` =
+110 — 86 of them `doc_class='other'`, the rest substantial holdings, 2As and
+cleansing notices. The mailbox forwards every announcement type for a
+watchlisted company; the sweep asks only for director-interest forms. Those
+110 can never pair because nothing looked for them, and reading them as a
+coverage failure of the sweep would be a category error.
+
+**11–17 Aug shows `both` = 0 because the alert feed did not exist yet.** The
+earliest file in `alerts/` is 18 Aug 2026, and `market_index_alert` accounts
+for 59 director notices in total, all 18–25 Aug. Before that the corpus came
+from a bulk file drop (853 director notices, `detection_source IS NULL`,
+2021-03 to 2026-08-20) whose completeness nothing has ever measured. So a
+coverage comparison is only meaningful from **18 Aug onward**, and any
+statement about how much the alert feed was catching in July is a statement
+about the file drop, not about the feed.
+
+The sweep marking its own homework is exactly the failure the second feed
 prevents, so the mailbox keeps running: if the keyword list ever goes short,
 `market_index_only` going non-zero is the only thing that will say so.
 

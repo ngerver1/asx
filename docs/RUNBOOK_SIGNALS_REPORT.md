@@ -200,23 +200,39 @@ treating a `not_applicable` as a failure.
 
 ### What the coverage actually is
 
-Measured 26 Aug over 25–26 Aug, the first window both feeds covered:
+**Always restrict the view to `app_3y`/`app_3z`.** Unrestricted it compares
+document classes the sweep never asks for: on 19 Aug it shows
+`market_index_only` = 110, of which 86 are `doc_class='other'` and the rest
+substantial holdings, 2As and cleansing notices. The mailbox forwards every
+announcement type for a watchlisted company; the sweep asks only for
+director-interest forms. Reading those 110 as a coverage failure is a category
+error.
 
-| Bucket | Documents | Tickers |
-|---|---|---|
-| `investorpa_only` | 30 | 21 |
-| `both` | 26 | 9 |
-| **`market_index_only`** | **0** | **0** |
-| `unresolved_entity` | 3 | 3 |
+```sql
+SELECT (lodged_at AT TIME ZONE 'Australia/Sydney')::date AS aest_day,
+       count(*) FILTER (WHERE coverage='both')              AS both,
+       count(*) FILTER (WHERE coverage='investorpa_only')   AS ipa_only,
+       count(*) FILTER (WHERE coverage='market_index_only') AS mi_only
+  FROM detection_feed_coverage
+ WHERE doc_class IN ('app_3y','app_3z')
+ GROUP BY 1 ORDER BY 1;
+```
 
-`market_index_only` is the number the view was built to produce, and it is
-zero: the watchlist found nothing the whole-exchange sweep missed, while the
-sweep found 30 documents the watchlist never saw. The mailbox caught roughly
-30% of the lodgements in the window.
+Backfilled to 11 Aug on 26 Aug, `market_index_only` is **zero on every day**.
+From 19 Aug — when the mailbox is working normally — it sees roughly half the
+director notices the sweep does (20 of 38, 20 of 52, 32 of 58, 20 of 46,
+24 of 45).
 
-Keep running it anyway. It has the shorter latency, it is the independent
-check that makes these numbers a measurement rather than InvestorPA marking
-its own homework, and one clean window is not a rate.
+**Before 18 Aug the comparison means nothing.** The earliest file in `alerts/`
+is 18 Aug 2026 and `market_index_alert` accounts for 59 director notices in
+total. Everything earlier came from a bulk file drop (853 notices,
+`detection_source IS NULL`, back to 2021) whose completeness nothing has
+measured. `both` = 0 for 11–17 Aug because the feed did not exist, not because
+it failed.
+
+Keep the mailbox running. It has the shorter latency, and it is the
+independent check that makes these numbers a measurement rather than
+InvestorPA marking its own homework.
 
 ## The "New since" table
 
